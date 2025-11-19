@@ -106,13 +106,10 @@ $modules = @(
     'DSP-Demo-11-DSPOperations'
 )
 
-Write-Host "DEBUG: ModulePath = $ModulePath" -ForegroundColor Gray
-Write-Host "DEBUG: PSScriptRoot = $PSScriptRoot" -ForegroundColor Gray
+$baseModulePath = $ModulePath
 
 foreach ($moduleName in $modules) {
-    $modulePath = Join-Path $ModulePath "$moduleName.psm1"
-    Write-Host "DEBUG: Checking $modulePath" -ForegroundColor Gray
-    Write-Host "DEBUG: Exists? $(Test-Path $modulePath)" -ForegroundColor Gray
+    $modulePath = Join-Path $baseModulePath "$moduleName.psm1"
     
     if (-not (Test-Path $modulePath -PathType Leaf)) {
         Write-Host "  [SKIP] $moduleName - File not found" -ForegroundColor Yellow
