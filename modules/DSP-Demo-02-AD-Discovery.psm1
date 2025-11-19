@@ -390,9 +390,16 @@ function Get-DspEnvironmentInfo {
 # EXPORT MODULE MEMBERS
 ################################################################################
 
+# Export discovery functions + core functions for downstream use
 Export-ModuleMember -Function @(
     'Get-DspDomainInfo',
     'Find-DspServer',
     'Test-DspModule',
-    'Get-DspEnvironmentInfo'
+    'Get-DspEnvironmentInfo',
+    'Write-DspLog',
+    'Write-DspHeader',
+    'Wait-DspReplication',
+    'Test-DspAdminRights',
+    'Get-DspTimestamp',
+    'Invoke-DspCommand'
 )
