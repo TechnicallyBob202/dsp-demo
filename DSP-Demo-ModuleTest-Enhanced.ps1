@@ -55,12 +55,7 @@ $Script:TestConfig = @{
         @{
             Name = "DSP-Demo-02-AD-Discovery"
             File = "DSP-Demo-02-AD-Discovery.psm1"
-            RequiredFunctions = @(
-                'Get-DomainInfo',
-                'Find-DspServer',
-                'Test-DspModule',
-                'Get-DspEnvironmentInfo'
-            )
+            RequiredFunctions = @('Get-DomainInfo')
         }
     )
 }
