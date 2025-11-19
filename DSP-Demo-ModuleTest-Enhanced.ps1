@@ -32,6 +32,8 @@ param(
     [switch]$VerboseDiagnostics
 )
 
+$ErrorActionPreference = "Continue"
+
 ################################################################################
 # CONFIGURATION
 ################################################################################
@@ -68,10 +70,6 @@ $Script:TestConfig = @{
 ################################################################################
 
 function Write-TestHeader {
-    <#
-    .SYNOPSIS
-        Write a formatted test header
-    #>
     param([string]$Message)
     Write-Host ""
     Write-Host ("=" * 80) -ForegroundColor Cyan
@@ -81,10 +79,6 @@ function Write-TestHeader {
 }
 
 function Write-TestResult {
-    <#
-    .SYNOPSIS
-        Write a formatted test result
-    #>
     param(
         [string]$Name,
         [ValidateSet('OK','FAIL','WARN','INFO','SKIP')]
@@ -110,10 +104,6 @@ function Write-TestResult {
 }
 
 function Test-ModuleFile {
-    <#
-    .SYNOPSIS
-        Test if a module file exists and is readable
-    #>
     param(
         [string]$ModuleName,
         [string]$FilePath
@@ -136,10 +126,6 @@ function Test-ModuleFile {
 }
 
 function Import-ModuleWithValidation {
-    <#
-    .SYNOPSIS
-        Import a module and validate that required functions are exported
-    #>
     param(
         [string]$ModuleName,
         [string]$ModuleFile,
@@ -182,11 +168,11 @@ function Import-ModuleWithValidation {
     
     foreach ($funcName in $RequiredFunctions) {
         if (Get-Command $funcName -ErrorAction SilentlyContinue) {
-            Write-Host "    ✓ $funcName" -ForegroundColor Green
+            Write-Host "    [OK] $funcName" -ForegroundColor Green
             $foundFunctions += $funcName
         }
         else {
-            Write-Host "    ✗ $funcName" -ForegroundColor Red
+            Write-Host "    [MISSING] $funcName" -ForegroundColor Red
             $missingFunctions += $funcName
         }
     }
@@ -213,10 +199,6 @@ function Import-ModuleWithValidation {
 }
 
 function Show-ModuleDiagnostics {
-    <#
-    .SYNOPSIS
-        Show detailed module diagnostics
-    #>
     Write-TestHeader "MODULE DIAGNOSTICS"
     
     Write-Host "PowerShell Information:" -ForegroundColor Cyan
@@ -306,7 +288,7 @@ if (Get-Command Write-DspLog -ErrorAction SilentlyContinue) {
     }
 }
 else {
-    Write-TestResult "Write-DspLog" "SKIP" "Function not exported (see validation results above)"
+    Write-TestResult "Write-DspLog" "SKIP" "Function not exported"
 }
 
 Write-Host ""
@@ -336,7 +318,12 @@ $failedImports = @($importResults | Where-Object {-not $_.Success})
 
 Write-Host "Module Import Results:" -ForegroundColor Cyan
 Write-Host "  Successful: $($successfulImports.Count)" -ForegroundColor Green
-Write-Host "  Failed: $($failedImports.Count)" -ForegroundColor $(if ($failedImports.Count -gt 0) {'Red'} else {'Green'})
+if ($failedImports.Count -gt 0) {
+    Write-Host "  Failed: $($failedImports.Count)" -ForegroundColor Red
+}
+else {
+    Write-Host "  Failed: $($failedImports.Count)" -ForegroundColor Green
+}
 Write-Host ""
 
 if ($failedImports.Count -gt 0) {
@@ -351,14 +338,12 @@ if ($failedImports.Count -gt 0) {
     Write-Host ""
 }
 
-# Recommendations
 Write-Host "Recommendations:" -ForegroundColor Yellow
 if ($failedImports.Count -gt 0) {
     Write-Host "  1. Check that all module files exist in: $modulesPath" -ForegroundColor White
     Write-Host "  2. Verify each .psm1 file ends with Export-ModuleMember statement" -ForegroundColor White
     Write-Host "  3. Run with -VerboseDiagnostics flag for detailed info:" -ForegroundColor White
     Write-Host "     .\DSP-Demo-ModuleTest-Enhanced.ps1 -VerboseDiagnostics" -ForegroundColor Cyan
-    Write-Host "  4. Check the module analysis document for detailed troubleshooting" -ForegroundColor White
 }
 else {
     Write-Host "  1. All modules imported successfully!" -ForegroundColor Green
@@ -368,3 +353,6 @@ else {
 
 Write-Host ""
 Write-Host ("=" * 80) -ForegroundColor Cyan
+Write-Host "TEST COMPLETE" -ForegroundColor Cyan
+Write-Host ("=" * 80) -ForegroundColor Cyan
+Write-Host ""
