@@ -14,7 +14,7 @@
 # LOGGING FUNCTIONS
 ################################################################################
 
-function Write-DspHeader {
+function Write-LogHeader {
     <#
     .SYNOPSIS
         Write a formatted header for demo sections
@@ -32,7 +32,7 @@ function Write-DspHeader {
     Write-Host ""
 }
 
-function Write-DspLog {
+function Write-ScriptLog {
     <#
     .SYNOPSIS
         Write a formatted log message with level-based coloring
@@ -72,7 +72,7 @@ function Write-DspLog {
 # UTILITY FUNCTIONS
 ################################################################################
 
-function Wait-DspReplication {
+function Wait-ADReplication {
     <#
     .SYNOPSIS
         Wait for AD replication with visual feedback
@@ -87,7 +87,7 @@ function Wait-DspReplication {
     )
     
     if ($Message) {
-        Write-DspLog $Message -Level Info
+        Write-ScriptLog $Message -Level Info
     }
     
     for ($i = $Seconds; $i -gt 0; $i--) {
@@ -96,10 +96,10 @@ function Wait-DspReplication {
     }
     
     Write-Host ""
-    Write-DspLog "Replication wait complete" -Level Success
+    Write-ScriptLog "Replication wait complete" -Level Success
 }
 
-function Test-DspAdminRights {
+function Test-AdminRights {
     <#
     .SYNOPSIS
         Test if the current process has administrator rights
@@ -114,21 +114,21 @@ function Test-DspAdminRights {
         $isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
         
         if ($isAdmin) {
-            Write-DspLog "Administrator rights verified" -Level Success
+            Write-ScriptLog "Administrator rights verified" -Level Success
         }
         else {
-            Write-DspLog "WARNING: Not running with administrator rights" -Level Warning
+            Write-ScriptLog "WARNING: Not running with administrator rights" -Level Warning
         }
         
         return $isAdmin
     }
     catch {
-        Write-DspLog "Error checking admin rights: $_" -Level Error
+        Write-ScriptLog "Error checking admin rights: $_" -Level Error
         return $false
     }
 }
 
-function Get-DspTimestamp {
+function Get-Timestamp {
     <#
     .SYNOPSIS
         Get a formatted timestamp
@@ -160,15 +160,15 @@ function Invoke-DspCommand {
         [string]$ErrorAction = 'Stop'
     )
     
-    Write-DspLog "Starting: $Description" -Level Verbose
+    Write-ScriptLog "Starting: $Description" -Level Verbose
     
     try {
         $result = & $ScriptBlock
-        Write-DspLog "Completed: $Description" -Level Success
+        Write-ScriptLog "Completed: $Description" -Level Success
         return $result
     }
     catch {
-        Write-DspLog "Failed: $Description - $_" -Level Error
+        Write-ScriptLog "Failed: $Description - $_" -Level Error
         
         if ($ErrorAction -eq 'Stop') {
             throw
@@ -183,10 +183,10 @@ function Invoke-DspCommand {
 ################################################################################
 
 Export-ModuleMember -Function @(
-    'Write-DspHeader',
-    'Write-DspLog',
-    'Wait-DspReplication',
-    'Test-DspAdminRights',
-    'Get-DspTimestamp',
+    'Write-LogHeader',
+    'Write-ScriptLog',
+    'Wait-ADReplication',
+    'Test-AdminRights',
+    'Get-Timestamp',
     'Invoke-DspCommand'
 )

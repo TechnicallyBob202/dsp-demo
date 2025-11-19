@@ -67,20 +67,20 @@ Write-Host ""
 Write-Host "Testing Core Module Functions:" -ForegroundColor Cyan
 Write-Host "-" * 80 -ForegroundColor Cyan
 
-# Test Write-DspLog
-if (Get-Command Write-DspLog -ErrorAction SilentlyContinue) {
-    Write-Host "  Testing Write-DspLog..." -ForegroundColor Yellow
+# Test Write-ScriptLog
+if (Get-Command Write-ScriptLog -ErrorAction SilentlyContinue) {
+    Write-Host "  Testing Write-ScriptLog..." -ForegroundColor Yellow
     try {
-        Write-DspLog "Test Info message" -Level Info
-        Write-DspLog "Test Success message" -Level Success
-        Write-Host "  [OK] Write-DspLog works" -ForegroundColor Green
+        Write-ScriptLog "Test Info message" -Level Info
+        Write-ScriptLog "Test Success message" -Level Success
+        Write-Host "  [OK] Write-ScriptLog works" -ForegroundColor Green
     }
     catch {
-        Write-Host "  [FAIL] Write-DspLog error: $_" -ForegroundColor Red
+        Write-Host "  [FAIL] Write-ScriptLog error: $_" -ForegroundColor Red
     }
 }
 else {
-    Write-Host "  [NOTFOUND] Write-DspLog function not exported" -ForegroundColor Red
+    Write-Host "  [NOTFOUND] Write-ScriptLog function not exported" -ForegroundColor Red
 }
 
 Write-Host ""
@@ -89,18 +89,18 @@ Write-Host ""
 Write-Host "Testing AD Discovery Module Functions:" -ForegroundColor Cyan
 Write-Host "-" * 80 -ForegroundColor Cyan
 
-if (Get-Command Get-DspDomainInfo -ErrorAction SilentlyContinue) {
-    Write-Host "  Testing Get-DspDomainInfo..." -ForegroundColor Yellow
+if (Get-Command Get-DomainInfo -ErrorAction SilentlyContinue) {
+    Write-Host "  Testing Get-DomainInfo..." -ForegroundColor Yellow
     try {
-        $domain = Get-DspDomainInfo
-        Write-Host "  [OK] Get-DspDomainInfo - Domain: $($domain.FQDN)" -ForegroundColor Green
+        $domain = Get-DomainInfo
+        Write-Host "  [OK] Get-DomainInfo - Domain: $($domain.FQDN)" -ForegroundColor Green
     }
     catch {
-        Write-Host "  [FAIL] Get-DspDomainInfo error: $_" -ForegroundColor Red
+        Write-Host "  [FAIL] Get-DomainInfo error: $_" -ForegroundColor Red
     }
 }
 else {
-    Write-Host "  [NOTFOUND] Get-DspDomainInfo function not exported" -ForegroundColor Red
+    Write-Host "  [NOTFOUND] Get-DomainInfo function not exported" -ForegroundColor Red
 }
 
 Write-Host ""

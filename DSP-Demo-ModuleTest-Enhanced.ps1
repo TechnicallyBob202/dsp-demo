@@ -46,17 +46,17 @@ $Script:TestConfig = @{
             Name = "DSP-Demo-01-Core"
             File = "DSP-Demo-01-Core.psm1"
             RequiredFunctions = @(
-                'Write-DspHeader',
-                'Write-DspLog',
-                'Wait-DspReplication',
-                'Test-DspAdminRights'
+                'Write-LogHeader',
+                'Write-ScriptLog',
+                'Wait-ADReplication',
+                'Test-AdminRights'
             )
         }
         @{
             Name = "DSP-Demo-02-AD-Discovery"
             File = "DSP-Demo-02-AD-Discovery.psm1"
             RequiredFunctions = @(
-                'Get-DspDomainInfo',
+                'Get-DomainInfo',
                 'Find-DspServer',
                 'Test-DspModule',
                 'Get-DspEnvironmentInfo'
@@ -274,37 +274,37 @@ foreach ($moduleConfig in $Script:TestConfig.Modules) {
 Write-TestHeader "FUNCTION EXECUTION TESTS"
 
 # Try to execute core module functions if available
-if (Get-Command Write-DspLog -ErrorAction SilentlyContinue) {
-    Write-Host "Testing Write-DspLog function..." -ForegroundColor Yellow
+if (Get-Command Write-ScriptLog -ErrorAction SilentlyContinue) {
+    Write-Host "Testing Write-ScriptLog function..." -ForegroundColor Yellow
     try {
-        Write-DspLog "Test Info message" -Level Info
-        Write-DspLog "Test Success message" -Level Success
-        Write-DspLog "Test Warning message" -Level Warning
-        Write-DspLog "Test Error message" -Level Error
-        Write-TestResult "Write-DspLog" "OK" "Function executed successfully"
+        Write-ScriptLog "Test Info message" -Level Info
+        Write-ScriptLog "Test Success message" -Level Success
+        Write-ScriptLog "Test Warning message" -Level Warning
+        Write-ScriptLog "Test Error message" -Level Error
+        Write-TestResult "Write-ScriptLog" "OK" "Function executed successfully"
     }
     catch {
-        Write-TestResult "Write-DspLog" "FAIL" $_.Exception.Message
+        Write-TestResult "Write-ScriptLog" "FAIL" $_.Exception.Message
     }
 }
 else {
-    Write-TestResult "Write-DspLog" "SKIP" "Function not exported"
+    Write-TestResult "Write-ScriptLog" "SKIP" "Function not exported"
 }
 
 Write-Host ""
 
-if (Get-Command Get-DspDomainInfo -ErrorAction SilentlyContinue) {
-    Write-Host "Testing Get-DspDomainInfo function..." -ForegroundColor Yellow
+if (Get-Command Get-DomainInfo -ErrorAction SilentlyContinue) {
+    Write-Host "Testing Get-DomainInfo function..." -ForegroundColor Yellow
     try {
-        $domainInfo = Get-DspDomainInfo
-        Write-TestResult "Get-DspDomainInfo" "OK" "Domain: $($domainInfo.FQDN)"
+        $domainInfo = Get-DomainInfo
+        Write-TestResult "Get-DomainInfo" "OK" "Domain: $($domainInfo.FQDN)"
     }
     catch {
-        Write-TestResult "Get-DspDomainInfo" "FAIL" $_.Exception.Message
+        Write-TestResult "Get-DomainInfo" "FAIL" $_.Exception.Message
     }
 }
 else {
-    Write-TestResult "Get-DspDomainInfo" "SKIP" "Function not exported"
+    Write-TestResult "Get-DomainInfo" "SKIP" "Function not exported"
 }
 
 ################################################################################
