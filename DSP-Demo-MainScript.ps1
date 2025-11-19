@@ -106,6 +106,9 @@ $modules = @(
     'DSP-Demo-11-DSPOperations'
 )
 
+Write-Host "DEBUG: ModulePath = $ModulePath" -ForegroundColor Gray
+Write-Host "DEBUG: PSScriptRoot = $PSScriptRoot" -ForegroundColor Gray
+
 foreach ($moduleName in $modules) {
     $modulePath = Join-Path $ModulePath "$moduleName.psm1"
     Write-Host "DEBUG: Checking $modulePath" -ForegroundColor Gray
