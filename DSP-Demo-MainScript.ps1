@@ -326,8 +326,8 @@ try {
         try {
             $envInfo = Get-DomainInfo
             Write-Status "Environment discovery complete" -Level Success
-            Write-Status "Domain: $($envInfo.Domain.FQDN)" -Level Info
-            Write-Status "Primary DC: $($envInfo.Domain.RWDC)" -Level Info
+            Write-Status "Domain: $($domainInfo.Domain.FQDN)" -Level Info
+            Write-Status "Primary DC: $($domainInfo.Domain.RWDC)" -Level Info
         }
         catch {
             Write-Status "Failed to discover environment: $_" -Level Warning
