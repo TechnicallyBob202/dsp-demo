@@ -133,37 +133,38 @@ Write-Host ""
 # CONFIGURATION & INITIALIZATION
 ################################################################################
 
-Write-DspHeader "Initializing Environment"
+if (Get-Command -Name "Write-LogHeader" -ErrorAction SilentlyContinue) {
+    Write-LogHeader "Initializing Environment"
 
 # Validate admin rights
 if (-not (Test-DspAdminRights)) {
-    Write-DspLog "Script requires Administrator rights" -Level Error
+    Write-ScriptLog "Script requires Administrator rights" -Level Error
     exit 1
 }
 
 # Discover domain information
 $domainInfo = Get-DspDomainInfo
 if (-not $domainInfo) {
-    Write-DspLog "Failed to discover domain information" -Level Error
+    Write-ScriptLog "Failed to discover domain information" -Level Error
     exit 1
 }
 
-Write-DspLog "Domain: $($domainInfo.FQDN)" -Level Info
-Write-DspLog "NetBIOS: $($domainInfo.NetBIOS)" -Level Info
+Write-ScriptLog "Domain: $($domainInfo.FQDN)" -Level Info
+Write-ScriptLog "NetBIOS: $($domainInfo.NetBIOS)" -Level Info
 
 # Get domain controllers
 $dcs = Get-DspDomainControllers
 if ($dcs.Count -eq 0) {
-    Write-DspLog "No domain controllers found" -Level Error
+    Write-ScriptLog "No domain controllers found" -Level Error
     exit 1
 }
 
 $primaryDC = $dcs[0].HostName
 $secondaryDC = if ($dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
 
-Write-DspLog "Primary DC: $primaryDC" -Level Info
+Write-ScriptLog "Primary DC: $primaryDC" -Level Info
 if ($secondaryDC) {
-    Write-DspLog "Secondary DC: $secondaryDC" -Level Info
+    Write-ScriptLog "Secondary DC: $secondaryDC" -Level Info
 }
 
 # Setup logging
@@ -178,32 +179,32 @@ Start-Transcript -Path $LogPath -Append
 # MAIN EXECUTION
 ################################################################################
 
-Write-DspHeader "Creating AD Sites and Subnets"
+Write-LogHeader "Creating AD Sites and Subnets"
 
 # TODO: Call site/subnet module functions
 # Update DEFAULTIPSITELINK
 # Create/update subnets
 
-Write-DspHeader "Creating OU Structure"
+Write-LogHeader "Creating OU Structure"
 
 # TODO: Call OU module functions
 # New-DspOUStructure
 # Move-DspUsersBetweenOUs
 
-Write-DspHeader "Creating User Accounts"
+Write-LogHeader "Creating User Accounts"
 
 # TODO: Call user module functions
 # New-DspAdminUser
 # New-DspDemoUser
 # New-DspTestUsers
 
-Write-DspHeader "Creating Groups"
+Write-LogHeader "Creating Groups"
 
 # TODO: Call group module functions
 # New-DspGroup
 # Add-DspGroupMember
 
-Write-DspHeader "Modifying DNS"
+Write-LogHeader "Modifying DNS"
 
 # TODO: Call DNS module functions
 # New-DspDNSReverseZone
@@ -211,21 +212,21 @@ Write-DspHeader "Modifying DNS"
 # New-DspDNSARecord
 # New-DspDNSPTRRecord
 
-Write-DspHeader "Creating Group Policies"
+Write-LogHeader "Creating Group Policies"
 
 # TODO: Call GPO module functions
 # New-DspGPO
 # Set-DspGPORegistryValue
 # Update-DspDefaultDomainPolicy
 
-Write-DspHeader "Creating Fine-Grained Password Policies"
+Write-LogHeader "Creating Fine-Grained Password Policies"
 
 # TODO: Call FGPP module functions
 # New-DspFGPP
 # Add-DspFGPPPrincipal
 
 if (-not $SkipSecurityEvents) {
-    Write-DspHeader "Generating Security Events"
+    Write-LogHeader "Generating Security Events"
     
     # TODO: Call SecurityEvents module functions
     # Invoke-DspAccountLockout
@@ -233,7 +234,7 @@ if (-not $SkipSecurityEvents) {
 }
 
 if (-not $SkipDSPOperations) {
-    Write-DspHeader "DSP Operations"
+    Write-LogHeader "DSP Operations"
     
     # TODO: Call DSPOperations module functions
     # Find-DspManagementServer
@@ -241,16 +242,16 @@ if (-not $SkipDSPOperations) {
     # Invoke-DspUndo
 }
 
-Write-DspHeader "Finalizing Script"
+Write-LogHeader "Finalizing Script"
 
 # Force final replication
-Write-DspLog "Forcing final replication..." -Level Info
+Write-ScriptLog "Forcing final replication..." -Level Info
 Wait-DspReplication -Seconds 20 -DomainController $primaryDC
 if ($secondaryDC) {
     Wait-DspReplication -Seconds 5 -DomainController $secondaryDC
 }
 
-Write-DspLog "Script execution completed successfully" -Level Success
+Write-ScriptLog "Script execution completed successfully" -Level Success
 
 Stop-Transcript
 
