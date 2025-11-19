@@ -53,18 +53,6 @@
 .NOTES
     Author     : Rob Ingenthron (Original), Bob Lyons (Refactor)
     Version    : 4.1.0-20251119
-    
-    Available Modules:
-    - Core (environment discovery, logging setup)
-    - Users (create/modify demo users)
-    - Groups (create/modify demo groups)
-    - OUs (create organizational units)
-    - DNS (create/modify DNS records)
-    - GPOs (create/modify group policies)
-    - Sites (create/modify AD sites)
-    - Security (ACLs, permissions)
-    - Changes (generate various AD changes)
-    - Cleanup (remove demo objects)
 #>
 
 [CmdletBinding()]
@@ -148,7 +136,6 @@ function Write-Status {
 
 function Test-ModuleAvailable {
     param([string]$ModuleName)
-    
     $modulePath = Join-Path $ModulesPath "$ModuleName.psm1"
     return (Test-Path $modulePath -PathType Leaf)
 }
@@ -204,7 +191,7 @@ function Get-MenuSelection {
         }
         
         if ($selection -eq "11") {
-            return @("Core", "Users", "Groups", "OUs", "DNS", "GPOs", "Sites", "Security", "Changes")
+            return @("Users", "Groups", "OUs", "DNS", "GPOs", "Sites", "Security", "Changes")
         }
         
         $validSelection = $true
@@ -253,8 +240,7 @@ function Execute-Module {
     
     Write-Header "EXECUTING MODULE: $ModuleName"
     
-    # Check if module-specific function exists
-    $functionName = "Invoke-$ModuleName`Activity"
+    $functionName = "Invoke-$($ModuleName)Activity"
     
     if (Get-Command $functionName -ErrorAction SilentlyContinue) {
         try {
@@ -286,14 +272,14 @@ function Show-ExecutionSummary {
     
     Write-Host "Executed Modules:" -ForegroundColor $Colors.Info
     foreach ($module in $ExecutedModules) {
-        Write-Host "  ✓ $module" -ForegroundColor $Colors.Success
+        Write-Host "  [OK] $module" -ForegroundColor $Colors.Success
     }
     
     if ($FailedModules.Count -gt 0) {
         Write-Host ""
         Write-Host "Failed Modules:" -ForegroundColor $Colors.Error
         foreach ($module in $FailedModules) {
-            Write-Host "  ✗ $module" -ForegroundColor $Colors.Error
+            Write-Host "  [FAILED] $module" -ForegroundColor $Colors.Error
         }
     }
     
@@ -307,14 +293,12 @@ function Show-ExecutionSummary {
 ################################################################################
 
 try {
-    # Display banner
     Write-Header "DSP DEMO ACTIVITY GENERATION - MAIN SCRIPT"
     Write-Host "Version: $Script:ScriptVersion" -ForegroundColor $Colors.Info
     Write-Host "Script Path: $Script:ScriptPath" -ForegroundColor $Colors.Info
     Write-Host "Modules Path: $Script:ModulesPath" -ForegroundColor $Colors.Info
     Write-Host ""
     
-    # Load configuration
     Write-Section "Loading Configuration"
     if (Test-Path $Script:ConfigFile) {
         Write-Status "Config file found: $Script:ConfigFile" -Level Success
@@ -328,14 +312,12 @@ try {
     }
     Write-Host ""
     
-    # Import core module first (always needed)
     Write-Section "Initializing Core Module"
     if (-not (Import-RequiredModule "DSP-Demo-01-Core")) {
         throw "Failed to load core module - cannot continue"
     }
     Write-Host ""
     
-    # Discover AD environment
     Write-Section "Discovering AD Environment"
     if (-not (Import-RequiredModule "DSP-Demo-02-AD-Discovery")) {
         Write-Status "AD Discovery module not available - some features may be limited" -Level Warning
@@ -353,9 +335,7 @@ try {
     }
     Write-Host ""
     
-    # Determine which modules to run
     if ($Module) {
-        # Module specified via parameter
         if ($Module -eq "All") {
             $modulesToRun = @("Users", "Groups", "OUs", "DNS", "GPOs", "Sites", "Security", "Changes")
         }
@@ -364,11 +344,10 @@ try {
         }
     }
     elseif ($SkipMenu) {
-        # Run all modules
         $modulesToRun = @("Users", "Groups", "OUs", "DNS", "GPOs", "Sites", "Security", "Changes")
     }
     else {
-        # Show interactive menu
+        Show-MainMenu
         $modulesToRun = Get-MenuSelection
         
         if (-not $modulesToRun) {
@@ -377,7 +356,6 @@ try {
         }
     }
     
-    # Execute selected modules
     Write-Header "RUNNING SELECTED MODULES"
     
     $executionStart = Get-Date
@@ -405,14 +383,12 @@ try {
         else {
             Write-Status "Module file not found: DSP-Demo-Module-$moduleName.psm1" -Level Warning
             Write-Status "Skipping $moduleName module" -Level Info
-            $failedModules += $moduleName
         }
     }
     
     $executionEnd = Get-Date
     $executionTime = $executionEnd - $executionStart
     
-    # Show summary
     Show-ExecutionSummary -ExecutedModules $executedModules -FailedModules $failedModules -ExecutionTime $executionTime
     
     Write-Status "Main script execution complete" -Level Success
