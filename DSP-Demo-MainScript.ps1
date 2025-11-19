@@ -324,7 +324,7 @@ try {
     }
     else {
         try {
-            $envInfo = Get-DspEnvironmentInfo
+            $envInfo = Get-DomainInfo
             Write-Status "Environment discovery complete" -Level Success
             Write-Status "Domain: $($envInfo.Domain.FQDN)" -Level Info
             Write-Status "Primary DC: $($envInfo.Domain.RWDC)" -Level Info
