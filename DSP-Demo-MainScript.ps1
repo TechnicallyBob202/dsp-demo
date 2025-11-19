@@ -152,7 +152,7 @@ Write-ScriptLog "Domain: $($domainInfo.FQDN)" -Level Info
 Write-ScriptLog "NetBIOS: $($domainInfo.NetBIOS)" -Level Info
 
 # Get domain controllers
-$dcs = Get-ADDomainControllers
+$dcs = Get-ADDomainController
 if ($dcs.Count -eq 0) {
     Write-ScriptLog "No domain controllers found" -Level Error
     exit 1
