@@ -108,6 +108,8 @@ $modules = @(
 
 foreach ($moduleName in $modules) {
     $modulePath = Join-Path $ModulePath "$moduleName.psm1"
+    Write-Host "DEBUG: Checking $modulePath" -ForegroundColor Gray
+    Write-Host "DEBUG: Exists? $(Test-Path $modulePath)" -ForegroundColor Gray
     
     if (-not (Test-Path $modulePath -PathType Leaf)) {
         Write-Host "  [SKIP] $moduleName - File not found" -ForegroundColor Yellow
