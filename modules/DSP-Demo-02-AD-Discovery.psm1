@@ -89,11 +89,11 @@ function Get-DomainInfo {
         # Discover domain controllers
         Write-ScriptLog ":: Discovering domain controllers..." -Level Verbose
         
-        $dcInfo = Get-ADDomainController -DomainName $domainInfo.FQDN -Discover
+        $dcInfo = Get-DomainController -DomainName $domainInfo.FQDN -Discover
         $domainInfo.RWDC = $dcInfo.HostName[0]
         
         # Get all DCs in domain
-        $allDCs = Get-ADDomainController -Filter * -Server $domainInfo.FQDN
+        $allDCs = Get-DomainController -Filter * -Server $domainInfo.FQDN
         $domainInfo.AllDCs = $allDCs | ForEach-Object { $_.HostName }
         
         Write-ScriptLog ":: Domain discovery complete" -Level Success

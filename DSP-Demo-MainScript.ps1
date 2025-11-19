@@ -136,13 +136,13 @@ Write-Host ""
 Write-LogHeader "Initializing Environment"
 
 # Validate admin rights
-if (-not (Test-DspAdminRights)) {
+if (-not (Test-AdminRights)) {
     Write-ScriptLog "Script requires Administrator rights" -Level Error
     exit 1
 }
 
 # Discover domain information
-$domainInfo = Get-DspDomainInfo
+$domainInfo = Get-DomainInfo
 if (-not $domainInfo) {
     Write-ScriptLog "Failed to discover domain information" -Level Error
     exit 1
@@ -152,7 +152,7 @@ Write-ScriptLog "Domain: $($domainInfo.FQDN)" -Level Info
 Write-ScriptLog "NetBIOS: $($domainInfo.NetBIOS)" -Level Info
 
 # Get domain controllers
-$dcs = Get-DspDomainControllers
+$dcs = Get-DomainControllers
 if ($dcs.Count -eq 0) {
     Write-ScriptLog "No domain controllers found" -Level Error
     exit 1
@@ -181,54 +181,55 @@ Start-Transcript -Path $LogPath -Append
 Write-LogHeader "Creating AD Sites and Subnets"
 
 # TODO: Call site/subnet module functions
-# Update DEFAULTIPSITELINK
-# Create/update subnets
+# Update-DEFAULTIPSITELINK
+# New-Subnets
+# Update-Subnets
 
 Write-LogHeader "Creating OU Structure"
 
 # TODO: Call OU module functions
-# New-DspOUStructure
-# Move-DspUsersBetweenOUs
+# New-OUStructure
+# Move-ADUsersBetweenOUs
 
 Write-LogHeader "Creating User Accounts"
 
 # TODO: Call user module functions
-# New-DspAdminUser
-# New-DspDemoUser
-# New-DspTestUsers
+# New-ADAdminUser
+# New-ADDemoUser
+# New-ADTestUsers
 
 Write-LogHeader "Creating Groups"
 
 # TODO: Call group module functions
-# New-DspGroup
-# Add-DspGroupMember
+# New-ADGroup
+# Add-ADGroupMember
 
 Write-LogHeader "Modifying DNS"
 
 # TODO: Call DNS module functions
-# New-DspDNSReverseZone
-# New-DspDNSForwardZone
-# New-DspDNSARecord
-# New-DspDNSPTRRecord
+# New-DNSReverseZone
+# New-DNSForwardZone
+# New-DNSARecord
+# New-DNSPTRRecord
 
 Write-LogHeader "Creating Group Policies"
 
 # TODO: Call GPO module functions
-# New-DspGPO
-# Set-DspGPORegistryValue
-# Update-DspDefaultDomainPolicy
+# New-GPO
+# Set-GPORegistryValue
+# Update-DefaultDomainPolicy
 
 Write-LogHeader "Creating Fine-Grained Password Policies"
 
 # TODO: Call FGPP module functions
-# New-DspFGPP
-# Add-DspFGPPPrincipal
+# New-FGPP
+# Add-FGPPPrincipal
 
 if (-not $SkipSecurityEvents) {
     Write-LogHeader "Generating Security Events"
     
     # TODO: Call SecurityEvents module functions
-    # Invoke-DspAccountLockout
+    # Invoke-AccountLockout
     # Invoke-DspPasswordSpray
 }
 
@@ -245,9 +246,9 @@ Write-LogHeader "Finalizing Script"
 
 # Force final replication
 Write-ScriptLog "Forcing final replication..." -Level Info
-Wait-DspReplication -Seconds 20 -DomainController $primaryDC
+Wait-Replication -Seconds 20 -DomainController $primaryDC
 if ($secondaryDC) {
-    Wait-DspReplication -Seconds 5 -DomainController $secondaryDC
+    Wait-Replication -Seconds 5 -DomainController $secondaryDC
 }
 
 Write-ScriptLog "Script execution completed successfully" -Level Success
