@@ -107,10 +107,15 @@ $modules = @(
 )
 
 foreach ($moduleName in $modules) {
-    $modulePath = Join-Path $ModulePath "$moduleName.psm1"
+    $modulePath = Join-Path -Path $ModulePath -ChildPath "$moduleName.psm1"
+    
+    if (-not (Test-Path $modulePath -PathType Leaf)) {
+        Write-Host "  [SKIP] $moduleName - File not found" -ForegroundColor Yellow
+        continue
+    }
     
     try {
-        Import-Module $modulePath -Force -ErrorAction Stop
+        Import-Module -Path $modulePath -Force -ErrorAction Stop
         Write-Host "  [OK] $moduleName" -ForegroundColor Green
     }
     catch {
