@@ -320,18 +320,7 @@ try {
     
     Write-Section "Discovering AD Environment"
     if (-not (Import-RequiredModule "DSP-Demo-02-AD-Discovery")) {
-        Write-Status "AD Discovery module not available - some features may be limited" -Level Warning
-    }
-    else {
-        try {
-            $envInfo = Get-DomainInfo
-            Write-Status "Environment discovery complete" -Level Success
-            Write-Status "Domain: $($domainInfo.FQDN)" -Level Info
-            Write-Status "Primary DC: $($domainInfo.RWDC)" -Level Info
-        }
-        catch {
-            Write-Status "Failed to discover environment: $_" -Level Warning
-        }
+        throw "Failed to load AD Discovery module - cannot continue"
     }
     Write-Host ""
     
