@@ -133,8 +133,7 @@ Write-Host ""
 # CONFIGURATION & INITIALIZATION
 ################################################################################
 
-if (Get-Command -Name "Write-LogHeader" -ErrorAction SilentlyContinue) {
-    Write-LogHeader "Initializing Environment"
+Write-LogHeader "Initializing Environment"
 
 # Validate admin rights
 if (-not (Test-DspAdminRights)) {
