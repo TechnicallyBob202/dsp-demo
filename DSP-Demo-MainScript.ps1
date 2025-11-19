@@ -151,21 +151,6 @@ if (-not $domainInfo) {
 Write-ScriptLog "Domain: $($domainInfo.FQDN)" -Level Info
 Write-ScriptLog "NetBIOS: $($domainInfo.NetBIOS)" -Level Info
 
-# Get domain controllers
-$dcs = Get-DomainControllers
-if ($dcs.Count -eq 0) {
-    Write-ScriptLog "No domain controllers found" -Level Error
-    exit 1
-}
-
-$primaryDC = $dcs[0].HostName
-$secondaryDC = if ($dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
-
-Write-ScriptLog "Primary DC: $primaryDC" -Level Info
-if ($secondaryDC) {
-    Write-ScriptLog "Secondary DC: $secondaryDC" -Level Info
-}
-
 # Setup logging
 if (-not $LogPath) {
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
