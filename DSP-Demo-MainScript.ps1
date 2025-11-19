@@ -115,7 +115,7 @@ foreach ($moduleName in $modules) {
     }
     
     try {
-        Import-Module -Path $modulePath -Force -ErrorAction Stop
+        Import-Module $modulePath -Force -ErrorAction Stop
         Write-Host "  [OK] $moduleName" -ForegroundColor Green
     }
     catch {
