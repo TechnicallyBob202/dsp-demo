@@ -36,17 +36,21 @@ function Invoke-BuildOUs {
             $ouDef = $Config.OUs[$ouKey]
             $ouName = $ouDef.Name
             $ouDesc = $ouDef.Description
+            $ouProtect = $ouDef.ProtectFromAccidentalDeletion
             
             # Create top-level OU
             $ouDN = "OU=$ouName,$domainDN"
             
-            $ou = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction SilentlyContinue
-            if ($ou) {
-                Write-Host "  $ouName (already exists)" -ForegroundColor Green
+            Write-Host "  Creating: $ouName" -ForegroundColor Cyan
+            
+            try {
+                $ou = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction Stop
+                Write-Host "    Already exists" -ForegroundColor Green
             }
-            else {
-                New-ADOrganizationalUnit -Name $ouName -Path $domainDN -Description $ouDesc -ProtectedFromAccidentalDeletion $ouDef.ProtectFromAccidentalDeletion
-                Write-Host "  $ouName (created)" -ForegroundColor Green
+            catch {
+                Write-Host "    Creating new OU..." -ForegroundColor Yellow
+                New-ADOrganizationalUnit -Name $ouName -Path $domainDN -Description $ouDesc -ProtectedFromAccidentalDeletion $ouProtect -ErrorAction Stop
+                Write-Host "    Created" -ForegroundColor Green
             }
             
             # Create child OUs if defined
@@ -55,16 +59,20 @@ function Invoke-BuildOUs {
                     $childDef = $ouDef.Children[$childKey]
                     $childName = $childDef.Name
                     $childDesc = $childDef.Description
+                    $childProtect = $childDef.ProtectFromAccidentalDeletion
                     
                     $childDN = "OU=$childName,$ouDN"
                     
-                    $child = Get-ADOrganizationalUnit -Identity $childDN -ErrorAction SilentlyContinue
-                    if ($child) {
-                        Write-Host "    $childName (already exists)" -ForegroundColor Green
+                    Write-Host "    Creating child: $childName" -ForegroundColor Cyan
+                    
+                    try {
+                        $child = Get-ADOrganizationalUnit -Identity $childDN -ErrorAction Stop
+                        Write-Host "      Already exists" -ForegroundColor Green
                     }
-                    else {
-                        New-ADOrganizationalUnit -Name $childName -Path $ouDN -Description $childDesc -ProtectedFromAccidentalDeletion $childDef.ProtectFromAccidentalDeletion
-                        Write-Host "    $childName (created)" -ForegroundColor Green
+                    catch {
+                        Write-Host "      Creating new child OU..." -ForegroundColor Yellow
+                        New-ADOrganizationalUnit -Name $childName -Path $ouDN -Description $childDesc -ProtectedFromAccidentalDeletion $childProtect -ErrorAction Stop
+                        Write-Host "      Created" -ForegroundColor Green
                     }
                 }
             }
@@ -75,7 +83,8 @@ function Invoke-BuildOUs {
         return $true
     }
     catch {
-        Write-Error "Failed to create OUs: $_"
+        Write-Error "Failed to create OUs: $($_.Exception.Message)"
+        Write-Error "Stack: $($_.Exception.StackTrace)"
         return $false
     }
 }
