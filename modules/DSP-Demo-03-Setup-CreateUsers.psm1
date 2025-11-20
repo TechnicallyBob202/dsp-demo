@@ -92,6 +92,7 @@ function New-UserAccount {
     <#
     .SYNOPSIS
     Creates a user account with idempotent logic. Returns user object.
+    Maps config keys to New-ADUser parameter names.
     #>
     [CmdletBinding()]
     param(
@@ -111,6 +112,27 @@ function New-UserAccount {
         return $existing
     }
     
+    # Map config keys to New-ADUser parameters
+    $paramMap = @{
+        'GivenName' = 'GivenName'
+        'Surname' = 'Surname'
+        'DisplayName' = 'DisplayName'
+        'Title' = 'Title'
+        'Department' = 'Department'
+        'Company' = 'Company'
+        'Mail' = 'EmailAddress'
+        'TelephoneNumber' = 'OfficePhone'
+        'MobilePhone' = 'MobilePhone'
+        'Fax' = 'Fax'
+        'Description' = 'Description'
+        'Office' = 'Office'
+        'StreetAddress' = 'StreetAddress'
+        'City' = 'City'
+        'State' = 'State'
+        'PostalCode' = 'PostalCode'
+        'Country' = 'Country'
+    }
+    
     # Build params for New-ADUser
     $newUserParams = @{
         SamAccountName = $sam
@@ -122,13 +144,11 @@ function New-UserAccount {
         ErrorAction = 'Stop'
     }
     
-    # Add optional attributes if present
-    @('GivenName', 'Surname', 'DisplayName', 'Title', 'Department', 
-      'Company', 'Mail', 'TelephoneNumber', 'MobilePhone', 'Fax', 
-      'Description', 'Office', 'StreetAddress', 'City', 'State', 
-      'PostalCode', 'Country') | ForEach-Object {
-        if ($UserDef.ContainsKey($_)) {
-            $newUserParams[$_] = $UserDef[$_]
+    # Add mapped attributes if present in config
+    foreach ($configKey in $paramMap.Keys) {
+        if ($UserDef.ContainsKey($configKey) -and -not [string]::IsNullOrWhiteSpace($UserDef[$configKey])) {
+            $paramKey = $paramMap[$configKey]
+            $newUserParams[$paramKey] = $UserDef[$configKey]
         }
     }
     
