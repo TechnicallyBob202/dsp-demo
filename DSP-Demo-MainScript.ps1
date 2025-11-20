@@ -221,7 +221,7 @@ try {
     Write-Host ""
     
     # Run Preflight discovery functions
-    Write-LogHeader "Discovering Environment"
+    Write-Header "Discovering Environment"
     
     try {
         $domainInfo = Get-DomainInfo
@@ -230,18 +230,18 @@ try {
         $secondaryDC = if ($dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
         $forestInfo = Get-ForestInfo
         
-        Write-ScriptLog "Primary DC: $primaryDC" -Level Info
+        Write-Status "Primary DC: $primaryDC" -Level Info
         if ($secondaryDC) {
-            Write-ScriptLog "Secondary DC: $secondaryDC" -Level Info
+            Write-Status "Secondary DC: $secondaryDC" -Level Info
         }
     }
     catch {
-        Write-ScriptLog "FATAL: Failed to discover environment: $_" -Level Error
+        Write-Status "FATAL: Failed to discover environment: $_" -Level Error
         exit 1
     }
     
     # Attempt DSP connectivity (optional)
-    Write-LogHeader "DSP Server Discovery"
+    Write-Header "DSP Server Discovery"
     
     # Get DSP server from config, or leave empty for auto-discovery
     $dspServerFromConfig = if ($config -and $config.DspServer) { $config.DspServer } else { "" }
@@ -257,20 +257,20 @@ try {
             $dspConnection = Connect-DspManagementServer -DspServer $dspServer
             
             if ($dspConnection) {
-                Write-ScriptLog "DSP connectivity established" -Level Success
+                Write-Status "DSP connectivity established" -Level Success
             }
             else {
-                Write-ScriptLog "DSP module available but connection failed - continuing without DSP" -Level Warning
+                Write-Status "DSP module available but connection failed - continuing without DSP" -Level Warning
                 $dspAvailable = $false
             }
         }
         else {
-            Write-ScriptLog "DSP server found but module not installed - continuing without DSP" -Level Warning
+            Write-Status "DSP server found but module not installed - continuing without DSP" -Level Warning
             $dspAvailable = $false
         }
     }
     else {
-        Write-ScriptLog "DSP server not found - continuing without DSP" -Level Warning
+        Write-Status "DSP server not found - continuing without DSP" -Level Warning
         $dspAvailable = $false
     }
     
