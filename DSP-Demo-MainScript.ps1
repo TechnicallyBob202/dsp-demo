@@ -219,8 +219,7 @@ function Show-ConfirmationPrompt {
 function Run-ActivityModule {
     param(
         [string]$ModuleName,
-        [hashtable]$Config,
-        [hashtable]$Environment
+        [hashtable]$Config
     )
     
     Write-Header "Running $ModuleName Module"
@@ -237,7 +236,7 @@ function Run-ActivityModule {
         $functionName = $functionMap[$ModuleName]
         
         if (Get-Command $functionName -ErrorAction SilentlyContinue) {
-            & $functionName
+            & $functionName -Config $Config
             Write-Status "Module completed: $ModuleName" -Level Success
         }
         else {
