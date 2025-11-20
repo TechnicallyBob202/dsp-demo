@@ -13,6 +13,15 @@
 # HELPER FUNCTIONS
 ################################################################################
 
+function Escape-DNComponent {
+    param([string]$Component)
+    # Escape special characters in DN components
+    $Component = $Component -replace ',', '\,'
+    $Component = $Component -replace '\\', '\\'
+    $Component = $Component -replace '"', '\"'
+    return $Component
+}
+
 function New-OU {
     [CmdletBinding()]
     param(
@@ -30,7 +39,7 @@ function New-OU {
     )
     
     try {
-        $ouDN = "OU=$Name,$Path"
+        $ouDN = "OU=$(Escape-DNComponent $Name),$Path"
         Write-Host "        Checking for existing: $ouDN" -ForegroundColor Gray
         
         $existingOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction SilentlyContinue
@@ -97,7 +106,7 @@ function Build-OUStructure {
                         Write-Host "    Creating child OU: $childName" -ForegroundColor Cyan
                         
                         $parentDN = $ou.DistinguishedName
-                        $expectedChildDN = "OU=$childName,$parentDN"
+                        $expectedChildDN = "OU=$(Escape-DNComponent $childName),$parentDN"
                         
                         Write-Host "      Parent OU DN: $parentDN" -ForegroundColor Yellow
                         Write-Host "      Expected child DN: $expectedChildDN" -ForegroundColor Yellow
