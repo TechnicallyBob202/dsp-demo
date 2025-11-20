@@ -31,26 +31,29 @@ function New-OU {
     
     try {
         $ouDN = "OU=$Name,$Path"
+        Write-Host "        Checking for existing: $ouDN" -ForegroundColor Gray
         
         $existingOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction SilentlyContinue
         
         if ($existingOU) {
-            Write-Verbose "OU already exists: $Name at $Path"
+            Write-Host "        Already exists at: $ouDN" -ForegroundColor Gray
             return $existingOU
         }
         
-        Write-Verbose "Creating new OU with Name='$Name' Path='$Path'"
+        Write-Host "        Creating new OU at: $ouDN" -ForegroundColor Gray
         $ou = New-ADOrganizationalUnit -Name $Name -Path $Path -Description $Description -ProtectedFromAccidentalDeletion $ProtectFromAccidentalDeletion -ErrorAction Stop
         
         Start-Sleep -Milliseconds 300
         
+        Write-Host "        Fetching created OU from: $ouDN" -ForegroundColor Gray
         $createdOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction Stop
         
-        Write-Verbose "Created OU: $Name at $Path"
+        Write-Host "        Created successfully: $ouDN" -ForegroundColor Gray
         return $createdOU
     }
     catch {
-        Write-Error "Failed to create OU $Name : $_"
+        Write-Host "        ERROR - Failed to create: $ouDN" -ForegroundColor Red
+        Write-Host "        Error details: $_" -ForegroundColor Red
         return $null
     }
 }
@@ -93,9 +96,11 @@ function Build-OUStructure {
                         
                         Write-Host "    Creating child OU: $childName" -ForegroundColor Cyan
                         
-                        # Refresh parent OU object before creating child
                         $parentDN = $ou.DistinguishedName
-                        Write-Host "      Parent DN: $parentDN" -ForegroundColor Yellow
+                        $expectedChildDN = "OU=$childName,$parentDN"
+                        
+                        Write-Host "      Parent OU DN: $parentDN" -ForegroundColor Yellow
+                        Write-Host "      Expected child DN: $expectedChildDN" -ForegroundColor Yellow
                         Write-Host "      Child Name: $childName" -ForegroundColor Yellow
                         
                         if (-not $parentDN) {
@@ -103,14 +108,7 @@ function Build-OUStructure {
                             continue
                         }
                         
-                        # Re-fetch parent OU to ensure it's current
-                        $parentOU = Get-ADOrganizationalUnit -Identity $parentDN -ErrorAction SilentlyContinue
-                        if (-not $parentOU) {
-                            Write-Host "      FAILED: Cannot retrieve parent OU object" -ForegroundColor Red
-                            continue
-                        }
-                        
-                        $childOU = New-OU -Name $childName -Path $parentOU.DistinguishedName -Description $childDesc -ProtectFromAccidentalDeletion $childProtect
+                        $childOU = New-OU -Name $childName -Path $parentDN -Description $childDesc -ProtectFromAccidentalDeletion $childProtect
                         
                         if ($childOU) {
                             Write-Host "      OK: $childName" -ForegroundColor Green
