@@ -5,17 +5,11 @@
 ## Configuration file for DSP Demo script suite with OUs matching original script.
 ## All top-level OUs created at domain root (no DSP-Demo-Objects wrapper).
 ##
-## Key Changes:
-##   - Removed DSP-Demo-Objects root OU
-##   - All OUs now at domain root level (LabAdmins, LabUsers, BadOU, DeleteMeOU, TEST)
-##   - Sub-OUs maintain parent/child hierarchy
-##   - User/Group OUPath references updated (no "Root/" prefix)
-##
-## How to use:
-##   1. Edit OUs section to customize naming/descriptions
-##   2. Edit Users section - assign each user to an OU via OUPath
-##   3. Edit Groups section - reference users by SamAccountName
-##   4. Placeholders like {DOMAIN_DN}, {DOMAIN}, {PASSWORD} expanded at runtime
+## CORRECTED: OUPath values now match actual OU names from Phase 1
+##   - "Lab Admins" not "LabAdmins"
+##   - "Tier 0", "Tier 1", "Tier 2" with spaces
+##   - "Lab Users" with space
+##   - "DeleteMe OU" with space
 ##
 ################################################################################
 
@@ -35,18 +29,6 @@
     
     #---------------------------------------------------------------------------
     # ORGANIZATIONAL UNITS STRUCTURE
-    #
-    # OUs defined hierarchically at domain root level, matching original script.
-    # All top-level OUs created directly at {DOMAIN_DN}.
-    #
-    # Logical paths: LabAdmins, LabAdmins/Tier0, LabUsers/Dept101, etc.
-    # These are converted to actual DNs by the Directory module.
-    #
-    # Properties:
-    #   Name = AD OU name
-    #   Description = OU description
-    #   ProtectFromAccidentalDeletion = $true or $false (default: $true)
-    #   Children = nested hashtable of child OUs
     #---------------------------------------------------------------------------
     OUs = @{
         # =====================================================
@@ -148,21 +130,7 @@
     }
     
     #---------------------------------------------------------------------------
-    # USERS
-    #
-    # Define users by category. Each user must have:
-    #   - SamAccountName: AD logon name
-    #   - Name, GivenName, Surname: AD naming
-    #   - OUPath: Logical path to OU (e.g., "LabAdmins/Tier0")
-    #   - Password: Will be replaced with {PASSWORD} placeholder value
-    #
-    # Optional fields:
-    #   - DisplayName, Title, Department, Company, Mail, TelephoneNumber, etc.
-    #   - PasswordNeverExpires: $true or $false
-    #   - Enabled: $true or $false (default: $true)
-    #
-    # OUPath must match an OU defined in the OUs section above.
-    # If OUPath doesn't exist, user creation will be skipped with warning.
+    # USERS - CORRECTED OUPATHS
     #---------------------------------------------------------------------------
     Users = @{
         
@@ -182,7 +150,7 @@
                 Mail = "adm.globaladmin@{DOMAIN}"
                 TelephoneNumber = "555-0100"
                 Description = "Tier 0 special admin account"
-                OUPath = "LabAdmins/Tier0"
+                OUPath = "Lab Admins/Tier 0"
                 Password = "{PASSWORD}"
                 PasswordNeverExpires = $true
                 Enabled = $true
@@ -199,7 +167,7 @@
                 Mail = "automationacct1@{DOMAIN}"
                 TelephoneNumber = "555-0101"
                 Description = "Automation and workflow service account"
-                OUPath = "LabAdmins/Tier0"
+                OUPath = "Lab Admins/Tier 0"
                 Password = "{PASSWORD}"
                 PasswordNeverExpires = $true
                 Enabled = $true
@@ -222,7 +190,7 @@
                 Mail = "monitoringacct1@{DOMAIN}"
                 TelephoneNumber = "555-0102"
                 Description = "Monitoring and observability service account"
-                OUPath = "LabAdmins/Tier1"
+                OUPath = "Lab Admins/Tier 1"
                 Password = "{PASSWORD}"
                 PasswordNeverExpires = $false
                 Enabled = $true
@@ -239,7 +207,7 @@
                 Mail = "opsadmin1@{DOMAIN}"
                 TelephoneNumber = "555-0103"
                 Description = "Tier 1 operations administrator"
-                OUPath = "LabAdmins/Tier1"
+                OUPath = "Lab Admins/Tier 1"
                 Password = "{PASSWORD}"
                 PasswordNeverExpires = $false
                 Enabled = $true
@@ -262,7 +230,7 @@
                 Mail = "adm.draji@{DOMAIN}"
                 TelephoneNumber = "555-0104"
                 Description = "Tier 2 application administrator"
-                OUPath = "LabAdmins/Tier2"
+                OUPath = "Lab Admins/Tier 2"
                 Password = "{PASSWORD}"
                 PasswordNeverExpires = $true
                 Enabled = $true
@@ -279,7 +247,7 @@
                 Mail = "adm.gjimenez@{DOMAIN}"
                 TelephoneNumber = "555-0105"
                 Description = "Tier 2 application administrator"
-                OUPath = "LabAdmins/Tier2"
+                OUPath = "Lab Admins/Tier 2"
                 Password = "{PASSWORD}"
                 PasswordNeverExpires = $true
                 Enabled = $true
@@ -304,7 +272,7 @@
                 MobilePhone = "555-1001-mobile"
                 Fax = "555-1001-fax"
                 Description = "Demo user - subject to attribute modifications"
-                OUPath = "LabUsers/Dept101"
+                OUPath = "Lab Users/Dept101"
                 Password = "{PASSWORD}"
                 Enabled = $true
             }
@@ -320,7 +288,7 @@
                 Mail = "shudson@{DOMAIN}"
                 TelephoneNumber = "555-1002"
                 Description = "Demo user - subject to attribute modifications"
-                OUPath = "LabUsers/Dept101"
+                OUPath = "Lab Users/Dept101"
                 Password = "{PASSWORD}"
                 Enabled = $true
             }
@@ -336,7 +304,7 @@
                 Mail = "dmckagan@{DOMAIN}"
                 TelephoneNumber = "555-1003"
                 Description = "Demo user - subject to auto-undo rule testing"
-                OUPath = "LabUsers/Dept101"
+                OUPath = "Lab Users/Dept101"
                 Password = "{PASSWORD}"
                 Enabled = $true
             }
@@ -352,7 +320,7 @@
                 Mail = "pmccartney@{DOMAIN}"
                 TelephoneNumber = "555-1004"
                 Description = "Demo user for security demonstrations"
-                OUPath = "LabUsers/Dept101"
+                OUPath = "Lab Users/Dept101"
                 Password = "{PASSWORD}"
                 Enabled = $true
             }
@@ -374,7 +342,7 @@
             @{
                 SamAccountNamePrefix = "GenericAct0r"
                 Count = 10
-                OUPath = "DeleteMeOU"
+                OUPath = "DeleteMe OU"
                 Description = "Generic user account for deletion demo"
                 Company = "{COMPANY}"
                 Password = "{PASSWORD}"
@@ -383,20 +351,8 @@
         )
     }
     
-#---------------------------------------------------------------------------
+    #---------------------------------------------------------------------------
     # GROUPS
-    #
-    # Define security and distribution groups. Each group must have:
-    #   - SamAccountName: Group logon name
-    #   - Name, DisplayName: Group names
-    #   - OUPath: Logical path where group is created
-    #
-    # Optional fields:
-    #   - Description: Group description
-    #   - GroupScope: Global, Universal, DomainLocal (default: Global)
-    #   - GroupCategory: Security, Distribution (default: Security)
-    #
-    # Members are populated in Phase 3 (CreateUsers). This phase only creates groups.
     #---------------------------------------------------------------------------
     Groups = @{
         LabUserGroups = @(
@@ -501,12 +457,6 @@
     
     #---------------------------------------------------------------------------
     # FINE-GRAINED PASSWORD POLICIES (FGPP)
-    #
-    # Define password policies. Each FGPP must have:
-    #   - Name: Policy name
-    #   - Precedence: Priority (lower number = higher priority)
-    #
-    # Other properties are standard FGPP settings.
     #---------------------------------------------------------------------------
     FGPPs = @(
         @{
@@ -535,9 +485,6 @@
     
     #---------------------------------------------------------------------------
     # DEFAULT DOMAIN POLICY SETTINGS
-    #
-    # Configure password and lockout policy settings applied to all users
-    # via the Default Domain Policy GPO.
     #---------------------------------------------------------------------------
     DefaultDomainPolicy = @{
         MinPasswordLength = 8

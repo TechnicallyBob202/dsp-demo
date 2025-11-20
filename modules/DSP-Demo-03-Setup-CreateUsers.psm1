@@ -5,6 +5,16 @@
 ## Creates user accounts from configuration file.
 ## Operator-configurable via DSP-Demo-Config.psd1
 ##
+## Configuration sections consumed:
+##  - Tier0Admins, Tier1Admins, Tier2Admins
+##  - DemoUsers
+##  - ServiceAccounts
+##  - BulkUsers (generates numbered accounts)
+##  - DeleteMeUsers (generates numbered accounts)
+##
+## All users created with idempotent logic (create if not exists).
+## Group membership applied as configured.
+##
 ################################################################################
 
 #Requires -Version 5.1
@@ -40,9 +50,9 @@ function Write-Status {
 function Resolve-OUPath {
     <#
     .SYNOPSIS
-    Converts logical OU path (e.g. "LabAdmins/Tier0") to Distinguished Name
-    Example: "LabAdmins/Tier0" with domain DC=d3,DC=lab becomes:
-             OU=Tier0,OU=LabAdmins,DC=d3,DC=lab
+    Converts logical OU path (e.g. "Lab Admins/Tier 0") to Distinguished Name
+    Example: "Lab Admins/Tier 0" with domain DC=d3,DC=lab becomes:
+             OU=Tier 0,OU=Lab Admins,DC=d3,DC=lab
     #>
     [CmdletBinding()]
     param(
@@ -59,7 +69,7 @@ function Resolve-OUPath {
         return $domainDN
     }
     
-    # Split path from left to right: "LabAdmins/Tier0" -> @("LabAdmins", "Tier0")
+    # Split path from left to right: "Lab Admins/Tier 0" -> @("Lab Admins", "Tier 0")
     $parts = $LogicalPath -split '/'
     
     # Build DN from right to left, so child comes first
@@ -73,8 +83,6 @@ function Resolve-OUPath {
     
     # Join all parts and append domain DN
     $dn = ($dnParts -join ",") + "," + $domainDN
-    
-    Write-Status "OUPath '$LogicalPath' -> DN '$dn'" -Level Info
     
     return $dn
 }
@@ -96,20 +104,11 @@ function New-UserAccount {
     
     $sam = $UserDef.SamAccountName
     
-    Write-Status "Processing user '$sam' - OUPath: '$OUPath'" -Level Info
-    
     # Check if user exists
     $existing = Get-ADUser -Filter { SamAccountName -eq $sam } -ErrorAction SilentlyContinue
     if ($existing) {
         Write-Status "User '$sam' already exists - skipping" -Level Info
         return $existing
-    }
-    
-    # Verify OU exists
-    $ouTest = Get-ADObject -LDAPFilter "(objectClass=organizationalUnit)" -SearchBase $OUPath -Scope Base -ErrorAction SilentlyContinue
-    if (-not $ouTest) {
-        Write-Status "OU does not exist at path: $OUPath" -Level Error
-        return $null
     }
     
     # Map config keys to New-ADUser parameters
@@ -153,7 +152,6 @@ function New-UserAccount {
     }
     
     try {
-        Write-Status "Creating user '$sam' in OU: $OUPath" -Level Info
         $user = New-ADUser @newUserParams -PassThru
         Write-Status "Created user '$sam'" -Level Success
         return $user
@@ -227,7 +225,6 @@ function Invoke-CreateUsers {
     
     Write-Host ""
     Write-Status "Creating user accounts..." -Level Info
-    Write-Status "Domain Info DN: $($DomainInfo.DN)" -Level Info
     
     $createdCount = 0
     $skippedCount = 0
