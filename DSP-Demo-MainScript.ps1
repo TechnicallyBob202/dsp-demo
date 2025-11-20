@@ -227,21 +227,17 @@ try {
         $domainInfo = Get-DomainInfo
         $dcs = Get-ADDomainControllers
         
-        # DEBUG: Check what we got back
-        Write-Status "DEBUG: dcs object type: $($dcs.GetType().Name)" -Level Info
         if ($dcs -is [array]) {
-            Write-Status "DEBUG: dcs is array, count: $($dcs.Count)" -Level Info
             $primaryDC = $dcs[0].HostName
+            $secondaryDC = if ($dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
         }
         else {
-            Write-Status "DEBUG: dcs is single object (not array)" -Level Info
             $primaryDC = $dcs.HostName
+            $secondaryDC = $null
         }
         
-        $secondaryDC = if ($dcs -is [array] -and $dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
         $forestInfo = Get-ForestInfo
         
-        Write-Status "DEBUG: primaryDC variable = '$primaryDC'" -Level Info
         Write-Status "Primary DC: $primaryDC" -Level Info
         if ($secondaryDC) {
             Write-Status "Secondary DC: $secondaryDC" -Level Info
@@ -255,21 +251,7 @@ try {
     # Attempt DSP connectivity (optional)
     Write-Header "DSP Server Discovery"
     
-    # Get DSP server from config, or leave empty for auto-discovery
-    Write-Status "DEBUG: config object type: $($config.GetType().Name)" -Level Info
-    Write-Status "DEBUG: config keys: $($config.Keys -join ', ')" -Level Info
-    Write-Status "DEBUG: config.General exists: $(if ($config.ContainsKey('General')) { 'YES' } else { 'NO' })" -Level Info
-    if ($config.ContainsKey('General')) {
-        Write-Status "DEBUG: config.General.DspServer exists: $(if ($config.General.ContainsKey('DspServer')) { 'YES' } else { 'NO' })" -Level Info
-        if ($config.General.ContainsKey('DspServer')) {
-            Write-Status "DEBUG: config.General.DspServer value: '$($config.General.DspServer)'" -Level Info
-            Write-Status "DEBUG: config.General.DspServer length: $($config.General.DspServer.Length)" -Level Info
-        }
-    }
-    
     $dspServerFromConfig = if ($config -and $config.General -and $config.General.DspServer) { $config.General.DspServer } else { "" }
-    Write-Status "DEBUG: dspServerFromConfig final value: '$dspServerFromConfig'" -Level Info
-    Write-Status "DSP Server from config: '$dspServerFromConfig'" -Level Info
     
     $dspServer = Find-DspServer -DomainInfo $domainInfo -ConfigServer $dspServerFromConfig
     $dspAvailable = $false
