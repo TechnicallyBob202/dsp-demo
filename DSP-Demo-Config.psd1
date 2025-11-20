@@ -218,53 +218,132 @@
         }
     }
     
+#---------------------------------------------------------------------------
+    # SECURITY GROUPS - PHASE 1 (ORIGINAL CREATION)
+    #
+    # These groups are created in Phase 1 with their original attributes.
+    # Phase 5 will modify some of these (change category, scope, move to different OU)
+    # For now, only Phase 1 creation - use the ORIGINAL attributes from the script.
+    #
+    # Path placeholders will be expanded at runtime with actual domain DN
     #---------------------------------------------------------------------------
-    # GROUP OBJECTS
-    #---------------------------------------------------------------------------
-    Groups = @{
-        # Special Lab Admins - Used for auto-undo demo
-        SpecialLabAdmins = @{
-            Name = "DSP-LAB-Special-Admins"
-            SamAccountName = "DSP-LAB-Special-Admins"
-            DisplayName = "DSP Lab Special Administrators"
-            Description = "Special lab administrators group for DSP demos - Auto-undo trigger"
-            GroupCategory = "Security"
-            GroupScope = "Global"
-            ManagedBy = "t2admin"
-            Members = @("arose", "shudson", "t2admin")
-        }
-        
-        # Special Lab Users
+    SecurityGroups = @{
+        # Special Lab Users - ORIGINAL: Security/Global in Lab Users OU
+        # (Phase 5 will change to Distribution/Universal and move to Lab Admins)
         SpecialLabUsers = @{
-            Name = "DSP-LAB-Special-Users"
-            SamAccountName = "DSP-LAB-Special-Users"
-            DisplayName = "DSP Lab Special Users"
-            Description = "Special lab users group for DSP demos"
+            Name = "Special Lab Users"
+            SamAccountName = "SpecialLabUsers"
+            DisplayName = "Special Lab Users"
+            Description = "Members of this lab group are special"
             GroupCategory = "Security"
             GroupScope = "Global"
-            Members = @("arose", "shudson", "dmckagan", "pmccartney")
+            Path = "OU=Lab Users,{DOMAIN_DN}"
+            Members = @()
         }
         
-        # Helpdesk Operations
+        # Special Lab Admins - ORIGINAL: Security/Global in Lab Admins
+        SpecialLabAdmins = @{
+            Name = "Special Lab Admins"
+            SamAccountName = "SpecialLabAdmins"
+            DisplayName = "Special Lab Admins"
+            Description = "Members of this lab group are admins"
+            GroupCategory = "Security"
+            GroupScope = "Global"
+            Path = "OU=Lab Admins,{DOMAIN_DN}"
+            Members = @()
+        }
+        
+        # Pizza Party Group - ORIGINAL: Distribution/Global in Lab Users
+        PizzaPartyGroup = @{
+            Name = "Pizza Party Group"
+            SamAccountName = "PizzaPartyGroup"
+            DisplayName = "Pizza Party Group"
+            Description = "Members of this lab group get info about pizza parties"
+            GroupCategory = "Distribution"
+            GroupScope = "Global"
+            Path = "OU=Lab Users,{DOMAIN_DN}"
+            Members = @()
+        }
+        
+        # Party Planners Group - ORIGINAL: Distribution/Global in Lab Users
+        PartyPlannersGroup = @{
+            Name = "Party Planners Group"
+            SamAccountName = "PartyPlannersGroup"
+            DisplayName = "Party Planners Group"
+            Description = "Members of this lab group do party planning"
+            GroupCategory = "Distribution"
+            GroupScope = "Global"
+            Path = "OU=Lab Users,{DOMAIN_DN}"
+            Members = @()
+        }
+        
+        # Helpdesk Ops - ORIGINAL: Security/Global in Lab Users
         HelpdeskOps = @{
-            Name = "Helpdesk-Operations"
-            SamAccountName = "Helpdesk-Ops"
-            DisplayName = "Helpdesk Operations Team"
-            Description = "Helpdesk operations team members"
+            Name = "Helpdesk Ops"
+            SamAccountName = "HelpdeskOps"
+            DisplayName = "Helpdesk Ops"
+            Description = "Members of this lab group are Helpdesk operators"
             GroupCategory = "Security"
             GroupScope = "Global"
-            Members = @("opsadmin1")
+            Path = "OU=Lab Users,{DOMAIN_DN}"
+            Members = @()
         }
         
-        # Tier 0 Admins - High security group
-        TierZeroAdmins = @{
-            Name = "Tier-0-Admins"
-            SamAccountName = "Tier0Admins"
-            DisplayName = "Tier 0 Administrators"
-            Description = "Tier 0 privileged administrators - Highest security"
+        # Special Accounts - ORIGINAL: Security/Universal in Lab Admins
+        SpecialAccounts = @{
+            Name = "Special Accounts"
+            SamAccountName = "SpecialAccounts"
+            DisplayName = "Special Accounts"
+            Description = "Members of this lab group are special accts and service accts"
             GroupCategory = "Security"
             GroupScope = "Universal"
-            Members = @("Administrator", "t2admin")
+            Path = "OU=Lab Admins,{DOMAIN_DN}"
+            Members = @()
+        }
+        
+        # DeleteMe OU Groups - created for deletion and recovery demos
+        SpecialAccessDatacenter = @{
+            Name = "Special Access - Datacenter"
+            SamAccountName = "SpecialAccess-Datacenter"
+            DisplayName = "Special Access - Datacenter"
+            Description = "Resource Administrators for special Lab"
+            GroupCategory = "Security"
+            GroupScope = "Global"
+            Path = "OU=Corp Special OU,OU=DELETEME OU,{DOMAIN_DN}"
+            Members = @()
+        }
+        
+        ServerAdminsUS = @{
+            Name = "Server Admins - US"
+            SamAccountName = "ServerAdmins-US"
+            DisplayName = "Server Admins - US"
+            Description = "Resource Administrators for special Lab"
+            GroupCategory = "Security"
+            GroupScope = "Global"
+            Path = "OU=Servers,OU=DELETEME OU,{DOMAIN_DN}"
+            Members = @()
+        }
+        
+        ServerAdminsAPAC = @{
+            Name = "Server Admins - APAC"
+            SamAccountName = "ServerAdmins-APAC"
+            DisplayName = "Server Admins - APAC"
+            Description = "Resource Administrators for special Lab"
+            GroupCategory = "Security"
+            GroupScope = "Global"
+            Path = "OU=Servers,OU=DELETEME OU,{DOMAIN_DN}"
+            Members = @()
+        }
+        
+        ResourceAdmins = @{
+            Name = "Resource Admins"
+            SamAccountName = "ResourceAdmins"
+            DisplayName = "Resource Admins"
+            Description = "Resource Administrators for special Lab"
+            GroupCategory = "Security"
+            GroupScope = "Global"
+            Path = "OU=Resources,OU=DELETEME OU,{DOMAIN_DN}"
+            Members = @()
         }
     }
     

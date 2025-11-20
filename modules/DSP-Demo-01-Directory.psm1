@@ -860,11 +860,8 @@ function Invoke-DirectoryActivity {
         
         foreach ($groupConfig in $Config.SecurityGroups.Values) {
             if ($groupConfig -is [hashtable]) {
-                # Use Path from config, or default to Lab Admins OU
-                $groupPath = if ($groupConfig.Path) { $groupConfig.Path } else { $structure.LabAdminsOU.DistinguishedName }
-                
                 New-Group -Name $groupConfig.Name `
-                        -Path $groupPath `
+                        -Path $groupConfig.Path `
                         -GroupScope $groupConfig.GroupScope `
                         -GroupCategory $groupConfig.GroupCategory `
                         -Description $groupConfig.Description `
