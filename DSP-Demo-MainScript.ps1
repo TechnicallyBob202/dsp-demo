@@ -237,7 +237,7 @@ function Run-ActivityModule {
         $functionName = $functionMap[$ModuleName]
         
         if (Get-Command $functionName -ErrorAction SilentlyContinue) {
-            & $functionName -Config $Config -Environment $Environment
+            & $functionName
             Write-Status "Module completed: $ModuleName" -Level Success
         }
         else {
@@ -397,12 +397,11 @@ function Main {
     Write-Header "Loading Activity Modules"
     
     $modulesToImport = @(
-        "DSP-Demo-01-Core",
-        "DSP-Demo-02-Directory",
-        "DSP-Demo-03-DNS",
-        "DSP-Demo-04-GPOs",
-        "DSP-Demo-05-Sites",
-        "DSP-Demo-06-SecurityEvents"
+        "DSP-Demo-01-Directory",
+        "DSP-Demo-02-DNS",
+        "DSP-Demo-03-GPOs",
+        "DSP-Demo-04-Sites",
+        "DSP-Demo-05-SecurityEvents"
     )
     
     foreach ($moduleName in $modulesToImport) {
@@ -419,7 +418,7 @@ function Main {
     $failedModules = 0
     
     foreach ($moduleName in $selectedModules) {
-        if (Run-ActivityModule -ModuleName $moduleName -Config $config -Environment $environment) {
+        if (Run-ActivityModule -ModuleName $moduleName -Config $config) {
             $completedModules++
         }
         else {
