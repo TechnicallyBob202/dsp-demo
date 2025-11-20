@@ -402,8 +402,8 @@ function Connect-DspManagementServer {
                 $retryCount++
                 Write-ScriptLog "Connection attempt $retryCount of $MaxRetries..." -Level Info
                 
-                # Attempt connection
-                $connection = Connect-DspManagement -ServerName $DspServer -ErrorAction Stop
+                # Attempt connection using Connect-DSPServer cmdlet
+                $connection = Connect-DSPServer -ComputerName $DspServer -ErrorAction Stop
                 
                 Write-ScriptLog "Connected to DSP server: $DspServer" -Level Success
                 return $connection
