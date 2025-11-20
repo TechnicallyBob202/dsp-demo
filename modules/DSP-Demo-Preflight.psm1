@@ -311,7 +311,7 @@ function Find-DspServer {
         
         # Search for DSP SCP
         $scp = Get-ADObject -SearchBase $searchBase `
-                           -Filter "(objectClass=serviceConnectionPoint) -and (cn=*Semperis.Dsp.Management*)" `
+                           -Filter "objectClass -eq 'serviceConnectionPoint' -and cn -like '*Semperis.Dsp.Management*'" `
                            -Properties serviceBindingInformation `
                            -ErrorAction SilentlyContinue
         

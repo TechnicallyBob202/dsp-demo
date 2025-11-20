@@ -226,7 +226,7 @@ try {
     try {
         $domainInfo = Get-DomainInfo
         $dcs = Get-ADDomainControllers
-        $primaryDC = $dcs[0].HostName
+        $primaryDC = if ($dcs.Count -gt 0) { $dcs[0].HostName } else { $null }
         $secondaryDC = if ($dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
         $forestInfo = Get-ForestInfo
         
@@ -244,7 +244,8 @@ try {
     Write-LogHeader "DSP Server Discovery"
     
     # Get DSP server from config, or leave empty for auto-discovery
-    $dspServerFromConfig = $config.DspServer
+    $dspServerFromConfig = if ($config -and $config.DspServer) { $config.DspServer } else { "" }
+    Write-Status "DSP Server from config: '$dspServerFromConfig'" -Level Info
     
     $dspServer = Find-DspServer -DomainInfo $domainInfo -ConfigServer $dspServerFromConfig
     $dspAvailable = $false
