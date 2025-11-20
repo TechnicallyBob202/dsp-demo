@@ -243,9 +243,9 @@ function Main {
         "DSP-Demo-02-Setup-CreateGroups",
         "DSP-Demo-03-Setup-CreateUsers",
         "DSP-Demo-04-Setup-CreateComputers",
-        "DSP-Demo-05-Setup-CreateDefaultDom",
-        "DSP-Demo-06-Setup-CreateGPP",
-        "DSP-Demo-07-Setup-CreateADSitesAnds",
+        "DSP-Demo-05-Setup-CreateDefaultDomainPolicy",
+        "DSP-Demo-06-Setup-CreateFGPP",
+        "DSP-Demo-07-Setup-CreateADSitesAndsAubnets",
         "DSP-Demo-08-Setup-CreateDNSZones",
         "DSP-Demo-09-Setup-CreateGPOs"
     )
