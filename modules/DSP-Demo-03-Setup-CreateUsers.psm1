@@ -82,6 +82,56 @@ function Resolve-OUPath {
     return $dn
 }
 
+function Update-UserAccount {
+    <#
+    .SYNOPSIS
+    Updates existing user account to ensure UPN is set and account is enabled.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$SamAccountName,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$DomainFQDN
+    )
+    
+    $user = Get-ADUser -Filter { SamAccountName -eq $SamAccountName } -ErrorAction SilentlyContinue
+    if (-not $user) {
+        return $null
+    }
+    
+    $needsUpdate = $false
+    $updateParams = @{ Identity = $user }
+    
+    # Check if UPN is missing or wrong
+    $expectedUPN = "$SamAccountName@$DomainFQDN"
+    if ($user.UserPrincipalName -ne $expectedUPN) {
+        $updateParams['UserPrincipalName'] = $expectedUPN
+        $needsUpdate = $true
+    }
+    
+    # Check if disabled
+    if ($user.Enabled -eq $false) {
+        $updateParams['Enabled'] = $true
+        $needsUpdate = $true
+    }
+    
+    if ($needsUpdate) {
+        try {
+            Set-ADUser @updateParams -ErrorAction Stop
+            Write-Status "Updated user '$SamAccountName'" -Level Success
+            return $true
+        }
+        catch {
+            Write-Status "Failed to update user '$SamAccountName': $_" -Level Error
+            return $false
+        }
+    }
+    
+    return $true
+}
+
 function New-UserAccount {
     <#
     .SYNOPSIS
@@ -108,7 +158,9 @@ function New-UserAccount {
     
     $existing = Get-ADUser -Filter { SamAccountName -eq $sam } -ErrorAction SilentlyContinue
     if ($existing) {
-        Write-Status "User '$sam' already exists - skipping" -Level Info
+        Write-Status "User '$sam' already exists - skipping creation" -Level Info
+        # Update existing user to ensure UPN and enabled
+        Update-UserAccount $sam $DomainFQDN
         return $existing
     }
     
@@ -367,6 +419,8 @@ function Invoke-CreateUsers {
                     }
                 }
                 else {
+                    # Update existing user to ensure UPN and enabled
+                    Update-UserAccount $samName $domainFQDN
                     $skippedCount++
                 }
                 
