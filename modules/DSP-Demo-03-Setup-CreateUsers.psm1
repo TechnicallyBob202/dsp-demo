@@ -325,7 +325,7 @@ function Invoke-CreateUsers {
         }
     }
     
-    # Process Generic Bulk Users with progress bar and password fix
+# Process Generic Bulk Users with progress bar and password fix
     if ($Config.ContainsKey('Users') -and $Config.Users.ContainsKey('GenericUsers')) {
         foreach ($bulkConfig in $Config.Users.GenericUsers) {
             $prefix = if ($bulkConfig.ContainsKey('SamAccountNamePrefix')) { $bulkConfig.SamAccountNamePrefix } else { "GdAct0r" }
@@ -357,14 +357,34 @@ function Invoke-CreateUsers {
                     $userDef['Company'] = $bulkCompany
                 }
                 
-                $user = New-UserAccount $userDef $ouPath $DefaultPassword
-                if ($user) { $createdCount++ } else { $skippedCount++ }
-                
-                # Progress bar: update every 10 users or at end
-                if (($i + 1) % 10 -eq 0 -or $i -eq ($count - 1)) {
-                    $percentComplete = [math]::Round((($i + 1) / $count) * 100)
-                    Write-Progress -Activity "Creating bulk users ($prefix)" -Status "$($i + 1) of $count" -PercentComplete $percentComplete
+                $existing = Get-ADUser -Filter { SamAccountName -eq $samName } -ErrorAction SilentlyContinue
+                if (-not $existing) {
+                    try {
+                        $newUserParams = @{
+                            SamAccountName = $samName
+                            Name = $samName
+                            Path = $ouPath
+                            AccountPassword = ConvertTo-SecureString $bulkPassword -AsPlainText -Force
+                            Enabled = $bulkEnabled
+                            PasswordNeverExpires = $false
+                            ErrorAction = 'Stop'
+                        }
+                        if ($bulkDescription) { $newUserParams['Description'] = $bulkDescription }
+                        if ($bulkCompany) { $newUserParams['Company'] = $bulkCompany }
+                        
+                        New-ADUser @newUserParams | Out-Null
+                        $createdCount++
+                    }
+                    catch {
+                        $skippedCount++
+                    }
+                } else {
+                    $skippedCount++
                 }
+                
+                # Progress bar: update every user
+                $percentComplete = [math]::Round((($i + 1) / $count) * 100)
+                Write-Progress -Activity "Creating bulk users ($prefix)" -Status "$($i + 1) of $count" -PercentComplete $percentComplete
             }
             Write-Progress -Activity "Creating bulk users ($prefix)" -Completed
         }
