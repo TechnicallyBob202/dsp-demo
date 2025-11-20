@@ -18,7 +18,7 @@
 ################################################################################
 
 #Requires -Version 5.1
-#Requires -Modules ActiveDirectory
+#Requires -Modules ActiveDirectory, GroupPolicy, DnsServer
 #Requires -RunAsAdministrator
 
 [CmdletBinding()]
@@ -27,7 +27,7 @@ param(
     [switch]$SkipMenu,
     
     [Parameter(Mandatory=$false)]
-    [ValidateSet('DirectoryObjects','DNS','GPOs','Sites','IOCs','All')]
+    [ValidateSet('Directory','DNS','GPOs','Sites','IOCs','All')]
     [string]$Module,
     
     [Parameter(Mandatory=$false)]
@@ -145,7 +145,7 @@ function Show-ActivityMenu {
     
     Write-Host "Available Activity Modules:" -ForegroundColor $Colors.Menu
     Write-Host ""
-    Write-Host "   1. DirectoryObjects - Create users, groups, OUs, computers, FGPP" -ForegroundColor $Colors.Menu
+    Write-Host "   1. Directory       - Create users, groups, OUs, computers, FGPP" -ForegroundColor $Colors.Menu
     Write-Host "   2. DNS             - Create DNS zones and records" -ForegroundColor $Colors.Menu
     Write-Host "   3. GPOs            - Create and modify Group Policy Objects" -ForegroundColor $Colors.Menu
     Write-Host "   4. Sites           - Create AD sites and subnets" -ForegroundColor $Colors.Menu
@@ -160,12 +160,12 @@ function Get-ActivitySelection {
         $choice = Read-Host "Select an option (0-6)"
         
         switch ($choice) {
-            '1' { return @('DirectoryObjects') }
+            '1' { return @('Directory') }
             '2' { return @('DNS') }
             '3' { return @('GPOs') }
             '4' { return @('Sites') }
             '5' { return @('IOCs') }
-            '6' { return @('DirectoryObjects', 'DNS', 'GPOs', 'Sites', 'IOCs') }
+            '6' { return @('Directory', 'DNS', 'GPOs', 'Sites', 'IOCs') }
             '0' { return @() }
             default { Write-Status "Invalid selection, please try again" -Level Warning }
         }
@@ -287,7 +287,7 @@ try {
     
     if ($Module) {
         if ($Module -eq 'All') {
-            $activityModules = @('DirectoryObjects', 'DNS', 'GPOs', 'Sites', 'IOCs')
+            $activityModules = @('Directory', 'DNS', 'GPOs', 'Sites', 'IOCs')
         }
         else {
             $activityModules = @($Module)
@@ -303,7 +303,7 @@ try {
         }
     }
     else {
-        $activityModules = @('DirectoryObjects', 'DNS', 'GPOs', 'Sites', 'IOCs')
+        $activityModules = @('Directory', 'DNS', 'GPOs', 'Sites', 'IOCs')
     }
     
     Write-Header "RUNNING ACTIVITY MODULES"
