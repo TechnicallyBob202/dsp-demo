@@ -2,11 +2,20 @@
 ##
 ## DSP-Demo-01-Setup-BuildOUs.psm1
 ##
-## Builds the OU hierarchy defined in the configuration file
-## Supports nested OUs with proper parent-child relationships
+## Creates all organizational unit (OU) structure for the demo environment.
 ##
-## Author: Bob Lyons
-## Version: 1.0.0-20251120
+## OUs Created (at domain root):
+## - Lab Admins (parent)
+##   - Tier 0, Tier 1, Tier 2
+## - Lab Users (parent)
+##   - Dept101, Dept999
+## - Bad OU (standalone)
+## - DeleteMe OU (parent)
+##   - Corp Special OU, Resources, Servers
+## - TEST (standalone)
+##
+## All OUs created with idempotent logic (create if not exists).
+## No modifications or deletions in this phase.
 ##
 ################################################################################
 
@@ -14,35 +23,10 @@
 #Requires -Modules ActiveDirectory
 
 ################################################################################
-# INTERNAL VARIABLES
-################################################################################
-
-$Script:OUPathMap = @{}
-
-################################################################################
-# OU MANAGEMENT FUNCTIONS
+# HELPER FUNCTIONS
 ################################################################################
 
 function New-OU {
-    <#
-    .SYNOPSIS
-        Creates an OU if it doesn't already exist
-    
-    .PARAMETER Name
-        The name of the OU
-    
-    .PARAMETER Path
-        The distinguished name of the parent container
-    
-    .PARAMETER Description
-        Description for the OU
-    
-    .PARAMETER ProtectFromAccidentalDeletion
-        Whether to protect the OU from deletion (default: $true)
-    
-    .OUTPUTS
-        PSCustomObject with OU information or $null if creation failed
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -52,7 +36,7 @@ function New-OU {
         [string]$Path,
         
         [Parameter(Mandatory=$false)]
-        [string]$Description = "",
+        [string]$Description,
         
         [Parameter(Mandatory=$false)]
         [bool]$ProtectFromAccidentalDeletion = $true
@@ -60,193 +44,136 @@ function New-OU {
     
     try {
         # Check if OU already exists
-        $existingOU = Get-ADOrganizationalUnit -Filter "Name -eq '$Name' -and DistinguishedName -like '*$Path'" -ErrorAction SilentlyContinue
+        $existingOU = Get-ADOrganizationalUnit -Filter "Name -eq '$Name' -and DistinguishedName -like '*$Path*'" -ErrorAction SilentlyContinue
         
         if ($existingOU) {
-            Write-Host "    [EXISTS] OU: $Name" -ForegroundColor Green
+            Write-Verbose "OU already exists: $Name"
             return $existingOU
         }
         
         # Create the OU
-        Write-Host "    [CREATE] OU: $Name" -ForegroundColor Cyan
+        $ou = New-ADOrganizationalUnit -Name $Name -Path $Path -Description $Description -ProtectedFromAccidentalDeletion $ProtectFromAccidentalDeletion -ErrorAction Stop
         
-        $newOU = New-ADOrganizationalUnit -Name $Name -Path $Path -Description $Description -ErrorAction Stop
-        
-        # Set protection
-        if ($ProtectFromAccidentalDeletion) {
-            Set-ADOrganizationalUnit -Identity $newOU -ProtectedFromAccidentalDeletion $true -ErrorAction SilentlyContinue
-        }
-        
-        Write-Host "    [SUCCESS] Created OU: $Name at path: $Path" -ForegroundColor Green
-        return $newOU
+        Write-Verbose "Created OU: $Name at $Path"
+        return $ou
     }
     catch {
-        Write-Host "    [FAILED] Error creating OU '$Name': $_" -ForegroundColor Red
+        Write-Error "Failed to create OU $Name : $_"
         return $null
     }
 }
 
-function Build-OUHierarchy {
-    <#
-    .SYNOPSIS
-        Recursively builds the OU hierarchy from config structure
-    
-    .PARAMETER OUStructure
-        Hashtable of OUs from config (single level)
-    
-    .PARAMETER ParentPath
-        The DN of the parent container for this level
-    
-    .PARAMETER LogicalPath
-        The logical path (e.g., "Root/LabAdmins/Tier0") for mapping
-    
-    .OUTPUTS
-        None - updates internal path map
-    #>
+function Build-OUStructure {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [hashtable]$OUStructure,
+        [string]$DomainDN,
         
         [Parameter(Mandatory=$true)]
-        [string]$ParentPath,
-        
-        [Parameter(Mandatory=$false)]
-        [string]$LogicalPath = ""
+        [hashtable]$OUConfig
     )
     
-    foreach ($ouKey in $OUStructure.Keys) {
-        $ouConfig = $OUStructure[$ouKey]
-        
-        # Build logical path
-        if ($LogicalPath) {
-            $currentLogicalPath = "$LogicalPath/$ouKey"
-        } else {
-            $currentLogicalPath = $ouKey
-        }
-        
-        # Create the OU
-        $ou = New-OU -Name $ouConfig.Name -Path $ParentPath -Description $ouConfig.Description -ProtectFromAccidentalDeletion $ouConfig.ProtectFromAccidentalDeletion
-        
-        if ($ou) {
-            # Store mapping of logical path to DN
-            $Script:OUPathMap[$currentLogicalPath] = $ou.DistinguishedName
+    $ouObjects = @{}
+    
+    try {
+        # Create all top-level OUs at domain root
+        foreach ($ouKey in $OUConfig.Keys) {
+            $ouDef = $OUConfig[$ouKey]
+            $ouName = $ouDef.Name
+            $ouDesc = $ouDef.Description
+            $ouProtect = $ouDef.ProtectFromAccidentalDeletion
             
-            # Process children recursively
-            if ($ouConfig.ContainsKey('Children') -and $ouConfig.Children) {
-                Build-OUHierarchy -OUStructure $ouConfig.Children -ParentPath $ou.DistinguishedName -LogicalPath $currentLogicalPath
+            Write-Verbose "Creating top-level OU: $ouName"
+            
+            $ou = New-OU -Name $ouName -Path $DomainDN -Description $ouDesc -ProtectFromAccidentalDeletion $ouProtect
+            
+            if ($ou) {
+                $ouObjects[$ouKey] = $ou
+                
+                # Create child OUs if defined
+                if ($ouDef.ContainsKey('Children') -and $ouDef.Children) {
+                    foreach ($childKey in $ouDef.Children.Keys) {
+                        $childDef = $ouDef.Children[$childKey]
+                        $childName = $childDef.Name
+                        $childDesc = $childDef.Description
+                        $childProtect = $childDef.ProtectFromAccidentalDeletion
+                        
+                        Write-Verbose "Creating child OU: $childName under $ouName"
+                        
+                        $childOU = New-OU -Name $childName -Path $ou.DistinguishedName -Description $childDesc -ProtectFromAccidentalDeletion $childProtect
+                        
+                        if ($childOU) {
+                            $ouObjects["$ouKey/$childKey"] = $childOU
+                        }
+                    }
+                }
             }
         }
+        
+        return $ouObjects
+    }
+    catch {
+        Write-Error "Failed to build OU structure: $_"
+        return $null
     }
 }
 
+################################################################################
+# MAIN FUNCTION
+################################################################################
+
 function Invoke-BuildOUs {
-    <#
-    .SYNOPSIS
-        Main entry point for OU creation from config
-    
-    .PARAMETER Config
-        Configuration hashtable with OUs section
-    
-    .PARAMETER DomainDN
-        Distinguished name of the domain
-    
-    .OUTPUTS
-        Hashtable mapping logical OU paths to distinguished names
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
         [hashtable]$Config,
         
         [Parameter(Mandatory=$true)]
-        [string]$DomainDN
+        [PSCustomObject]$Environment
     )
     
-    Write-Host ""
-    Write-Host "=================================================================================" -ForegroundColor Green
-    Write-Host "PHASE 1: Building OU Hierarchy" -ForegroundColor Green
-    Write-Host "=================================================================================" -ForegroundColor Green
-    Write-Host ""
-    
-    if (-not $Config.ContainsKey('OUs')) {
-        Write-Host "[SKIP] No OUs defined in configuration" -ForegroundColor Yellow
-        return @{}
-    }
-    
-    # Clear path map for this run
-    $Script:OUPathMap = @{}
-    
-    $ouConfig = $Config.OUs
-    
-    # Process the root OU (typically "DSP-Demo-Objects")
-    foreach ($rootKey in $ouConfig.Keys) {
-        $rootConfig = $ouConfig[$rootKey]
+    try {
+        Write-Verbose "Starting BuildOUs module"
         
-        Write-Host "Creating root OU: $($rootConfig.Name)" -ForegroundColor Cyan
-        
-        # Create root OU in domain root
-        $rootOU = New-OU -Name $rootConfig.Name -Path $DomainDN -Description $rootConfig.Description -ProtectFromAccidentalDeletion $rootConfig.ProtectFromAccidentalDeletion
-        
-        if ($rootOU) {
-            # Store root path mapping
-            $Script:OUPathMap[$rootKey] = $rootOU.DistinguishedName
-            
-            # Process children
-            if ($rootConfig.ContainsKey('Children') -and $rootConfig.Children) {
-                Write-Host ""
-                Write-Host "Creating child OUs under $($rootConfig.Name):" -ForegroundColor Cyan
-                Build-OUHierarchy -OUStructure $rootConfig.Children -ParentPath $rootOU.DistinguishedName -LogicalPath $rootKey
-            }
+        # Validate config
+        if (-not $Config -or -not $Config.ContainsKey('OUs')) {
+            Write-Warning "No OUs defined in configuration"
+            return $true
         }
+        
+        # Validate environment
+        if (-not $Environment -or -not $Environment.DomainInfo) {
+            Write-Error "Invalid environment object"
+            return $false
+        }
+        
+        $domainDN = $Environment.DomainInfo.DistinguishedName
+        
+        Write-Verbose "Creating OUs in domain: $domainDN"
+        
+        # Build OU structure
+        $ouObjects = Build-OUStructure -DomainDN $domainDN -OUConfig $Config.OUs
+        
+        if (-not $ouObjects) {
+            Write-Error "Failed to create OU structure"
+            return $false
+        }
+        
+        Write-Verbose "BuildOUs module completed successfully"
+        
+        # Store OU objects in script-level variable for use by other modules
+        $script:OUObjects = $ouObjects
+        
+        return $true
     }
-    
-    Write-Host ""
-    Write-Host "OU Hierarchy Summary:" -ForegroundColor Green
-    Write-Host "-" * 80 -ForegroundColor Green
-    
-    foreach ($path in $Script:OUPathMap.Keys | Sort-Object) {
-        Write-Host "  $path => $($Script:OUPathMap[$path])" -ForegroundColor White
+    catch {
+        Write-Error "Error in Invoke-BuildOUs: $_"
+        return $false
     }
-    
-    Write-Host ""
-    Write-Host "Total OUs created: $($Script:OUPathMap.Count)" -ForegroundColor Green
-    Write-Host ""
-    
-    return $Script:OUPathMap
-}
-
-function Get-OUPath {
-    <#
-    .SYNOPSIS
-        Retrieves the distinguished name for a logical OU path
-    
-    .PARAMETER LogicalPath
-        The logical path (e.g., "Root/LabAdmins/Tier0")
-    
-    .OUTPUTS
-        String containing the distinguished name, or $null if not found
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$LogicalPath
-    )
-    
-    if ($Script:OUPathMap.ContainsKey($LogicalPath)) {
-        return $Script:OUPathMap[$LogicalPath]
-    }
-    
-    Write-Host "WARNING: OU path not found in map: $LogicalPath" -ForegroundColor Yellow
-    return $null
 }
 
 ################################################################################
-# EXPORTS
+# EXPORT
 ################################################################################
 
-Export-ModuleMember -Function @(
-    'Invoke-BuildOUs',
-    'Get-OUPath',
-    'New-OU'
-)
+Export-ModuleMember -Function Invoke-BuildOUs
