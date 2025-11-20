@@ -383,110 +383,118 @@
         )
     }
     
-    #---------------------------------------------------------------------------
+#---------------------------------------------------------------------------
     # GROUPS
     #
-    # Define groups by category. Each group must have:
+    # Define security and distribution groups. Each group must have:
     #   - SamAccountName: Group logon name
     #   - Name, DisplayName: Group names
     #   - OUPath: Logical path where group is created
-    #   - Members: Array of user SamAccountNames to add to group
     #
     # Optional fields:
     #   - Description: Group description
     #   - GroupScope: Global, Universal, DomainLocal (default: Global)
     #   - GroupCategory: Security, Distribution (default: Security)
     #
-    # Members are resolved by looking up users with matching SamAccountNames.
-    # If a user doesn't exist, they're skipped with warning.
+    # Members are populated in Phase 3 (CreateUsers). This phase only creates groups.
     #---------------------------------------------------------------------------
     Groups = @{
+        LabUserGroups = @(
+            @{
+                SamAccountName = "SpecialLabUsers"
+                Name = "Special Lab Users"
+                DisplayName = "Special Lab Users"
+                Description = "Members of this lab group are special"
+                OUPath = "Root/LabUsers"
+                GroupScope = "Global"
+                GroupCategory = "Security"
+            }
+            @{
+                SamAccountName = "PizzaPartyGroup"
+                Name = "Pizza Party Group"
+                DisplayName = "Pizza Party Group"
+                Description = "Members of this lab group get info about pizza parties"
+                OUPath = "Root/LabUsers"
+                GroupScope = "Global"
+                GroupCategory = "Distribution"
+            }
+            @{
+                SamAccountName = "PartyPlannersGroup"
+                Name = "Party Planners Group"
+                DisplayName = "Party Planners Group"
+                Description = "Members of this lab group do party planning"
+                OUPath = "Root/LabUsers"
+                GroupScope = "Global"
+                GroupCategory = "Distribution"
+            }
+            @{
+                SamAccountName = "HelpdeskOps"
+                Name = "Helpdesk Ops"
+                DisplayName = "Helpdesk Ops"
+                Description = "Members of this lab group are Helpdesk operators"
+                OUPath = "Root/LabUsers"
+                GroupScope = "Global"
+                GroupCategory = "Security"
+            }
+        )
+        
         AdminGroups = @(
             @{
                 SamAccountName = "SpecialLabAdmins"
                 Name = "Special Lab Admins"
                 DisplayName = "Special Lab Admins"
-                Description = "Special lab administrator group with elevated privileges"
-                OUPath = "LabAdmins"
+                Description = "Members of this lab group are admins"
+                OUPath = "Root/LabAdmins"
                 GroupScope = "Global"
                 GroupCategory = "Security"
-                Members = @("adm.draji", "adm.gjimenez", "adm.globaladmin")
             }
             @{
-                SamAccountName = "SpecialLabUsers"
-                Name = "Special Lab Users"
-                DisplayName = "Special Lab Users"
-                Description = "Special lab users group"
-                OUPath = "LabUsers"
-                GroupScope = "Global"
+                SamAccountName = "SpecialAccounts"
+                Name = "Special Accounts"
+                DisplayName = "Special Accounts"
+                Description = "Members of this lab group are special accts and service accts"
+                OUPath = "Root/LabAdmins"
+                GroupScope = "Universal"
                 GroupCategory = "Security"
-                Members = @("arose", "shudson", "dmckagan")
             }
         )
         
-        OperationalGroups = @(
-            @{
-                SamAccountName = "PizzaPartyGroup"
-                Name = "Pizza Party Group"
-                DisplayName = "Pizza Party Group"
-                Description = "Distribution group for team events"
-                OUPath = "LabUsers"
-                GroupScope = "Global"
-                GroupCategory = "Distribution"
-                Members = @("arose", "shudson", "dmckagan", "pmccartney")
-            }
-            @{
-                SamAccountName = "HelpdeskOps"
-                Name = "Helpdesk Operations"
-                DisplayName = "Helpdesk Operations"
-                Description = "Helpdesk operations security group"
-                OUPath = "LabUsers"
-                GroupScope = "Global"
-                GroupCategory = "Security"
-                Members = @("opsadmin1", "monitoringacct1")
-            }
-        )
-        
-        DeleteMeGroups = @(
+        DeleteMeOUGroups = @(
             @{
                 SamAccountName = "SpecialAccessDatacenter"
                 Name = "Special Access - Datacenter"
                 DisplayName = "Special Access - Datacenter"
-                Description = "Datacenter access group to be deleted"
-                OUPath = "DeleteMeOU/CorpSpecialOU"
+                Description = "Resource Administrators for special Lab"
+                OUPath = "Root/DeleteMeOU/CorpSpecial"
                 GroupScope = "Global"
                 GroupCategory = "Security"
-                Members = @("adm.globaladmin")
             }
             @{
                 SamAccountName = "ServerAdminsUS"
                 Name = "Server Admins - US"
                 DisplayName = "Server Admins - US"
-                Description = "US server admin group to be deleted"
-                OUPath = "DeleteMeOU/Servers"
+                Description = "Resource Administrators for special Lab"
+                OUPath = "Root/DeleteMeOU/Servers"
                 GroupScope = "Global"
                 GroupCategory = "Security"
-                Members = @("adm.draji")
             }
             @{
                 SamAccountName = "ServerAdminsAPAC"
                 Name = "Server Admins - APAC"
                 DisplayName = "Server Admins - APAC"
-                Description = "APAC server admin group to be deleted"
-                OUPath = "DeleteMeOU/Servers"
+                Description = "Resource Administrators for special Lab"
+                OUPath = "Root/DeleteMeOU/Servers"
                 GroupScope = "Global"
                 GroupCategory = "Security"
-                Members = @("adm.gjimenez")
             }
             @{
                 SamAccountName = "ResourceAdmins"
                 Name = "Resource Admins"
                 DisplayName = "Resource Admins"
-                Description = "Resource admin group to be deleted"
-                OUPath = "DeleteMeOU/Resources"
+                Description = "Resource Administrators for special Lab"
+                OUPath = "Root/DeleteMeOU/Resources"
                 GroupScope = "Global"
                 GroupCategory = "Security"
-                Members = @("opsadmin1")
             }
         )
     }
