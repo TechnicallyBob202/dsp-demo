@@ -81,10 +81,11 @@ function New-OU {
     
     try {
         # Check if OU already exists
-        $existingOU = Get-ADOrganizationalUnit -Filter "Name -eq '$Name' -and DistinguishedName -like '*$Path'" -ErrorAction SilentlyContinue
+        $existingOU = Get-ADOrganizationalUnit -Filter "Name -eq '$Name'" -ErrorAction SilentlyContinue | `
+                      Where-Object { $_.DistinguishedName -like "*$Path" }
         
         if ($existingOU) {
-            Write-ActivityLog "OU already exists: $Name" -Level Warning
+            Write-ActivityLog "OU already exists: $Name (using existing)" -Level Info
             return $existingOU
         }
         
@@ -738,7 +739,7 @@ function Invoke-DirectoryActivity {
     }
     
     # Step 2: Create admin users (Tier 0, 1, 2)
-    if ($Config.AdminUsers) {
+    if ($Config -and $Config.AdminUsers) {
         Write-ActivityLog "Step 2: Creating admin user accounts..." -Level Info
         
         foreach ($adminConfig in $Config.AdminUsers.Values) {
@@ -760,10 +761,12 @@ function Invoke-DirectoryActivity {
                          -PasswordNeverExpires $true
             }
         }
+    } else {
+        Write-ActivityLog "Step 2: Skipping admin users (not in config)" -Level Info
     }
     
     # Step 3: Create demo users
-    if ($Config.DemoUsers) {
+    if ($Config -and $Config.DemoUsers) {
         Write-ActivityLog "Step 3: Creating demo user accounts..." -Level Info
         
         foreach ($userConfig in $Config.DemoUsers.Values) {
@@ -785,17 +788,21 @@ function Invoke-DirectoryActivity {
                          -PasswordNeverExpires $true
             }
         }
+    } else {
+        Write-ActivityLog "Step 3: Skipping demo users (not in config)" -Level Info
     }
     
     # Step 4: Create bulk generic users
-    if ($Config.General.GenericUserCount -gt 0) {
+    if ($Config -and $Config.General -and $Config.General.GenericUserCount -gt 0) {
         Write-ActivityLog "Step 4: Creating bulk generic users..." -Level Info
         New-BulkGenericUsers -OU $structure.TestOU.DistinguishedName `
                             -Count $Config.General.GenericUserCount
+    } else {
+        Write-ActivityLog "Step 4: Skipping bulk generic users (not in config)" -Level Info
     }
     
     # Step 5: Create groups
-    if ($Config.Groups) {
+    if ($Config -and $Config.Groups) {
         Write-ActivityLog "Step 5: Creating groups..." -Level Info
         
         foreach ($groupConfig in $Config.Groups.Values) {
@@ -808,10 +815,12 @@ function Invoke-DirectoryActivity {
                          -Members $groupConfig.Members
             }
         }
+    } else {
+        Write-ActivityLog "Step 5: Skipping groups (not in config)" -Level Info
     }
     
     # Step 6: Create FGPPs
-    if ($Config.FGPPs) {
+    if ($Config -and $Config.FGPPs) {
         Write-ActivityLog "Step 6: Creating Fine-Grained Password Policies..." -Level Info
         
         foreach ($fgppConfig in $Config.FGPPs.Values) {
@@ -823,6 +832,8 @@ function Invoke-DirectoryActivity {
                         -PasswordHistoryCount $fgppConfig.PasswordHistoryCount
             }
         }
+    } else {
+        Write-ActivityLog "Step 6: Skipping FGPPs (not in config)" -Level Info
     }
     
     # Step 7: Create computers in DeleteMe OU
