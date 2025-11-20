@@ -133,6 +133,18 @@
             Description = "Test OU for generic bulk user creation"
             ProtectFromAccidentalDeletion = $false
         }
+        
+        zSpecialOU = @{
+            Name = "zSpecial OU"
+            Description = "Special OU for demonstrations"
+            ProtectFromAccidentalDeletion = $true
+        }
+        
+        Tier0SpecialAssets = @{
+            Name = "Tier-0-Special-Assets"
+            Description = "Tier 0 special assets with restricted access"
+            ProtectFromAccidentalDeletion = $true
+        }
     }
     
     #---------------------------------------------------------------------------
