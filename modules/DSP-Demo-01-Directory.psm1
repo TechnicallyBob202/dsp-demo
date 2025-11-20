@@ -65,11 +65,22 @@ function New-OU {
     )
     
     try {
-        $existingOU = Get-ADOrganizationalUnit -Filter "Name -eq '$Name' -and DistinguishedName -like '*$Path*'" -ErrorAction SilentlyContinue
+        # Build the expected DN for this OU
+        $expectedDN = "OU=$Name,$Path"
+        
+        # Check if this exact OU already exists
+        $existingOU = Get-ADOrganizationalUnit -Identity $expectedDN -ErrorAction SilentlyContinue
         
         if ($existingOU) {
             Write-ActivityLog "OU already exists: $Name (using existing)" -Level Info
             return $existingOU
+        }
+        
+        # Verify the Path exists before creating
+        $parentPath = Get-ADOrganizationalUnit -Identity $Path -ErrorAction SilentlyContinue
+        if (-not $parentPath) {
+            Write-ActivityLog "Parent path does not exist: $Path" -Level Error
+            return $null
         }
         
         $ouParams = @{
