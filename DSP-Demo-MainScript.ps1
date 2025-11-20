@@ -320,12 +320,29 @@ try {
         
         if (Test-ModuleFile $moduleFile) {
             if (Import-DemoModule $moduleFile) {
-                $executedModules += $activityName
-                Write-Status "Activity $activityName completed" -Level Success
+                # Build the invoke function name: Invoke-DirectoryActivity, Invoke-DNSActivity, etc.
+                $functionName = "Invoke-$($activityName)Activity"
+                
+                if (Get-Command $functionName -ErrorAction SilentlyContinue) {
+                    try {
+                        # Call the activity function with domain info and config
+                        & $functionName -DomainInfo $domainInfo -Config $config
+                        $executedModules += $activityName
+                        Write-Status "Activity $activityName completed successfully" -Level Success
+                    }
+                    catch {
+                        $failedModules += $activityName
+                        Write-Status "Activity $activityName failed to execute: $_" -Level Error
+                    }
+                }
+                else {
+                    Write-Status "Activity function not found: $functionName" -Level Warning
+                    $failedModules += $activityName
+                }
             }
             else {
                 $failedModules += $activityName
-                Write-Status "Activity $activityName failed to execute" -Level Error
+                Write-Status "Activity $activityName failed to import module" -Level Error
             }
         }
         else {
