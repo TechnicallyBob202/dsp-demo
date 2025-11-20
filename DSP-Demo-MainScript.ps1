@@ -6,29 +6,28 @@
 ## 
 ## Features:
 ## - Loads configuration from config file
-## - Expands placeholders in configuration
 ## - Runs Preflight module for environment discovery and setup
 ## - Interactive menu for selecting activity modules to run
-## - Run individual activity modules or all modules
+## - Confirmation before executing selected modules
 ## - Configuration-driven approach
 ## - Comprehensive logging and error handling
 ##
 ## Author: Rob Ingenthron (Original), Bob Lyons (Refactor)
-## Version: 4.4.0-20251119 (Updated with placeholder expansion)
+## Version: 4.4.0-20251120
 ##
 ################################################################################
 
 #Requires -Version 5.1
-#Requires -Modules ActiveDirectory, GroupPolicy, DnsServer
+#Requires -Modules ActiveDirectory
 #Requires -RunAsAdministrator
 
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$false)]
-    [switch]$SkipMenu,
+    [switch]$SkipConfirmation,
     
     [Parameter(Mandatory=$false)]
-    [ValidateSet('Directory','DNS','GPOs','Sites','IOCs','All')]
+    [ValidateSet('Directory','DNS','GPOs','Sites','SecurityEvents','All')]
     [string]$Module,
     
     [Parameter(Mandatory=$false)]
@@ -61,6 +60,7 @@ $Colors = @{
     Info = 'White'
     Menu = 'Cyan'
     MenuHighlight = 'Yellow'
+    Prompt = 'Magenta'
 }
 
 ################################################################################
@@ -98,208 +98,182 @@ function Load-Configuration {
         Write-Status "Loading configuration from: $ConfigFile" -Level Info
         try {
             $config = Import-PowerShellDataFile -Path $ConfigFile -ErrorAction Stop
-            Write-Status "Configuration loaded successfully" -Level Success
             return $config
         }
         catch {
-            Write-Status "Failed to load configuration: $_" -Level Warning
-            Write-Status "Continuing with defaults..." -Level Info
-            return @{}
+            Write-Status "FATAL: Failed to load configuration: $_" -Level Error
+            exit 1
         }
     }
     else {
         Write-Status "Configuration file not found: $ConfigFile" -Level Warning
-        Write-Status "Continuing with defaults..." -Level Info
+        Write-Status "Continuing with minimal configuration..." -Level Info
         return @{}
     }
 }
 
-function Expand-ConfigPlaceholders {
-    <#
-    .SYNOPSIS
-        Replace placeholders in configuration with actual values
-    
-    .DESCRIPTION
-        Replaces {PLACEHOLDER} values in config with actual domain/forest info
-        
-        Supported placeholders:
-        - {DOMAIN_DN}: Domain distinguished name (e.g., DC=d3,DC=lab)
-        - {DOMAIN}: Domain FQDN (e.g., d3.lab)
-        - {COMPANY}: Company name from config
-        - {PASSWORD}: Default password from General.DefaultPassword
-    
-    .PARAMETER Config
-        Configuration hashtable to process
-    
-    .PARAMETER DomainInfo
-        Domain information object (from Get-DomainInfo)
-    
-    .EXAMPLE
-        $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $domainInfo
-    #>
-    [CmdletBinding()]
+function Import-DemoModule {
     param(
-        [Parameter(Mandatory=$true)]
-        [hashtable]$Config,
-        
-        [Parameter(Mandatory=$true)]
-        [PSCustomObject]$DomainInfo
+        [string]$ModuleName
     )
     
-    # Get default password from config
-    $defaultPassword = if ($Config.General.DefaultPassword) { 
-        $Config.General.DefaultPassword 
-    } else { 
-        "P@ssw0rd123!" 
-    }
-    
-    $company = if ($Config.General.Company) { 
-        $Config.General.Company 
-    } else { 
-        "Semperis" 
-    }
-    
-    # Build replacement hashtable
-    $replacements = @{
-        '{DOMAIN_DN}'  = $DomainInfo.DistinguishedName
-        '{DOMAIN}'     = $DomainInfo.FQDN
-        '{COMPANY}'    = $company
-        '{PASSWORD}'   = $defaultPassword
-    }
-    
-    Write-Status "Expanding config placeholders..." -Level Info
-    Write-Status "  {DOMAIN_DN} = $($replacements['{DOMAIN_DN}'])" -Level Info
-    Write-Status "  {DOMAIN} = $($replacements['{DOMAIN}'])" -Level Info
-    Write-Status "  {COMPANY} = $($replacements['{COMPANY}'])" -Level Info
-    Write-Status "  {PASSWORD} = ***hidden***" -Level Info
-    
-    # Recursively process all values in config
-    function Process-Object {
-        param($obj)
-        
-        if ($obj -is [hashtable]) {
-            $newTable = @{}
-            foreach ($key in $obj.Keys) {
-                $newTable[$key] = Process-Object $obj[$key]
-            }
-            return $newTable
-        }
-        elseif ($obj -is [string]) {
-            $result = $obj
-            foreach ($placeholder in $replacements.Keys) {
-                $result = $result -replace [regex]::Escape($placeholder), $replacements[$placeholder]
-            }
-            return $result
-        }
-        elseif ($obj -is [array]) {
-            return @($obj | ForEach-Object { Process-Object $_ })
-        }
-        else {
-            return $obj
-        }
-    }
-    
-    $expandedConfig = Process-Object $Config
-    Write-Status "Config placeholders expanded successfully" -Level Success
-    return $expandedConfig
-}
-
-function Test-ModuleFile {
-    param([string]$ModuleName)
     $modulePath = Join-Path $ModulesPath "$ModuleName.psm1"
-    return (Test-Path $modulePath -PathType Leaf)
-}
-
-function Import-DemoModule {
-    param([string]$ModuleName)
+    
+    if (-not (Test-Path $modulePath)) {
+        Write-Status "Module not found: $modulePath" -Level Error
+        return $false
+    }
     
     try {
-        $modulePath = Join-Path $ModulesPath "$ModuleName.psm1"
-        
-        if (-not (Test-Path $modulePath)) {
-            Write-Status "Module file not found: $modulePath" -Level Error
-            return $false
-        }
-        
-        Import-Module $modulePath -Force -ErrorAction Stop
-        Write-Status "Module imported successfully: $ModuleName" -Level Success
+        Import-Module -Name $modulePath -Force -ErrorAction Stop
+        Write-Status "Imported module: $ModuleName" -Level Success
         return $true
     }
     catch {
-        Write-Status "Failed to import $ModuleName : $_" -Level Error
+        Write-Status "Failed to import module $ModuleName : $_" -Level Error
         return $false
     }
 }
 
-function Show-ActivityMenu {
-    Write-Header "DSP DEMO - SELECT ACTIVITY MODULES"
-    
+function Show-MainMenu {
+    Write-Host ""
     Write-Host "Available Activity Modules:" -ForegroundColor $Colors.Menu
     Write-Host ""
-    Write-Host "   1. Directory       - Create users, groups, OUs, computers, FGPP" -ForegroundColor $Colors.Menu
-    Write-Host "   2. DNS             - Create DNS zones and records" -ForegroundColor $Colors.Menu
-    Write-Host "   3. GPOs            - Create and modify Group Policy Objects" -ForegroundColor $Colors.Menu
-    Write-Host "   4. Sites           - Create AD sites and subnets" -ForegroundColor $Colors.Menu
-    Write-Host "   5. IOCs            - Create Indicators of Compromise" -ForegroundColor $Colors.Menu
-    Write-Host "   6. All             - Run all activity modules" -ForegroundColor $Colors.Menu
-    Write-Host "   0. Exit            - Exit without running activities" -ForegroundColor $Colors.Menu
+    Write-Host "  1. Directory Objects (Users, Groups, OUs)" -ForegroundColor $Colors.Info
+    Write-Host "  2. DNS Records" -ForegroundColor $Colors.Info
+    Write-Host "  3. Group Policy Objects (GPOs)" -ForegroundColor $Colors.Info
+    Write-Host "  4. Sites and Subnets" -ForegroundColor $Colors.Info
+    Write-Host "  5. Security Events" -ForegroundColor $Colors.Info
+    Write-Host "  6. Run All Modules" -ForegroundColor $Colors.MenuHighlight
+    Write-Host "  7. Exit" -ForegroundColor $Colors.Warning
     Write-Host ""
 }
 
-function Get-ActivitySelection {
-    while ($true) {
-        $choice = Read-Host "Select an option (0-6)"
+function Get-MenuSelection {
+    Write-Host "Select modules to run (comma-separated for multiple, e.g. '1,3,5'):" -ForegroundColor $Colors.Prompt
+    Write-Host -NoNewline "Enter selection: " -ForegroundColor $Colors.Prompt
+    $selection = Read-Host
+    return $selection
+}
+
+function Parse-MenuSelection {
+    param([string]$Selection)
+    
+    $selected = @()
+    
+    if ($Selection -eq "6") {
+        $selected = @("Directory","DNS","GPOs","Sites","SecurityEvents")
+    }
+    else {
+        $choices = $Selection -split "," | ForEach-Object { $_.Trim() }
         
-        switch ($choice) {
-            '1' { return @('Directory') }
-            '2' { return @('DNS') }
-            '3' { return @('GPOs') }
-            '4' { return @('Sites') }
-            '5' { return @('IOCs') }
-            '6' { return @('Directory', 'DNS', 'GPOs', 'Sites', 'IOCs') }
-            '0' { return @() }
-            default { Write-Status "Invalid selection, please try again" -Level Warning }
+        $moduleMap = @{
+            "1" = "Directory"
+            "2" = "DNS"
+            "3" = "GPOs"
+            "4" = "Sites"
+            "5" = "SecurityEvents"
+        }
+        
+        foreach ($choice in $choices) {
+            if ($moduleMap.ContainsKey($choice)) {
+                $selected += $moduleMap[$choice]
+            }
+            else {
+                Write-Status "Invalid selection: $choice" -Level Warning
+            }
         }
     }
+    
+    return $selected
 }
 
-function Show-ExecutionSummary {
+function Show-ConfirmationPrompt {
+    param([array]$SelectedModules)
+    
+    Write-Header "Confirm Module Execution"
+    
+    Write-Host "You have selected the following modules to execute:" -ForegroundColor $Colors.Info
+    Write-Host ""
+    
+    $SelectedModules | ForEach-Object {
+        Write-Host "  ✓ $_" -ForegroundColor $Colors.Success
+    }
+    
+    Write-Host ""
+    Write-Host "Configuration:" -ForegroundColor $Colors.Section
+    Write-Host "  Domain:     $($Script:DomainInfo.Name)" -ForegroundColor $Colors.Info
+    Write-Host "  Primary DC: $($Script:PrimaryDC)" -ForegroundColor $Colors.Info
+    if ($Script:SecondaryDC) {
+        Write-Host "  Secondary DC: $($Script:SecondaryDC)" -ForegroundColor $Colors.Info
+    }
+    Write-Host ""
+    
+    Write-Host "Continue with execution?" -ForegroundColor $Colors.Prompt
+    Write-Host -NoNewline "[Y]es or [N]o: " -ForegroundColor $Colors.Prompt
+    $confirm = Read-Host
+    
+    return ($confirm -eq "Y" -or $confirm -eq "Yes")
+}
+
+function Run-ActivityModule {
     param(
-        [array]$ExecutedModules,
-        [array]$FailedModules,
-        [timespan]$ExecutionTime
+        [string]$ModuleName,
+        [hashtable]$Config,
+        [hashtable]$Environment
     )
     
-    Write-Header "EXECUTION SUMMARY"
+    Write-Header "Running $ModuleName Module"
     
-    if ($ExecutedModules.Count -gt 0) {
-        Write-Status "Successfully executed modules: $($ExecutedModules -join ', ')" -Level Success
+    try {
+        # Map module names to function names
+        $functionMap = @{
+            "Directory" = "Invoke-DirectoryActivity"
+            "DNS" = "Invoke-DNSActivity"
+            "GPOs" = "Invoke-GPOActivity"
+            "Sites" = "Invoke-SitesActivity"
+            "SecurityEvents" = "Invoke-SecurityEventsActivity"
+        }
+        
+        $functionName = $functionMap[$ModuleName]
+        
+        if (Get-Command $functionName -ErrorAction SilentlyContinue) {
+            & $functionName -Config $Config -Environment $Environment
+            Write-Status "Module completed: $ModuleName" -Level Success
+        }
+        else {
+            Write-Status "Function $functionName not found in module" -Level Error
+            return $false
+        }
+    }
+    catch {
+        Write-Status "Error executing $ModuleName : $_" -Level Error
+        return $false
     }
     
-    if ($FailedModules.Count -gt 0) {
-        Write-Status "Failed modules: $($FailedModules -join ', ')" -Level Warning
-    }
-    
-    Write-Status "Total execution time: $($ExecutionTime.TotalSeconds) seconds" -Level Info
-    Write-Host ""
+    return $true
 }
 
 ################################################################################
-# MAIN SCRIPT
+# MAIN EXECUTION
 ################################################################################
 
-try {
-    Write-Header "DSP Demo Script - Preflight Initialization"
+function Main {
+    Write-Header "DSP DEMO ACTIVITY GENERATION SUITE v4.4.0"
     
-    # Load configuration
-    $config = Load-Configuration -ConfigFile $Script:ConfigFile
+    Write-Status "Script path: $ScriptPath" -Level Info
+    Write-Status "Config file: $ConfigFile" -Level Info
     
-    # Check if modules directory exists
-    if (-not (Test-Path $ModulesPath -PathType Container)) {
-        Write-Status "Modules directory not found: $ModulesPath" -Level Warning
+    # Ensure modules directory exists
+    if (-not (Test-Path $ModulesPath)) {
         Write-Status "Creating modules directory..." -Level Info
         New-Item -ItemType Directory -Path $ModulesPath -Force | Out-Null
     }
+    
+    # Load configuration
+    Write-Status "Loading configuration..." -Level Info
+    $config = Load-Configuration -ConfigFile $ConfigFile
+    Write-Status "Configuration loaded" -Level Success
     
     # Import and run Preflight module (mandatory)
     Write-Status "Importing Preflight module..." -Level Info
@@ -315,23 +289,23 @@ try {
     Write-Header "Discovering Environment"
     
     try {
-        $domainInfo = Get-DomainInfo
+        $Script:DomainInfo = Get-DomainInfo
         $dcs = Get-ADDomainControllers
         
         if ($dcs -is [array]) {
-            $primaryDC = $dcs[0].HostName
-            $secondaryDC = if ($dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
+            $Script:PrimaryDC = $dcs[0].HostName
+            $Script:SecondaryDC = if ($dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
         }
         else {
-            $primaryDC = $dcs.HostName
-            $secondaryDC = $null
+            $Script:PrimaryDC = $dcs.HostName
+            $Script:SecondaryDC = $null
         }
         
-        $forestInfo = Get-ForestInfo
+        $Script:ForestInfo = Get-ForestInfo
         
-        Write-Status "Primary DC: $primaryDC" -Level Info
-        if ($secondaryDC) {
-            Write-Status "Secondary DC: $secondaryDC" -Level Info
+        Write-Status "Primary DC: $($Script:PrimaryDC)" -Level Info
+        if ($Script:SecondaryDC) {
+            Write-Status "Secondary DC: $($Script:SecondaryDC)" -Level Info
         }
     }
     catch {
@@ -339,123 +313,146 @@ try {
         exit 1
     }
     
-    # EXPAND PLACEHOLDERS IN CONFIG AFTER GETTING DOMAIN INFO
-    $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $domainInfo
-    
     # Attempt DSP connectivity (optional)
     Write-Header "DSP Server Discovery"
     
     $dspServerFromConfig = if ($config -and $config.General -and $config.General.DspServer) { $config.General.DspServer } else { "" }
     
-    $dspServer = Find-DspServer -DomainInfo $domainInfo -ConfigServer $dspServerFromConfig
-    $dspAvailable = $false
-    $dspConnection = $null
+    $Script:DspAvailable = $false
+    $Script:DspConnection = $null
     
-    if ($dspServer) {
-        if (Test-DspModule) {
-            $dspAvailable = $true
-            $dspConnection = Connect-DspManagementServer -DspServer $dspServer
+    # Try to find and connect to DSP (graceful failure)
+    Write-Status "Checking for DSP server..." -Level Info
+    try {
+        if (Get-Command Find-DspServer -ErrorAction SilentlyContinue) {
+            $dspServer = Find-DspServer -DomainInfo $Script:DomainInfo -ConfigServer $dspServerFromConfig -ErrorAction SilentlyContinue
             
-            if ($dspConnection) {
-                Write-Status "DSP connectivity established" -Level Success
+            if ($dspServer) {
+                if (Get-Command Test-DspModule -ErrorAction SilentlyContinue) {
+                    if (Test-DspModule) {
+                        $Script:DspAvailable = $true
+                        Write-Status "DSP server found: $dspServer" -Level Success
+                    }
+                    else {
+                        Write-Status "DSP module not available, DSP operations will be skipped" -Level Warning
+                    }
+                }
             }
-            else {
-                Write-Status "DSP module available but connection failed - continuing without DSP" -Level Warning
-                $dspAvailable = $false
-            }
-        }
-        else {
-            Write-Status "DSP server found but module not installed - continuing without DSP" -Level Warning
-            $dspAvailable = $false
         }
     }
-    else {
-        Write-Status "DSP server not found - continuing without DSP" -Level Warning
-        $dspAvailable = $false
+    catch {
+        Write-Status "DSP discovery failed (continuing without DSP): $_" -Level Warning
+    }
+    
+    if (-not $Script:DspAvailable) {
+        Write-Status "DSP not available, AD activity generation will continue" -Level Info
     }
     
     Write-Host ""
     
-    # Determine which activity modules to run
-    $activityModules = @()
+    # Determine which modules to run
+    $selectedModules = @()
     
     if ($Module) {
-        if ($Module -eq 'All') {
-            $activityModules = @('Directory', 'DNS', 'GPOs', 'Sites', 'IOCs')
+        # Command-line module specified
+        if ($Module -eq "All") {
+            $selectedModules = @("Directory","DNS","GPOs","Sites","SecurityEvents")
         }
         else {
-            $activityModules = @($Module)
+            $selectedModules = @($Module)
         }
     }
-    elseif (-not $SkipMenu) {
-        Show-ActivityMenu
-        $activityModules = Get-ActivitySelection
-        
-        if (-not $activityModules) {
-            Write-Status "No activity modules selected - exiting" -Level Info
-            exit 0
-        }
+    elseif ($SkipConfirmation) {
+        Write-Status "Running all modules (skip confirmation flag set)" -Level Info
+        $selectedModules = @("Directory","DNS","GPOs","Sites","SecurityEvents")
     }
     else {
-        $activityModules = @('Directory', 'DNS', 'GPOs', 'Sites', 'IOCs')
-    }
-    
-    Write-Header "RUNNING ACTIVITY MODULES"
-    
-    $executionStart = Get-Date
-    $executedModules = @()
-    $failedModules = @()
-    
-    foreach ($activityName in $activityModules) {
-        Write-Host ""
-        Write-Status "Processing activity module: $activityName" -Level Info
-        
-        $moduleFile = "DSP-Demo-01-$activityName"
-        
-        if (Test-ModuleFile $moduleFile) {
-            if (Import-DemoModule $moduleFile) {
-                # Build the invoke function name: Invoke-DirectoryActivity, Invoke-DNSActivity, etc.
-                $functionName = "Invoke-$($activityName)Activity"
-                
-                if (Get-Command $functionName -ErrorAction SilentlyContinue) {
-                    try {
-                        # Call the activity function with domain info and config
-                        & $functionName -DomainInfo $domainInfo -Config $config
-                        $executedModules += $activityName
-                        Write-Status "Activity $activityName completed successfully" -Level Success
-                    }
-                    catch {
-                        $failedModules += $activityName
-                        Write-Status "Activity $activityName failed to execute: $_" -Level Error
-                    }
-                }
-                else {
-                    Write-Status "Activity function not found: $functionName" -Level Warning
-                    $failedModules += $activityName
-                }
+        # Interactive menu
+        do {
+            Show-MainMenu
+            $selection = Get-MenuSelection
+            
+            if ($selection -eq "7") {
+                Write-Status "Exiting..." -Level Info
+                exit 0
+            }
+            
+            $selectedModules = Parse-MenuSelection -Selection $selection
+            
+            if ($selectedModules.Count -eq 0) {
+                Write-Status "No valid modules selected, please try again" -Level Warning
+                continue
+            }
+            
+            # Show confirmation
+            if (Show-ConfirmationPrompt -SelectedModules $selectedModules) {
+                break
             }
             else {
-                $failedModules += $activityName
-                Write-Status "Activity $activityName failed to import module" -Level Error
+                Write-Status "Execution cancelled by user" -Level Warning
+                Write-Host ""
             }
         }
-        else {
-            Write-Status "Activity module file not found: $moduleFile.psm1" -Level Warning
-            $failedModules += $activityName
+        while ($true)
+    }
+    
+    # Build environment hash for passing to modules
+    $environment = @{
+        DomainInfo = $Script:DomainInfo
+        PrimaryDC = $Script:PrimaryDC
+        SecondaryDC = $Script:SecondaryDC
+        ForestInfo = $Script:ForestInfo
+        DspAvailable = $Script:DspAvailable
+        DspConnection = $Script:DspConnection
+    }
+    
+    # Import activity modules and execute
+    Write-Header "Loading Activity Modules"
+    
+    $modulesToImport = @(
+        "DSP-Demo-01-Core",
+        "DSP-Demo-02-Directory",
+        "DSP-Demo-03-DNS",
+        "DSP-Demo-04-GPOs",
+        "DSP-Demo-05-Sites",
+        "DSP-Demo-06-SecurityEvents"
+    )
+    
+    foreach ($moduleName in $modulesToImport) {
+        if (-not (Import-DemoModule $moduleName)) {
+            Write-Status "Warning: Failed to import $moduleName" -Level Warning
         }
     }
     
-    $executionEnd = Get-Date
-    $executionTime = $executionEnd - $executionStart
+    Write-Host ""
     
-    Show-ExecutionSummary -ExecutedModules $executedModules -FailedModules $failedModules -ExecutionTime $executionTime
-}
-catch {
-    Write-Header "FATAL ERROR"
-    Write-Status "Script failed: $_" -Level Error
-    exit 1
+    # Execute selected modules
+    Write-Header "Executing Selected Modules"
+    
+    $completedModules = 0
+    $failedModules = 0
+    
+    foreach ($moduleName in $selectedModules) {
+        if (Run-ActivityModule -ModuleName $moduleName -Config $config -Environment $environment) {
+            $completedModules++
+        }
+        else {
+            $failedModules++
+        }
+        Write-Host ""
+    }
+    
+    # Summary
+    Write-Header "Execution Summary"
+    
+    Write-Host "Modules Completed: $completedModules" -ForegroundColor $Colors.Success
+    if ($failedModules -gt 0) {
+        Write-Host "Modules Failed: $failedModules" -ForegroundColor $Colors.Error
+    }
+    
+    Write-Status "Demo activity generation completed" -Level Success
+    Write-Host ""
 }
 
-################################################################################
-# END OF SCRIPT
-################################################################################
+# Execute main function
+Main
