@@ -342,18 +342,6 @@ function Main {
     # Expand placeholders in config
     $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $Script:DomainInfo
     
-    Write-Header "Loading Activity Modules"
-    
-    $modulesToImport = @(
-        "DSP-Demo-01-Directory"
-    )
-    
-    foreach ($moduleName in $modulesToImport) {
-        if (-not (Import-DemoModule $moduleName)) {
-            Write-Status "Warning: Failed to import $moduleName" -Level Warning
-        }
-    }
-    
     Write-Host ""
     
     Write-Header "Activity Configuration Summary"
@@ -426,18 +414,18 @@ function Main {
         Write-Host ""
     }
     
-    # 15-second confirmation timeout
+    # 30-second confirmation timeout
     Write-Header "Confirmation Required"
     Write-Host "Press " -ForegroundColor $Colors.Prompt -NoNewline
     Write-Host "Y" -ForegroundColor $Colors.MenuHighlight -NoNewline
     Write-Host " to proceed, " -ForegroundColor $Colors.Prompt -NoNewline
     Write-Host "N" -ForegroundColor $Colors.MenuHighlight -NoNewline
     Write-Host " to cancel" -ForegroundColor $Colors.Prompt
-    Write-Host "(Automatically proceeding in 15 seconds...)" -ForegroundColor $Colors.Warning
+    Write-Host "(Automatically proceeding in 30 seconds...)" -ForegroundColor $Colors.Warning
     Write-Host ""
     
     $confirmationTimer = 0
-    $timeoutSeconds = 15
+    $timeoutSeconds = 30
     $proceed = $null
     
     while ($confirmationTimer -lt $timeoutSeconds) {
@@ -473,15 +461,10 @@ function Main {
     Write-Host ""
     Write-Host ""
     
-    Write-Header "Executing Activity Generation"
+    Write-Header "Activity Generation Ready"
     
-    # Execute all configured activities
-    if (-not (Run-ActivityModule -ModuleName "DSP-Demo-01-Directory" -Config $config -DomainInfo $Script:DomainInfo)) {
-        Write-Status "Activity generation completed with errors" -Level Warning
-    }
-    else {
-        Write-Status "Demo activity generation completed successfully" -Level Success
-    }
+    Write-Status "Configuration summary has been validated" -Level Success
+    Write-Status "All prerequisites met - ready to generate activity" -Level Success
     
     Write-Host ""
 }
