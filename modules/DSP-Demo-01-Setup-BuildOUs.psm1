@@ -9,139 +9,6 @@
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
 
-################################################################################
-# HELPER FUNCTIONS
-################################################################################
-
-function New-OU {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$Name,
-        
-        [Parameter(Mandatory=$true)]
-        [string]$Path,
-        
-        [Parameter(Mandatory=$false)]
-        [string]$Description,
-        
-        [Parameter(Mandatory=$false)]
-        [bool]$ProtectFromAccidentalDeletion = $true
-    )
-    
-    $ouDN = "OU=$Name,$Path"
-    Write-Host "        Checking for existing: $ouDN" -ForegroundColor Gray
-    
-    $existingOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction SilentlyContinue
-    
-    if ($existingOU) {
-        Write-Host "        Already exists at: $ouDN" -ForegroundColor Gray
-        return $existingOU
-    }
-    
-    Write-Host "        Creating new OU at: $ouDN" -ForegroundColor Gray
-    
-    try {
-        $ou = New-ADOrganizationalUnit -Name $Name -Path $Path -Description $Description -ProtectedFromAccidentalDeletion $ProtectFromAccidentalDeletion
-        Write-Host "        Creation command succeeded" -ForegroundColor Gray
-        
-        Start-Sleep -Milliseconds 500
-        
-        Write-Host "        Fetching created OU from: $ouDN" -ForegroundColor Gray
-        $createdOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction Stop
-        Write-Host "        Fetch succeeded" -ForegroundColor Gray
-        
-        return $createdOU
-    }
-    catch {
-        Write-Host "        ERROR in New-OU" -ForegroundColor Red
-        Write-Host "        Full exception: $($_.Exception.GetType().Name)" -ForegroundColor Red
-        Write-Host "        Message: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "        StackTrace: $($_.Exception.StackTrace)" -ForegroundColor Red
-        return $null
-    }
-}
-
-function Build-OUStructure {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$DomainDN,
-        
-        [Parameter(Mandatory=$true)]
-        [hashtable]$OUConfig
-    )
-    
-    $ouObjects = @{}
-    $createdCount = 0
-    
-    try {
-        foreach ($ouKey in $OUConfig.Keys) {
-            $ouDef = $OUConfig[$ouKey]
-            $ouName = $ouDef.Name
-            $ouDesc = $ouDef.Description
-            $ouProtect = $ouDef.ProtectFromAccidentalDeletion
-            
-            Write-Host "  Creating OU: $ouName" -ForegroundColor Cyan
-            
-            $ou = New-OU -Name $ouName -Path $DomainDN -Description $ouDesc -ProtectFromAccidentalDeletion $ouProtect
-            
-            if ($ou) {
-                Write-Host "    OK: $ouName" -ForegroundColor Green
-                $createdCount++
-                $ouObjects[$ouKey] = $ou
-                
-                if ($ouDef.ContainsKey('Children') -and $ouDef.Children) {
-                    foreach ($childKey in $ouDef.Children.Keys) {
-                        $childDef = $ouDef.Children[$childKey]
-                        $childName = $childDef.Name
-                        $childDesc = $childDef.Description
-                        $childProtect = $childDef.ProtectFromAccidentalDeletion
-                        
-                        Write-Host "    Creating child OU: $childName" -ForegroundColor Cyan
-                        
-                        $parentDN = $ou.DistinguishedName
-                        Write-Host "      Parent OU DN: $parentDN" -ForegroundColor Yellow
-                        Write-Host "      Child Name: $childName" -ForegroundColor Yellow
-                        
-                        if (-not $parentDN) {
-                            Write-Host "      FAILED: Parent OU DN is empty" -ForegroundColor Red
-                            continue
-                        }
-                        
-                        $childOU = New-OU -Name $childName -Path $parentDN -Description $childDesc -ProtectFromAccidentalDeletion $childProtect
-                        
-                        if ($childOU) {
-                            Write-Host "      OK: $childName" -ForegroundColor Green
-                            $createdCount++
-                            $ouObjects["$ouKey/$childKey"] = $childOU
-                        }
-                        else {
-                            Write-Host "      FAILED: $childName" -ForegroundColor Red
-                        }
-                    }
-                }
-            }
-            else {
-                Write-Host "    FAILED: $ouName" -ForegroundColor Red
-            }
-        }
-        
-        Write-Host ""
-        Write-Host "  Summary: $createdCount OUs created/verified" -ForegroundColor Green
-        
-        return $ouObjects
-    }
-    catch {
-        Write-Error "Failed to build OU structure: $_"
-        return $null
-    }
-}
-
-################################################################################
-# MAIN FUNCTION
-################################################################################
-
 function Invoke-BuildOUs {
     [CmdletBinding()]
     param(
@@ -152,54 +19,65 @@ function Invoke-BuildOUs {
         [PSCustomObject]$Environment
     )
     
+    $domainDN = $Environment.DomainInfo.DN
+    
+    if (-not $domainDN) {
+        Write-Error "Domain DN is empty"
+        return $false
+    }
+    
+    Write-Host ""
+    Write-Host "Creating OU hierarchy at: $domainDN" -ForegroundColor Cyan
+    Write-Host ""
+    
     try {
-        Write-Verbose "Starting BuildOUs module"
-        
-        if (-not $Config -or -not $Config.ContainsKey('OUs')) {
-            Write-Warning "No OUs defined in configuration"
-            return $true
-        }
-        
-        if (-not $Environment -or -not $Environment.DomainInfo) {
-            Write-Error "Invalid environment object"
-            return $false
-        }
-        
-        $domainDN = $Environment.DomainInfo.DN
-        
-        if (-not $domainDN) {
-            Write-Error "Domain DN is empty or missing from environment"
-            return $false
-        }
-        
-        Write-Host ""
-        Write-Host "Creating OU hierarchy at: $domainDN" -ForegroundColor Cyan
-        Write-Host ""
-        
-        $ouObjects = Build-OUStructure -DomainDN $domainDN -OUConfig $Config.OUs
-        
-        if (-not $ouObjects) {
-            Write-Error "Failed to create OU structure"
-            return $false
+        # Create all OUs from config
+        foreach ($ouKey in $Config.OUs.Keys) {
+            $ouDef = $Config.OUs[$ouKey]
+            $ouName = $ouDef.Name
+            $ouDesc = $ouDef.Description
+            
+            # Create top-level OU
+            $ouDN = "OU=$ouName,$domainDN"
+            
+            $ou = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction SilentlyContinue
+            if ($ou) {
+                Write-Host "  $ouName (already exists)" -ForegroundColor Green
+            }
+            else {
+                New-ADOrganizationalUnit -Name $ouName -Path $domainDN -Description $ouDesc -ProtectedFromAccidentalDeletion $ouDef.ProtectFromAccidentalDeletion
+                Write-Host "  $ouName (created)" -ForegroundColor Green
+            }
+            
+            # Create child OUs if defined
+            if ($ouDef.ContainsKey('Children') -and $ouDef.Children) {
+                foreach ($childKey in $ouDef.Children.Keys) {
+                    $childDef = $ouDef.Children[$childKey]
+                    $childName = $childDef.Name
+                    $childDesc = $childDef.Description
+                    
+                    $childDN = "OU=$childName,$ouDN"
+                    
+                    $child = Get-ADOrganizationalUnit -Identity $childDN -ErrorAction SilentlyContinue
+                    if ($child) {
+                        Write-Host "    $childName (already exists)" -ForegroundColor Green
+                    }
+                    else {
+                        New-ADOrganizationalUnit -Name $childName -Path $ouDN -Description $childDesc -ProtectedFromAccidentalDeletion $childDef.ProtectFromAccidentalDeletion
+                        Write-Host "    $childName (created)" -ForegroundColor Green
+                    }
+                }
+            }
         }
         
         Write-Host ""
         Write-Host "OU hierarchy created successfully" -ForegroundColor Green
-        
-        Write-Verbose "BuildOUs module completed successfully"
-        
-        $script:OUObjects = $ouObjects
-        
         return $true
     }
     catch {
-        Write-Error "Error in Invoke-BuildOUs: $_"
+        Write-Error "Failed to create OUs: $_"
         return $false
     }
 }
-
-################################################################################
-# EXPORT
-################################################################################
 
 Export-ModuleMember -Function Invoke-BuildOUs
