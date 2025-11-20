@@ -6,7 +6,7 @@
 ## Handles environment discovery, logging, AD discovery, and DSP connectivity
 ##
 ## Author: Rob Ingenthron (Original), Bob Lyons (Refactor)
-## Version: 1.0.1-20251119
+## Version: 1.0.2-20251120
 ##
 ################################################################################
 
@@ -98,10 +98,7 @@ function Test-AdminRights {
         Test if script is running with administrator privileges.
     
     .OUTPUTS
-        [bool] - $true if running as admin, $false otherwise
-    
-    .EXAMPLE
-        if (-not (Test-AdminRights)) { Write-Error "Must run as admin"; exit 1 }
+        [bool] - $true if admin, $false otherwise
     #>
     [CmdletBinding()]
     param()
@@ -163,7 +160,7 @@ function Get-DomainInfo {
         Write-Host "Domain: $($domain.Name)"
     
     .OUTPUTS
-        PSCustomObject with domain information: Name, FQDN, DistinguishedName, NetBIOSName, DomainMode, DomainControllers
+        PSCustomObject with domain information including FQDN, DN, NetBIOS
     #>
     [CmdletBinding()]
     param()
@@ -183,8 +180,7 @@ function Get-DomainInfo {
             DomainControllers = @($adDomain.ReplicaDirectoryServers)
         }
         
-        Write-ScriptLog "Domain: $($domainInfo.Name) - DNSRoot: $($domainInfo.FQDN)" -Level Success
-        Write-ScriptLog "Domain DN: $($domainInfo.DistinguishedName)" -Level Info
+        Write-ScriptLog "Domain: $($domainInfo.Name) - FQDN: $($domainInfo.FQDN)" -Level Success
         
         return $domainInfo
     }
@@ -270,6 +266,149 @@ function Get-ForestInfo {
     }
 }
 
+function Get-DNSServer {
+    <#
+    .SYNOPSIS
+        Get primary DNS server FQDN from domain.
+    
+    .PARAMETER DomainControllerName
+        Optional DC name to query (default: uses current domain)
+    
+    .EXAMPLE
+        $dnsServer = Get-DNSServer
+        Write-Host "DNS Server: $dnsServer"
+    
+    .OUTPUTS
+        [string] - FQDN of primary DNS server
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$false)]
+        [string]$DomainControllerName
+    )
+    
+    try {
+        Write-ScriptLog "Discovering DNS server..." -Level Info
+        
+        if (-not $DomainControllerName) {
+            $dc = Get-ADDomainController -Discover -ErrorAction Stop
+            $DomainControllerName = $dc.HostName
+        }
+        
+        Write-ScriptLog "Using DNS server: $DomainControllerName" -Level Success
+        return $DomainControllerName
+    }
+    catch {
+        Write-ScriptLog "Failed to discover DNS server: $_" -Level Error
+        throw
+    }
+}
+
+function Expand-ConfigPlaceholders {
+    <#
+    .SYNOPSIS
+        Replace placeholder tokens in configuration with actual domain values.
+    
+    .PARAMETER Config
+        Configuration hashtable with {PLACEHOLDER} values
+    
+    .PARAMETER DomainInfo
+        Domain information object from Get-DomainInfo
+    
+    .EXAMPLE
+        $expandedConfig = Expand-ConfigPlaceholders -Config $config -DomainInfo $domainInfo
+    
+    .OUTPUTS
+        [hashtable] - Configuration with all placeholders expanded
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [hashtable]$Config,
+        
+        [Parameter(Mandatory=$true)]
+        [PSCustomObject]$DomainInfo
+    )
+    
+    $replacements = @{
+        '{DOMAIN_DN}'     = $DomainInfo.DistinguishedName
+        '{DOMAIN}'        = $DomainInfo.FQDN
+        '{NETBIOS}'       = $DomainInfo.NetBIOSName
+        '{PASSWORD}'      = if ($Config.General.DefaultPassword) { $Config.General.DefaultPassword } else { "P@ssw0rd123!" }
+        '{COMPANY}'       = if ($Config.General.Company) { $Config.General.Company } else { "Semperis" }
+    }
+    
+    function Expand-Object {
+        param([object]$Obj)
+        
+        if ($Obj -is [string]) {
+            $result = $Obj
+            foreach ($key in $replacements.Keys) {
+                $result = $result -replace [regex]::Escape($key), $replacements[$key]
+            }
+            return $result
+        }
+        elseif ($Obj -is [hashtable]) {
+            $newHash = @{}
+            foreach ($hkey in $Obj.Keys) {
+                $newHash[$hkey] = Expand-Object $Obj[$hkey]
+            }
+            return $newHash
+        }
+        elseif ($Obj -is [array]) {
+            return @($Obj | ForEach-Object { Expand-Object $_ })
+        }
+        else {
+            return $Obj
+        }
+    }
+    
+    return Expand-Object $Config
+}
+
+function Test-ConfigSection {
+    <#
+    .SYNOPSIS
+        Test if a configuration section exists and has content.
+    
+    .PARAMETER Config
+        Configuration hashtable
+    
+    .PARAMETER SectionPath
+        Dot-separated path to section (e.g., "General.DspServer")
+    
+    .EXAMPLE
+        if (Test-ConfigSection -Config $config -SectionPath "General.DspServer") {
+            $dspServer = $config.General.DspServer
+        }
+    
+    .OUTPUTS
+        [bool] - $true if section exists and contains value, $false otherwise
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [hashtable]$Config,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$SectionPath
+    )
+    
+    $parts = $SectionPath -split '\.'
+    $current = $Config
+    
+    foreach ($part in $parts) {
+        if ($current -is [hashtable] -and $current.ContainsKey($part)) {
+            $current = $current[$part]
+        }
+        else {
+            return $false
+        }
+    }
+    
+    return ($null -ne $current)
+}
+
 ################################################################################
 # DSP CONNECTIVITY FUNCTIONS
 ################################################################################
@@ -280,14 +419,13 @@ function Find-DspServer {
         Find DSP Management Server via config, SCP, or manual discovery.
     
     .PARAMETER DomainInfo
-        Domain information object from Get-DomainInfo
+        Domain information object
     
     .PARAMETER ConfigServer
-        DSP server from config file (optional, takes priority)
+        Optional DSP server FQDN from config
     
     .EXAMPLE
         $dspServer = Find-DspServer -DomainInfo $domainInfo -ConfigServer "dsp.domain.com"
-        if ($dspServer) { Write-Host "DSP Server: $dspServer" }
     
     .OUTPUTS
         [string] - FQDN of DSP server, or $null if not found
@@ -301,127 +439,97 @@ function Find-DspServer {
         [string]$ConfigServer
     )
     
-    # If DSP server is set in config, use it first
-    if ($ConfigServer) {
-        Write-ScriptLog "Using DSP server from configuration: $ConfigServer" -Level Info
-        return $ConfigServer
-    }
-    
-    # Otherwise, search for DSP SCP
     try {
-        Write-ScriptLog "Searching for DSP Service Connection Point..." -Level Info
+        # If configured, use that server
+        if ($ConfigServer -and $ConfigServer -ne "") {
+            Write-ScriptLog "Using configured DSP server: $ConfigServer" -Level Info
+            return $ConfigServer
+        }
         
-        $dn = $DomainInfo.DistinguishedName
-        $searchBase = "CN=Services,CN=Configuration,$dn"
+        # Otherwise, attempt SCP discovery
+        Write-ScriptLog "Attempting to discover DSP server via SCP..." -Level Info
         
-        # Search for DSP SCP
-        $scp = Get-ADObject -SearchBase $searchBase `
-                           -Filter "objectClass -eq 'serviceConnectionPoint' -and cn -like '*Semperis.Dsp.Management*'" `
-                           -Properties serviceBindingInformation `
-                           -ErrorAction SilentlyContinue
+        $scpPath = "LDAP://CN=Semperis DSP,CN=Services,CN=Configuration," + $DomainInfo.DistinguishedName
+        $scp = Get-ADObject -LDAPFilter "(cn=Semperis DSP)" -SearchBase "CN=Services,CN=Configuration,$($DomainInfo.DistinguishedName)" -ErrorAction SilentlyContinue
         
         if ($scp) {
-            $dspServer = $scp.serviceBindingInformation[0]
-            Write-ScriptLog "Found DSP server via SCP: $dspServer" -Level Success
-            return $dspServer
+            Write-ScriptLog "DSP service connection point found" -Level Success
+            return $scp.Name
         }
         else {
-            Write-ScriptLog "DSP Service Connection Point not found" -Level Warning
+            Write-ScriptLog "DSP service connection point not found" -Level Warning
             return $null
         }
     }
     catch {
-        Write-ScriptLog "Failed to search for DSP server: $_" -Level Warning
+        Write-ScriptLog "Error during DSP discovery: $_" -Level Warning
         return $null
     }
 }
 
-function Test-DspModule {
+function Connect-DspServer {
     <#
     .SYNOPSIS
-        Test if DSP PowerShell module is installed.
+        Connect to DSP Server via PowerShell module.
     
-    .OUTPUTS
-        [bool] - $true if module available, $false otherwise
-    #>
-    [CmdletBinding()]
-    param()
-    
-    try {
-        $module = Get-Module -ListAvailable -Name "Semperis.PoSh.DSP" -ErrorAction SilentlyContinue
-        
-        if ($module) {
-            Write-ScriptLog "DSP PowerShell module is available" -Level Info
-            return $true
-        }
-        else {
-            Write-ScriptLog "DSP PowerShell module not found" -Level Warning
-            return $false
-        }
-    }
-    catch {
-        Write-ScriptLog "Failed to check for DSP module: $_" -Level Warning
-        return $false
-    }
-}
-
-function Connect-DspManagementServer {
-    <#
-    .SYNOPSIS
-        Connect to DSP Management Server with retry logic.
-    
-    .PARAMETER Server
-        DSP Management Server FQDN
+    .PARAMETER DspServer
+        FQDN of DSP server
     
     .PARAMETER MaxRetries
-        Maximum connection attempts (default: 3)
+        Maximum number of connection attempts (default: 3)
     
     .EXAMPLE
-        $conn = Connect-DspManagementServer -Server "dsp.domain.com"
+        $connection = Connect-DspServer -DspServer "dsp.domain.com"
     
     .OUTPUTS
-        PSCustomObject with connection details, or $null if failed
+        [PSCustomObject] - Connection object, or $null on failure
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [string]$Server,
+        [string]$DspServer,
         
         [Parameter(Mandatory=$false)]
         [int]$MaxRetries = 3
     )
     
-    $retryCount = 0
-    
-    while ($retryCount -lt $MaxRetries) {
-        try {
-            Write-ScriptLog "Attempting to connect to DSP server: $Server (attempt $($retryCount + 1)/$MaxRetries)" -Level Info
-            
-            # Try to connect using DSP module if available
-            if (Get-Command Connect-DSPManagementServer -ErrorAction SilentlyContinue) {
-                $connection = Connect-DSPManagementServer -Server $Server -ErrorAction Stop
-                Write-ScriptLog "Successfully connected to DSP server: $Server" -Level Success
+    try {
+        Write-ScriptLog "Attempting to connect to DSP server: $DspServer" -Level Info
+        
+        # Check if DSP module is available
+        if (-not (Test-ModuleAvailable "DspModule")) {
+            Write-ScriptLog "DSP PowerShell module not available" -Level Warning
+            return $null
+        }
+        
+        $retryCount = 0
+        
+        while ($retryCount -lt $MaxRetries) {
+            try {
+                $retryCount++
+                Write-ScriptLog "Connection attempt $retryCount of $MaxRetries..." -Level Info
+                
+                # Attempt connection
+                $connection = Connect-DspServer -ComputerName $DspServer -ErrorAction Stop
+                
+                Write-ScriptLog "Connected to DSP server: $DspServer" -Level Success
                 return $connection
             }
-            else {
-                Write-ScriptLog "DSP module not available or Connect-DSPManagementServer not found" -Level Warning
-                return $null
+            catch {
+                if ($retryCount -lt $MaxRetries) {
+                    Write-ScriptLog "Connection failed, retrying in 5 seconds..." -Level Warning
+                    Start-Sleep -Seconds 5
+                }
             }
         }
-        catch {
-            $retryCount++
-            if ($retryCount -lt $MaxRetries) {
-                Write-ScriptLog "Connection failed: $_. Retrying in 5 seconds..." -Level Warning
-                Start-Sleep -Seconds 5
-            }
-            else {
-                Write-ScriptLog "Failed to connect to DSP server after $MaxRetries attempts: $_" -Level Error
-                return $null
-            }
-        }
+        
+        Write-ScriptLog "Failed to connect to DSP server after $MaxRetries attempts" -Level Warning
+        return $null
     }
-    
-    return $null
+    catch {
+        Write-ScriptLog "Error during DSP connection attempt: $_" -Level Warning
+        return $null
+    }
 }
 
 ################################################################################
@@ -436,11 +544,9 @@ Export-ModuleMember -Function @(
     'Get-DomainInfo',
     'Get-ADDomainControllers',
     'Get-ForestInfo',
+    'Get-DNSServer',
+    'Expand-ConfigPlaceholders',
+    'Test-ConfigSection',
     'Find-DspServer',
-    'Test-DspModule',
-    'Connect-DspManagementServer'
+    'Connect-DspServer'
 )
-
-################################################################################
-# END OF MODULE
-################################################################################
