@@ -408,7 +408,7 @@ function New-User {
 function New-Group {
     <#
     .SYNOPSIS
-        Create a new group
+        Create a new group and add members
     
     .PARAMETER Name
         Group name
@@ -456,27 +456,50 @@ function New-Group {
         $existingGroup = Get-ADGroup -Filter "Name -eq '$Name'" -ErrorAction SilentlyContinue
         
         if ($existingGroup) {
-            Write-ActivityLog "Group already exists: $Name" -Level Warning
-            return $existingGroup
+            Write-ActivityLog "Group already exists: $Name (using existing)" -Level Info
+            $group = $existingGroup
+        }
+        else {
+            Write-ActivityLog "Creating group: $Name" -Level Info
+            
+            $groupParams = @{
+                Name = $Name
+                SamAccountName = $Name -replace '\s', ''
+                Path = $Path
+                GroupScope = $GroupScope
+                GroupCategory = $GroupCategory
+                Description = $Description
+                ErrorAction = 'Stop'
+            }
+            
+            $group = New-ADGroup @groupParams
+            Write-ActivityLog "Group created successfully: $Name" -Level Success
         }
         
-        Write-ActivityLog "Creating group: $Name" -Level Info
-        
-        $group = New-ADGroup -Name $Name `
-                            -Path $Path `
-                            -GroupScope $GroupScope `
-                            -GroupCategory $GroupCategory `
-                            -Description $Description `
-                            -ErrorAction Stop
-        
-        # Add members if provided
-        if ($Members.Count -gt 0) {
+        # Add members to group
+        if ($Members -and $Members.Count -gt 0) {
             foreach ($member in $Members) {
                 try {
+                    # FIX: Search for the user first to get their proper identity
                     $user = Get-ADUser -Filter "SamAccountName -eq '$member'" -ErrorAction SilentlyContinue
+                    
                     if ($user) {
-                        Add-ADGroupMember -Identity $group.SamAccountName -Members $user -ErrorAction Stop
-                        Write-ActivityLog "Added $member to group $Name" -Level Info
+                        # Check if already a member
+                        $existingMember = Get-ADGroupMember -Identity $group.DistinguishedName -ErrorAction SilentlyContinue | `
+                                        Where-Object { $_.SamAccountName -eq $member }
+                        
+                        if (-not $existingMember) {
+                            Add-ADGroupMember -Identity $group.DistinguishedName `
+                                            -Members $user.DistinguishedName `
+                                            -ErrorAction Stop
+                            Write-ActivityLog "Added $member to group $Name" -Level Info
+                        }
+                        else {
+                            Write-ActivityLog "$member already in group $Name" -Level Info
+                        }
+                    }
+                    else {
+                        Write-ActivityLog "User not found: $member" -Level Warning
                     }
                 }
                 catch {
@@ -485,7 +508,6 @@ function New-Group {
             }
         }
         
-        Write-ActivityLog "Group created successfully: $Name" -Level Success
         return $group
     }
     catch {
@@ -665,6 +687,7 @@ function New-BulkGenericUsers {
     
     Write-ActivityLog "Creating $Count bulk generic users in $OU" -Level Info
     
+    # FIX: Added -AsPlainText -Force to SecureString conversion
     $password = ConvertTo-SecureString "P@ssw0rd123!" -AsPlainText -Force
     $createdCount = 0
     
