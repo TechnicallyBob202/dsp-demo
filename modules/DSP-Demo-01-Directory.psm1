@@ -242,6 +242,7 @@ function New-DirectoryStructure {
 # USER FUNCTIONS
 ################################################################################
 
+
 function New-User {
     <#
     .SYNOPSIS
@@ -251,7 +252,10 @@ function New-User {
         User login name
     
     .PARAMETER Name
-        User display name
+        User display name (CN)
+    
+    .PARAMETER DisplayName
+        User display name (for display purposes)
     
     .PARAMETER Path
         Distinguished name of target OU
@@ -298,6 +302,9 @@ function New-User {
         [string]$Path,
         
         [Parameter(Mandatory=$false)]
+        [string]$DisplayName = "",
+        
+        [Parameter(Mandatory=$false)]
         [string]$GivenName = "",
         
         [Parameter(Mandatory=$false)]
@@ -339,13 +346,14 @@ function New-User {
         
         Write-ActivityLog "Creating user: $SamAccountName ($Name)" -Level Info
         
+        # Build parameters for New-ADUser
         $userParams = @{
             SamAccountName = $SamAccountName
             Name = $Name
             Path = $Path
             GivenName = $GivenName
             Surname = $Surname
-            DisplayName = $Name
+            DisplayName = if ($DisplayName) { $DisplayName } else { $Name }
             Description = $Description
             Enabled = $true
             ChangePasswordAtLogon = $false
@@ -354,7 +362,7 @@ function New-User {
             ErrorAction = 'Stop'
         }
         
-        # Add optional attributes if provided
+        # Add optional attributes
         $otherAttrs = @{}
         if ($Title) { $otherAttrs['title'] = $Title }
         if ($Department) { $otherAttrs['department'] = $Department }
@@ -368,7 +376,6 @@ function New-User {
         if ($Password) {
             $userParams['AccountPassword'] = $Password
         } else {
-            # Use default password if none provided
             $userParams['AccountPassword'] = ConvertTo-SecureString "P@ssw0rd123!" -AsPlainText -Force
         }
         
