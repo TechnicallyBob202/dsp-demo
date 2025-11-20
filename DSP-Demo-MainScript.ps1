@@ -197,7 +197,7 @@ function Show-ConfirmationPrompt {
     Write-Host ""
     
     $SelectedModules | ForEach-Object {
-        Write-Host "  ✓ $_" -ForegroundColor $Colors.Success
+        Write-Host "  [+] $_" -ForegroundColor $Colors.Success
     }
     
     Write-Host ""
@@ -226,7 +226,6 @@ function Run-ActivityModule {
     Write-Header "Running $ModuleName Module"
     
     try {
-        # Map module names to function names
         $functionMap = @{
             "Directory" = "Invoke-DirectoryActivity"
             "DNS" = "Invoke-DNSActivity"
@@ -264,18 +263,15 @@ function Main {
     Write-Status "Script path: $ScriptPath" -Level Info
     Write-Status "Config file: $ConfigFile" -Level Info
     
-    # Ensure modules directory exists
     if (-not (Test-Path $ModulesPath)) {
         Write-Status "Creating modules directory..." -Level Info
         New-Item -ItemType Directory -Path $ModulesPath -Force | Out-Null
     }
     
-    # Load configuration
     Write-Status "Loading configuration..." -Level Info
     $config = Load-Configuration -ConfigFile $ConfigFile
     Write-Status "Configuration loaded" -Level Success
     
-    # Import and run Preflight module (mandatory)
     Write-Status "Importing Preflight module..." -Level Info
     
     if (-not (Import-DemoModule "DSP-Demo-Preflight")) {
@@ -285,7 +281,6 @@ function Main {
     
     Write-Host ""
     
-    # Run Preflight discovery functions
     Write-Header "Discovering Environment"
     
     try {
@@ -313,7 +308,6 @@ function Main {
         exit 1
     }
     
-    # Attempt DSP connectivity (optional)
     Write-Header "DSP Server Discovery"
     
     $dspServerFromConfig = if ($config -and $config.General -and $config.General.DspServer) { $config.General.DspServer } else { "" }
@@ -321,7 +315,6 @@ function Main {
     $Script:DspAvailable = $false
     $Script:DspConnection = $null
     
-    # Try to find and connect to DSP (graceful failure)
     Write-Status "Checking for DSP server..." -Level Info
     try {
         if (Get-Command Find-DspServer -ErrorAction SilentlyContinue) {
@@ -350,11 +343,9 @@ function Main {
     
     Write-Host ""
     
-    # Determine which modules to run
     $selectedModules = @()
     
     if ($Module) {
-        # Command-line module specified
         if ($Module -eq "All") {
             $selectedModules = @("Directory","DNS","GPOs","Sites","SecurityEvents")
         }
@@ -367,7 +358,6 @@ function Main {
         $selectedModules = @("Directory","DNS","GPOs","Sites","SecurityEvents")
     }
     else {
-        # Interactive menu
         do {
             Show-MainMenu
             $selection = Get-MenuSelection
@@ -384,7 +374,6 @@ function Main {
                 continue
             }
             
-            # Show confirmation
             if (Show-ConfirmationPrompt -SelectedModules $selectedModules) {
                 break
             }
@@ -396,7 +385,6 @@ function Main {
         while ($true)
     }
     
-    # Build environment hash for passing to modules
     $environment = @{
         DomainInfo = $Script:DomainInfo
         PrimaryDC = $Script:PrimaryDC
@@ -406,7 +394,6 @@ function Main {
         DspConnection = $Script:DspConnection
     }
     
-    # Import activity modules and execute
     Write-Header "Loading Activity Modules"
     
     $modulesToImport = @(
@@ -426,7 +413,6 @@ function Main {
     
     Write-Host ""
     
-    # Execute selected modules
     Write-Header "Executing Selected Modules"
     
     $completedModules = 0
@@ -442,7 +428,6 @@ function Main {
         Write-Host ""
     }
     
-    # Summary
     Write-Header "Execution Summary"
     
     Write-Host "Modules Completed: $completedModules" -ForegroundColor $Colors.Success
