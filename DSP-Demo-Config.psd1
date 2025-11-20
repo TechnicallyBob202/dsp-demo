@@ -130,7 +130,7 @@
     }
     
     #---------------------------------------------------------------------------
-    # USERS - CORRECTED OUPATHS
+    # USERS - ALL USERS FROM LEGACY SCRIPT
     #---------------------------------------------------------------------------
     Users = @{
         
@@ -141,15 +141,15 @@
             @{
                 SamAccountName = "adm.globaladmin"
                 Name = "Global Admin"
-                GivenName = "Global"
-                Surname = "Admin"
+                GivenName = "Warren"
+                Surname = "Buffet"
                 DisplayName = "Global Admin"
                 Title = "Tier 0 Administrator"
-                Department = "Infrastructure"
+                Department = "Operations"
                 Company = "{COMPANY}"
                 Mail = "adm.globaladmin@{DOMAIN}"
-                TelephoneNumber = "555-0100"
-                Description = "Tier 0 special admin account"
+                TelephoneNumber = "1 (500) 555-4554"
+                Description = "Global Systems Admin (old acct)"
                 OUPath = "Lab Admins/Tier 0"
                 Password = "{PASSWORD}"
                 PasswordNeverExpires = $true
@@ -162,7 +162,7 @@
                 Surname = "Account"
                 DisplayName = "Automation Account 1"
                 Title = "Service Account"
-                Department = "Infrastructure"
+                Department = "Orchestration"
                 Company = "{COMPANY}"
                 Mail = "automationacct1@{DOMAIN}"
                 TelephoneNumber = "555-0101"
@@ -179,13 +179,30 @@
         # =====================================================
         Tier1Admins = @(
             @{
+                SamAccountName = "adm.johnwick"
+                Name = "adm.JohnWick"
+                GivenName = "John"
+                Surname = "Wick"
+                DisplayName = "John Wick (admin)"
+                Title = "Operations Lead"
+                Department = "Demo"
+                Company = "{COMPANY}"
+                Mail = "adm.johnwick@{DOMAIN}"
+                TelephoneNumber = "408-555-1919"
+                Description = "Admin for Lab Operations"
+                OUPath = "Lab Admins/Tier 1"
+                Password = "{PASSWORD}"
+                PasswordNeverExpires = $false
+                Enabled = $true
+            }
+            @{
                 SamAccountName = "monitoringacct1"
                 Name = "Monitoring Account 1"
                 GivenName = "Monitoring"
                 Surname = "Account"
                 DisplayName = "Monitoring Account 1"
                 Title = "Monitoring Service Account"
-                Department = "Infrastructure"
+                Department = "Orchestration"
                 Company = "{COMPANY}"
                 Mail = "monitoringacct1@{DOMAIN}"
                 TelephoneNumber = "555-0102"
@@ -205,7 +222,7 @@
                 Department = "Operations"
                 Company = "{COMPANY}"
                 Mail = "opsadmin1@{DOMAIN}"
-                TelephoneNumber = "555-0103"
+                TelephoneNumber = "408-555-1919"
                 Description = "Tier 1 operations administrator"
                 OUPath = "Lab Admins/Tier 1"
                 Password = "{PASSWORD}"
@@ -219,17 +236,51 @@
         # =====================================================
         Tier2Admins = @(
             @{
-                SamAccountName = "adm.draji"
-                Name = "D. Raji (Admin)"
-                GivenName = "D."
-                Surname = "Raji"
-                DisplayName = "D. Raji (admin)"
-                Title = "Application Administrator"
-                Department = "Applications"
+                SamAccountName = "AppAdminII"
+                Name = "App Admin II"
+                GivenName = "App"
+                Surname = "Admin II"
+                DisplayName = "App Admin II"
+                Title = "Application Lead"
+                Department = "Demo Development"
                 Company = "{COMPANY}"
-                Mail = "adm.draji@{DOMAIN}"
-                TelephoneNumber = "555-0104"
-                Description = "Tier 2 application administrator"
+                Mail = "AppAdminII@{DOMAIN}"
+                TelephoneNumber = "408-555-2424"
+                Description = "Admin for Lab Applications"
+                OUPath = "Lab Admins/Tier 2"
+                Password = "{PASSWORD}"
+                PasswordNeverExpires = $false
+                Enabled = $true
+            }
+            @{
+                SamAccountName = "AppAdminIII"
+                Name = "App Admin III"
+                GivenName = "App"
+                Surname = "Admin III"
+                DisplayName = "App Admin III"
+                Title = "Application Manager"
+                Department = "Demo Development"
+                Company = "{COMPANY}"
+                Mail = "AppAdminIII@{DOMAIN}"
+                TelephoneNumber = "408-555-3434"
+                Description = "Admin for Lab Applications"
+                OUPath = "Lab Admins/Tier 2"
+                Password = "{PASSWORD}"
+                PasswordNeverExpires = $false
+                Enabled = $true
+            }
+            @{
+                SamAccountName = "adm.draji"
+                Name = "adm.draji"
+                GivenName = "Dawn"
+                Surname = "Raji"
+                DisplayName = "Dawn Raji (ADM)"
+                Title = "Site CIO"
+                Department = "Engineering"
+                Company = "{COMPANY}"
+                Mail = "dawn45@{DOMAIN}"
+                TelephoneNumber = "1 (11) 500 555-0126"
+                Description = "System Engineering Manager"
                 OUPath = "Lab Admins/Tier 2"
                 Password = "{PASSWORD}"
                 PasswordNeverExpires = $true
@@ -237,16 +288,16 @@
             }
             @{
                 SamAccountName = "adm.gjimenez"
-                Name = "G. Jimenez (Admin)"
-                GivenName = "G."
+                Name = "adm.gjimenez"
+                GivenName = "Gary"
                 Surname = "Jimenez"
-                DisplayName = "G. Jimenez (admin)"
-                Title = "Application Administrator"
-                Department = "Applications"
+                DisplayName = "Gary Jimenez (ADM)"
+                Title = "Site Manager"
+                Department = "Engineering"
                 Company = "{COMPANY}"
-                Mail = "adm.gjimenez@{DOMAIN}"
-                TelephoneNumber = "555-0105"
-                Description = "Tier 2 application administrator"
+                Mail = "gjimenez@{DOMAIN}"
+                TelephoneNumber = "1 (500) 555-1221"
+                Description = "System Engineering Site Manager"
                 OUPath = "Lab Admins/Tier 2"
                 Password = "{PASSWORD}"
                 PasswordNeverExpires = $true
@@ -261,50 +312,48 @@
             @{
                 SamAccountName = "arose"
                 Name = "Axl Rose"
-                GivenName = "Axl"
+                GivenName = "William"
                 Surname = "Rose"
                 DisplayName = "Axl Rose"
-                Title = "Application Developer"
-                Department = "Engineering"
+                Title = "Application Mgr"
+                Department = "Sales"
                 Company = "{COMPANY}"
                 Mail = "arose@{DOMAIN}"
-                TelephoneNumber = "555-1001"
-                MobilePhone = "555-1001-mobile"
-                Fax = "555-1001-fax"
-                Description = "Demo user - subject to attribute modifications"
-                OUPath = "Lab Users/Dept101"
+                TelephoneNumber = "408-555-1212"
+                Description = "Coder"
+                OUPath = "Lab Users"
                 Password = "{PASSWORD}"
                 Enabled = $true
             }
             @{
-                SamAccountName = "shudson"
+                SamAccountName = "lskywalker"
                 Name = "Luke Skywalker"
                 GivenName = "Luke"
                 Surname = "Skywalker"
                 DisplayName = "Luke Skywalker"
-                Title = "Systems Engineer"
-                Department = "Infrastructure"
+                Title = "Nerfherder"
+                Department = "Religion"
                 Company = "{COMPANY}"
-                Mail = "shudson@{DOMAIN}"
-                TelephoneNumber = "555-1002"
-                Description = "Demo user - subject to attribute modifications"
-                OUPath = "Lab Users/Dept101"
+                Mail = "lskywalker@{DOMAIN}"
+                TelephoneNumber = "408-555-5151"
+                Description = "apprentice"
+                OUPath = "Lab Users"
                 Password = "{PASSWORD}"
                 Enabled = $true
             }
             @{
-                SamAccountName = "dmckagan"
+                SamAccountName = "peter.griffin"
                 Name = "Peter Griffin"
                 GivenName = "Peter"
                 Surname = "Griffin"
                 DisplayName = "Peter Griffin"
-                Title = "Database Administrator"
-                Department = "Database"
+                Title = "Sales"
+                Department = "Parody"
                 Company = "{COMPANY}"
-                Mail = "dmckagan@{DOMAIN}"
-                TelephoneNumber = "555-1003"
-                Description = "Demo user - subject to auto-undo rule testing"
-                OUPath = "Lab Users/Dept101"
+                Mail = "peter.griffin@{DOMAIN}"
+                TelephoneNumber = "408-777-3333"
+                Description = "cartoon character"
+                OUPath = "Lab Users"
                 Password = "{PASSWORD}"
                 Enabled = $true
             }
@@ -314,13 +363,109 @@
                 GivenName = "Paul"
                 Surname = "McCartney"
                 DisplayName = "Paul McCartney"
-                Title = "Security Analyst"
-                Department = "Security"
+                Title = "Lead Beatle"
+                Department = "Music"
                 Company = "{COMPANY}"
                 Mail = "pmccartney@{DOMAIN}"
-                TelephoneNumber = "555-1004"
-                Description = "Demo user for security demonstrations"
-                OUPath = "Lab Users/Dept101"
+                TelephoneNumber = "011 44 20 1234 5678"
+                Description = "Bandmember"
+                OUPath = "Lab Users"
+                Password = "{PASSWORD}"
+                Enabled = $true
+            }
+            @{
+                SamAccountName = "yanli"
+                Name = "Yan Li"
+                GivenName = "Yan"
+                Surname = "Li"
+                DisplayName = "Yan Li"
+                Title = "Manager"
+                Department = "Widget Manufacturing"
+                Company = "{COMPANY}"
+                Mail = "yanli@{DOMAIN}"
+                TelephoneNumber = "408-555-5959"
+                Description = "manager of shop line"
+                OUPath = "Lab Users"
+                Password = "{PASSWORD}"
+                Enabled = $true
+            }
+            @{
+                SamAccountName = "acruz"
+                Name = "Angel Cruz"
+                GivenName = "Angel"
+                Surname = "Cruz"
+                DisplayName = "Angel Cruz"
+                Title = "Vice President"
+                Department = "Sales"
+                Company = "{COMPANY}"
+                Mail = "acruz@{DOMAIN}"
+                TelephoneNumber = "408-555-2020"
+                Description = "VP Sales"
+                OUPath = "Lab Users"
+                Password = "{PASSWORD}"
+                Enabled = $true
+            }
+            @{
+                SamAccountName = "cmhernandez"
+                Name = "Cheryl Hernandez"
+                GivenName = "Cheryl"
+                Surname = "Hernandez"
+                DisplayName = "Cheryl Hernandez"
+                Title = "Database Administrator"
+                Department = "Database"
+                Company = "{COMPANY}"
+                Mail = "cmhernandez@{DOMAIN}"
+                TelephoneNumber = "408-555-7979"
+                Description = "DBA"
+                OUPath = "Lab Users"
+                Password = "{PASSWORD}"
+                Enabled = $true
+            }
+            @{
+                SamAccountName = "draji"
+                Name = "Draji"
+                GivenName = "D."
+                Surname = "Raji"
+                DisplayName = "D. Raji"
+                Title = "Site Manager"
+                Department = "Engineering"
+                Company = "{COMPANY}"
+                Mail = "draji@{DOMAIN}"
+                TelephoneNumber = "1 (500) 555-0126"
+                Description = "System Engineering Manager"
+                OUPath = "Lab Users"
+                Password = "{PASSWORD}"
+                Enabled = $true
+            }
+            @{
+                SamAccountName = "gjimenez"
+                Name = "Gary Jimenez"
+                GivenName = "Gary"
+                Surname = "Jimenez"
+                DisplayName = "Gary Jimenez"
+                Title = "Site Manager"
+                Department = "Engineering"
+                Company = "{COMPANY}"
+                Mail = "gjimenez@{DOMAIN}"
+                TelephoneNumber = "1 (500) 555-1221"
+                Description = "System Engineering Site Manager"
+                OUPath = "Lab Users"
+                Password = "{PASSWORD}"
+                Enabled = $true
+            }
+            @{
+                SamAccountName = "vlevin"
+                Name = "Vladimir Levin"
+                GivenName = "Vladimir"
+                Surname = "Levin"
+                DisplayName = "Vladimir Levin"
+                Title = "Sr Site Manager"
+                Department = "Engineering"
+                Company = "{COMPANY}"
+                Mail = "vlevin@{DOMAIN}"
+                TelephoneNumber = "1 (500) 555-8321"
+                Description = "Suspicious User"
+                OUPath = "Lab Users"
                 Password = "{PASSWORD}"
                 Enabled = $true
             }

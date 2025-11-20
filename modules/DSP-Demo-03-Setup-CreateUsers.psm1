@@ -326,53 +326,39 @@ function Invoke-CreateUsers {
         }
     }
     
-    # Process Bulk Users (numbered generation)
-    if ($Config.ContainsKey('Users') -and $Config.Users.ContainsKey('BulkUsers')) {
-        $bulkConfig = $Config.Users.BulkUsers
-        $count = if ($bulkConfig.ContainsKey('Count')) { $bulkConfig.Count } else { 250 }
-        
-        Write-Status "Creating $count bulk user accounts..." -Level Info
-        $ouPath = Resolve-OUPath $bulkConfig.OUPath $DomainInfo
-        $namePattern = if ($bulkConfig.ContainsKey('NamePattern')) { $bulkConfig.NamePattern } else { "GdAct0r-{0:D6}" }
-        $basePassword = if ($bulkConfig.ContainsKey('Password')) { $bulkConfig.Password } else { $DefaultPassword }
-        
-        for ($i = 0; $i -lt $count; $i++) {
-            $samName = [string]::Format($namePattern, $i)
-            $userDef = @{
-                SamAccountName = $samName
-                Name = $samName
-                Password = $basePassword
-                Enabled = $true
-                PasswordNeverExpires = $false
-            }
-            
-            $user = New-UserAccount $userDef $ouPath $DefaultPassword
-            if ($user) { $createdCount++ } else { $skippedCount++ }
-        }
-    }
+
     
-    # Process DeleteMe Users (numbered generation)
-    if ($Config.ContainsKey('Users') -and $Config.Users.ContainsKey('DeleteMeUsers')) {
-        $deleteConfig = $Config.Users.DeleteMeUsers
-        $count = if ($deleteConfig.ContainsKey('Count')) { $deleteConfig.Count } else { 10 }
-        
-        Write-Status "Creating $count DeleteMe user accounts..." -Level Info
-        $ouPath = Resolve-OUPath $deleteConfig.OUPath $DomainInfo
-        $namePattern = if ($deleteConfig.ContainsKey('NamePattern')) { $deleteConfig.NamePattern } else { "GenericAct0r-{0:D6}" }
-        $basePassword = if ($deleteConfig.ContainsKey('Password')) { $deleteConfig.Password } else { $DefaultPassword }
-        
-        for ($i = 0; $i -lt $count; $i++) {
-            $samName = [string]::Format($namePattern, $i)
-            $userDef = @{
-                SamAccountName = $samName
-                Name = $samName
-                Password = $basePassword
-                Enabled = $true
-                PasswordNeverExpires = $false
-            }
+    # Process Generic Bulk Users
+    if ($Config.ContainsKey('Users') -and $Config.Users.ContainsKey('GenericUsers')) {
+        foreach ($bulkConfig in $Config.Users.GenericUsers) {
+            $prefix = if ($bulkConfig.ContainsKey('SamAccountNamePrefix')) { $bulkConfig.SamAccountNamePrefix } else { "GdAct0r" }
+            $count = if ($bulkConfig.ContainsKey('Count')) { $bulkConfig.Count } else { 250 }
+            $ouPath = Resolve-OUPath $bulkConfig.OUPath $DomainInfo
+            $bulkPassword = if ($bulkConfig.ContainsKey('Password')) { $bulkConfig.Password } else { $DefaultPassword }
+            $bulkDescription = if ($bulkConfig.ContainsKey('Description')) { $bulkConfig.Description } else { "Generic bulk user account" }
+            $bulkCompany = if ($bulkConfig.ContainsKey('Company')) { $bulkConfig.Company } else { "" }
+            $bulkEnabled = if ($bulkConfig.ContainsKey('Enabled')) { $bulkConfig.Enabled } else { $true }
             
-            $user = New-UserAccount $userDef $ouPath $DefaultPassword
-            if ($user) { $createdCount++ } else { $skippedCount++ }
+            Write-Status "Creating $count generic user accounts (prefix: $prefix) in $($bulkConfig.OUPath)..." -Level Info
+            
+            for ($i = 0; $i -lt $count; $i++) {
+                $samName = "$prefix-{0:D6}" -f $i
+                $userDef = @{
+                    SamAccountName = $samName
+                    Name = $samName
+                    Password = $bulkPassword
+                    Description = $bulkDescription
+                    Enabled = $bulkEnabled
+                    PasswordNeverExpires = $false
+                }
+                
+                if ($bulkCompany) {
+                    $userDef['Company'] = $bulkCompany
+                }
+                
+                $user = New-UserAccount $userDef $ouPath $DefaultPassword
+                if ($user) { $createdCount++ } else { $skippedCount++ }
+            }
         }
     }
     
