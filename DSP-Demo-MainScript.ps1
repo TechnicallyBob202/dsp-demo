@@ -147,9 +147,9 @@ function Expand-ConfigPlaceholders {
     }
     
     foreach ($key in $placeholders.Keys) {
-        foreach ($section in $Config.Keys) {
+        foreach ($section in @($Config.Keys)) {
             if ($Config[$section] -is [hashtable]) {
-                foreach ($prop in $Config[$section].Keys) {
+                foreach ($prop in @($Config[$section].Keys)) {
                     if ($Config[$section][$prop] -is [string]) {
                         $Config[$section][$prop] = $Config[$section][$prop] -replace [regex]::Escape($key), $placeholders[$key]
                     }
