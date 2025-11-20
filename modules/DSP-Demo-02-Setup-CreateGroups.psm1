@@ -60,14 +60,27 @@ function Resolve-OUPath {
         return $domainDN
     }
     
-    # Split path and build DN from right to left
+    # Split path and build DN from left to right
     $parts = $LogicalPath -split '/'
-    $dn = $domainDN
+    $dn = ""
     
-    for ($i = $parts.Count - 1; $i -ge 0; $i--) {
-        if ($parts[$i] -and $parts[$i] -ne "Root") {
-            $dn = "OU=$($parts[$i]),$dn"
+    foreach ($part in $parts) {
+        if ($part -and $part -ne "Root") {
+            if ($dn) {
+                $dn = "OU=$part,$dn"
+            }
+            else {
+                $dn = "OU=$part"
+            }
         }
+    }
+    
+    # Append domain DN at the end
+    if ($dn) {
+        $dn = "$dn,$domainDN"
+    }
+    else {
+        $dn = $domainDN
     }
     
     return $dn
