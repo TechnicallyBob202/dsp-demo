@@ -39,18 +39,10 @@ function New-OU {
             return $existingOU
         }
         
-        # Check if OU exists anywhere else in the forest
-        $existingAnyywhere = Get-ADOrganizationalUnit -Filter "Name -eq '$Name'" -ErrorAction SilentlyContinue
-        if ($existingAnyywhere) {
-            Write-Host "        WARNING: OU '$Name' exists elsewhere. Current location: $($existingAnyywhere.DistinguishedName)" -ForegroundColor Yellow
-            Write-Host "        Expected location: $ouDN" -ForegroundColor Yellow
-            return $null
-        }
-        
         Write-Verbose "Creating new OU with Name='$Name' Path='$Path'"
         $ou = New-ADOrganizationalUnit -Name $Name -Path $Path -Description $Description -ProtectedFromAccidentalDeletion $ProtectFromAccidentalDeletion -ErrorAction Stop
         
-        Start-Sleep -Milliseconds 200
+        Start-Sleep -Milliseconds 300
         
         $createdOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction Stop
         
@@ -101,6 +93,7 @@ function Build-OUStructure {
                         
                         Write-Host "    Creating child OU: $childName" -ForegroundColor Cyan
                         
+                        # Refresh parent OU object before creating child
                         $parentDN = $ou.DistinguishedName
                         Write-Host "      Parent DN: $parentDN" -ForegroundColor Yellow
                         Write-Host "      Child Name: $childName" -ForegroundColor Yellow
@@ -110,7 +103,14 @@ function Build-OUStructure {
                             continue
                         }
                         
-                        $childOU = New-OU -Name $childName -Path $parentDN -Description $childDesc -ProtectFromAccidentalDeletion $childProtect
+                        # Re-fetch parent OU to ensure it's current
+                        $parentOU = Get-ADOrganizationalUnit -Identity $parentDN -ErrorAction SilentlyContinue
+                        if (-not $parentOU) {
+                            Write-Host "      FAILED: Cannot retrieve parent OU object" -ForegroundColor Red
+                            continue
+                        }
+                        
+                        $childOU = New-OU -Name $childName -Path $parentOU.DistinguishedName -Description $childDesc -ProtectFromAccidentalDeletion $childProtect
                         
                         if ($childOU) {
                             Write-Host "      OK: $childName" -ForegroundColor Green
