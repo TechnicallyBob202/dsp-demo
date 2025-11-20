@@ -43,11 +43,14 @@ function New-OU {
     )
     
     try {
-        # Check if OU already exists
-        $existingOU = Get-ADOrganizationalUnit -Filter "Name -eq '$Name' -and DistinguishedName -like '*$Path*'" -ErrorAction SilentlyContinue
+        # Build the DN for this OU
+        $ouDN = "OU=$Name,$Path"
+        
+        # Check if OU already exists at this exact path
+        $existingOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction SilentlyContinue
         
         if ($existingOU) {
-            Write-Verbose "OU already exists: $Name"
+            Write-Verbose "OU already exists: $Name at $Path"
             return $existingOU
         }
         
