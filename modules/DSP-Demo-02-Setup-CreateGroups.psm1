@@ -84,7 +84,7 @@ function Invoke-CreateGroups {
         [hashtable]$Config,
         
         [Parameter(Mandatory=$true)]
-        [hashtable]$Environment
+        $Environment
     )
     
     $DomainInfo = $Environment.DomainInfo
