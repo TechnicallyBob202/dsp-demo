@@ -189,6 +189,11 @@ function New-UserAccount {
         $passwordToUse = $DefaultPassword
     }
     
+    # Handle {PASSWORD} placeholder
+    if ($passwordToUse -eq "{PASSWORD}") {
+        $passwordToUse = $DefaultPassword
+    }
+    
     if ([string]::IsNullOrWhiteSpace($passwordToUse)) {
         Write-Status "Failed to create user '$sam': No password specified and no default available" -Level Error
         return $null
