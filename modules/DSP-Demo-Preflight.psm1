@@ -6,7 +6,7 @@
 ## Handles environment discovery, logging, AD discovery, and DSP connectivity
 ##
 ## Author: Rob Ingenthron (Original), Bob Lyons (Refactor)
-## Version: 1.0.0-20251119
+## Version: 1.0.1-20251119
 ##
 ################################################################################
 
@@ -97,18 +97,29 @@ function Test-AdminRights {
     .SYNOPSIS
         Test if script is running with administrator privileges.
     
-    .EXAMPLE
-        if (-not (Test-AdminRights)) { exit 1 }
-    
     .OUTPUTS
         [bool] - $true if admin, $false otherwise
     #>
     [CmdletBinding()]
     param()
     
-    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
-    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    try {
+        $currentUser = New-Object Security.Principal.WindowsPrincipal $([Security.Principal.WindowsIdentity]::GetCurrent())
+        $isAdmin = $currentUser.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+        
+        if ($isAdmin) {
+            Write-ScriptLog "Running with administrator privileges" -Level Success
+        }
+        else {
+            Write-ScriptLog "NOT running with administrator privileges" -Level Error
+        }
+        
+        return $isAdmin
+    }
+    catch {
+        Write-ScriptLog "Failed to check admin rights: $_" -Level Error
+        return $false
+    }
 }
 
 function Test-ModuleAvailable {
@@ -117,13 +128,13 @@ function Test-ModuleAvailable {
         Test if a PowerShell module is available.
     
     .PARAMETER ModuleName
-        Name of the module to test
+        Name of module to check
     
     .EXAMPLE
-        if (Test-ModuleAvailable "Semperis.PoSh.DSP") { ... }
+        if (Test-ModuleAvailable "ActiveDirectory") { ... }
     
     .OUTPUTS
-        [bool] - $true if available, $false otherwise
+        [bool] - $true if module available, $false otherwise
     #>
     [CmdletBinding()]
     param(
@@ -131,50 +142,8 @@ function Test-ModuleAvailable {
         [string]$ModuleName
     )
     
-    return ($null -ne (Get-Module -ListAvailable -Name $ModuleName -ErrorAction SilentlyContinue))
-}
-
-################################################################################
-# REPLICATION FUNCTIONS
-################################################################################
-
-function Wait-Replication {
-    <#
-    .SYNOPSIS
-        Wait for Active Directory replication to complete.
-    
-    .PARAMETER Seconds
-        Number of seconds to wait (default: 10)
-    
-    .PARAMETER DomainController
-        Specific DC to wait for replication on
-    
-    .EXAMPLE
-        Wait-Replication -Seconds 20 -DomainController "DC01.domain.com"
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$false)]
-        [int]$Seconds = 10,
-        
-        [Parameter(Mandatory=$false)]
-        [string]$DomainController
-    )
-    
-    $message = "Waiting $Seconds seconds for replication"
-    if ($DomainController) {
-        $message += " on $DomainController"
-    }
-    
-    Write-ScriptLog $message -Level Info
-    
-    for ($i = $Seconds; $i -gt 0; $i--) {
-        Write-Host -NoNewline "`r  Replication wait: $i seconds remaining..."
-        Start-Sleep -Seconds 1
-    }
-    
-    Write-Host ""
-    Write-ScriptLog "Replication wait complete" -Level Success
+    $module = Get-Module -ListAvailable -Name $ModuleName -ErrorAction SilentlyContinue
+    return ($null -ne $module)
 }
 
 ################################################################################
@@ -184,14 +153,14 @@ function Wait-Replication {
 function Get-DomainInfo {
     <#
     .SYNOPSIS
-        Get comprehensive domain information.
+        Discover current domain information.
     
     .EXAMPLE
         $domain = Get-DomainInfo
-        Write-Host "Domain: $($domain.FQDN)"
+        Write-Host "Domain: $($domain.Name)"
     
     .OUTPUTS
-        PSCustomObject with domain information (FQDN, NetBIOS, DN, etc.)
+        PSCustomObject with domain information
     #>
     [CmdletBinding()]
     param()
@@ -202,16 +171,15 @@ function Get-DomainInfo {
         $adDomain = Get-ADDomain -Current LocalComputer -ErrorAction Stop
         
         $domainInfo = [PSCustomObject]@{
-            FQDN = $adDomain.DNSRoot
-            NetBIOS = $adDomain.NetBIOSName
+            Name = $adDomain.Name
+            DNSRoot = $adDomain.DNSRoot
             DistinguishedName = $adDomain.DistinguishedName
-            DomainSID = $adDomain.DomainSID.Value
-            PDCEmulator = $adDomain.PDCEmulator
-            Forest = $adDomain.Forest
-            ParentDomain = $adDomain.ParentDomain
+            NetBIOSName = $adDomain.NetBIOSName
+            DomainMode = $adDomain.DomainMode
+            DomainControllers = @($adDomain.ReplicaDirectoryServers)
         }
         
-        Write-ScriptLog "Domain: $($domainInfo.FQDN)" -Level Success
+        Write-ScriptLog "Domain: $($domainInfo.Name) - DNSRoot: $($domainInfo.DNSRoot)" -Level Success
         
         return $domainInfo
     }
@@ -224,15 +192,14 @@ function Get-DomainInfo {
 function Get-ADDomainControllers {
     <#
     .SYNOPSIS
-        Get list of domain controllers in the domain.
+        Get list of domain controllers in current domain.
     
     .EXAMPLE
         $dcs = Get-ADDomainControllers
-        $primary = $dcs[0]
-        $secondary = $dcs[1]
+        foreach ($dc in $dcs) { Write-Host $dc.HostName }
     
     .OUTPUTS
-        Array of domain controller objects
+        Array of PSCustomObject with DC information
     #>
     [CmdletBinding()]
     param()
@@ -240,15 +207,20 @@ function Get-ADDomainControllers {
     try {
         Write-ScriptLog "Discovering domain controllers..." -Level Info
         
-        $dcs = Get-ADDomainController -Filter * -ErrorAction Stop
+        $dcs = Get-ADDomainController -Filter * -ErrorAction Stop | Sort-Object -Property HostName
         
-        if ($dcs.Count -eq 0) {
-            throw "No domain controllers found"
+        if ($dcs.Count -gt 0) {
+            Write-ScriptLog "Found $($dcs.Count) domain controller(s)" -Level Success
+            foreach ($dc in $dcs) {
+                Write-ScriptLog "  - $($dc.HostName)" -Level Info
+            }
+        }
+        else {
+            Write-ScriptLog "No domain controllers found" -Level Error
+            throw "No domain controllers discovered"
         }
         
-        Write-ScriptLog "Found $($dcs.Count) domain controller(s)" -Level Success
-        
-        return @($dcs)
+        return $dcs
     }
     catch {
         Write-ScriptLog "Failed to discover domain controllers: $_" -Level Error
@@ -259,7 +231,7 @@ function Get-ADDomainControllers {
 function Get-ForestInfo {
     <#
     .SYNOPSIS
-        Get comprehensive forest information.
+        Discover current forest information.
     
     .EXAMPLE
         $forest = Get-ForestInfo
@@ -301,13 +273,16 @@ function Get-ForestInfo {
 function Find-DspServer {
     <#
     .SYNOPSIS
-        Find DSP Management Server via Service Connection Point (SCP).
+        Find DSP Management Server via config, SCP, or manual discovery.
     
     .PARAMETER DomainInfo
         Domain information object from Get-DomainInfo
     
+    .PARAMETER ConfigServer
+        DSP server from config file (optional, takes priority)
+    
     .EXAMPLE
-        $dspServer = Find-DspServer -DomainInfo $domainInfo
+        $dspServer = Find-DspServer -DomainInfo $domainInfo -ConfigServer "dsp.domain.com"
         if ($dspServer) { Write-Host "DSP Server: $dspServer" }
     
     .OUTPUTS
@@ -316,9 +291,19 @@ function Find-DspServer {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [PSCustomObject]$DomainInfo
+        [PSCustomObject]$DomainInfo,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$ConfigServer
     )
     
+    # If DSP server is set in config, use it first
+    if ($ConfigServer) {
+        Write-ScriptLog "Using DSP server from configuration: $ConfigServer" -Level Info
+        return $ConfigServer
+    }
+    
+    # Otherwise, search for DSP SCP
     try {
         Write-ScriptLog "Searching for DSP Service Connection Point..." -Level Info
         
@@ -333,7 +318,7 @@ function Find-DspServer {
         
         if ($scp) {
             $dspServer = $scp.serviceBindingInformation[0]
-            Write-ScriptLog "Found DSP server: $dspServer" -Level Success
+            Write-ScriptLog "Found DSP server via SCP: $dspServer" -Level Success
             return $dspServer
         }
         else {
@@ -352,9 +337,6 @@ function Test-DspModule {
     .SYNOPSIS
         Test if DSP PowerShell module is installed.
     
-    .EXAMPLE
-        if (Test-DspModule) { Write-Host "DSP module available" }
-    
     .OUTPUTS
         [bool] - $true if module available, $false otherwise
     #>
@@ -362,10 +344,10 @@ function Test-DspModule {
     param()
     
     try {
-        Write-ScriptLog "Checking for DSP PowerShell module..." -Level Info
+        $module = Get-Module -ListAvailable -Name "Semperis.PoSh.DSP" -ErrorAction SilentlyContinue
         
-        if (Test-ModuleAvailable "Semperis.PoSh.DSP") {
-            Write-ScriptLog "DSP PowerShell module is available" -Level Success
+        if ($module) {
+            Write-ScriptLog "DSP PowerShell module is available" -Level Info
             return $true
         }
         else {
@@ -374,7 +356,7 @@ function Test-DspModule {
         }
     }
     catch {
-        Write-ScriptLog "Error checking for DSP module: $_" -Level Warning
+        Write-ScriptLog "Failed to check for DSP module: $_" -Level Warning
         return $false
     }
 }
@@ -382,7 +364,7 @@ function Test-DspModule {
 function Connect-DspManagementServer {
     <#
     .SYNOPSIS
-        Establish connection to DSP Management Server.
+        Connect to DSP Management Server with retry logic.
     
     .PARAMETER DspServer
         FQDN of DSP server
@@ -448,7 +430,6 @@ Export-ModuleMember -Function @(
     'Write-LogHeader',
     'Test-AdminRights',
     'Test-ModuleAvailable',
-    'Wait-Replication',
     'Get-DomainInfo',
     'Get-ADDomainControllers',
     'Get-ForestInfo',

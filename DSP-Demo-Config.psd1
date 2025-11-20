@@ -12,6 +12,11 @@
     # GENERAL SETTINGS
     #---------------------------------------------------------------------------
     General = @{
+        # Set this to your DSP server FQDN if you want to use a specific server
+        # Leave empty string "" to auto-discover via SCP
+        # Example: "dsp.contoso.com" or ""
+        DspServer = "dsp.d3.lab"
+
         # Number of times to loop the entire script (default: 1)
         LoopCount = 1
         

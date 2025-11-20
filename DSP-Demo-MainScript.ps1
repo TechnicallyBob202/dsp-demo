@@ -1,11 +1,11 @@
 ################################################################################
-################################################################################
 ##
 ## DSP-Demo-MainScript.ps1
 ##
 ## Main orchestration script for DSP demo activity generation
 ## 
 ## Features:
+## - Loads configuration from config file
 ## - Runs Preflight module for environment discovery and setup
 ## - Interactive menu for selecting activity modules to run
 ## - Run individual activity modules or all modules
@@ -13,50 +13,9 @@
 ## - Comprehensive logging and error handling
 ##
 ## Author: Rob Ingenthron (Original), Bob Lyons (Refactor)
-## Version: 4.2.0-20251119
+## Version: 4.3.0-20251119
 ##
 ################################################################################
-################################################################################
-
-<#
-.SYNOPSIS
-    DSP Demo Activity Generation Script - Main Orchestrator
-
-.DESCRIPTION
-    Automatically generates AD activities such as users, groups, DNS, GPOs, 
-    and changes to objects and ACLs. This script uses a modular approach:
-    - Preflight module runs first (environment discovery, DSP connectivity)
-    - Activity modules run based on user selection from interactive menu
-
-.PARAMETER SkipMenu
-    Skip the interactive menu and run all activity modules automatically
-
-.PARAMETER Module
-    Specific activity module to run (can be used to skip menu)
-    Valid values: DirectoryObjects, DNS, GPOs, Sites, IOCs, All
-
-.PARAMETER ConfigPath
-    Path to external configuration file (optional)
-
-.PARAMETER LogPath
-    Custom log file path
-
-.EXAMPLE
-    .\DSP-Demo-MainScript.ps1
-    # Runs Preflight, then opens interactive menu to select activities
-
-.EXAMPLE
-    .\DSP-Demo-MainScript.ps1 -Module DirectoryObjects
-    # Runs Preflight, then runs only DirectoryObjects activity
-
-.EXAMPLE
-    .\DSP-Demo-MainScript.ps1 -SkipMenu
-    # Runs Preflight, then runs all activity modules without menu
-
-.NOTES
-    Author     : Rob Ingenthron (Original), Bob Lyons (Refactor)
-    Version    : 4.2.0-20251119
-#>
 
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
@@ -86,6 +45,7 @@ $ErrorActionPreference = "Continue"
 
 $Script:ScriptPath = $PSScriptRoot
 $Script:ModulesPath = Join-Path $ScriptPath "modules"
+$Script:ConfigFile = if ($ConfigPath) { $ConfigPath } else { Join-Path $ScriptPath "DSP-Demo-Config.psd1" }
 
 ################################################################################
 # COLORS AND FORMATTING
@@ -106,15 +66,6 @@ $Colors = @{
 # HELPER FUNCTIONS
 ################################################################################
 
-function Write-Header {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ("=" * 80) -ForegroundColor $Colors.Header
-    Write-Host $Title -ForegroundColor $Colors.Header
-    Write-Host ("=" * 80) -ForegroundColor $Colors.Header
-    Write-Host ""
-}
-
 function Write-Status {
     param(
         [string]$Message,
@@ -128,9 +79,42 @@ function Write-Status {
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
 
+function Write-Header {
+    param([string]$Title)
+    Write-Host ""
+    Write-Host ("=" * 80) -ForegroundColor $Colors.Header
+    Write-Host $Title -ForegroundColor $Colors.Header
+    Write-Host ("=" * 80) -ForegroundColor $Colors.Header
+    Write-Host ""
+}
+
+function Load-Configuration {
+    param(
+        [string]$ConfigFile
+    )
+    
+    if (Test-Path $ConfigFile) {
+        Write-Status "Loading configuration from: $ConfigFile" -Level Info
+        try {
+            $config = Import-PowerShellDataFile -Path $ConfigFile -ErrorAction Stop
+            Write-Status "Configuration loaded successfully" -Level Success
+            return $config
+        }
+        catch {
+            Write-Status "Failed to load configuration: $_" -Level Warning
+            Write-Status "Continuing with defaults..." -Level Info
+            return @{}
+        }
+    }
+    else {
+        Write-Status "Configuration file not found: $ConfigFile" -Level Warning
+        Write-Status "Continuing with defaults..." -Level Info
+        return @{}
+    }
+}
+
 function Test-ModuleFile {
     param([string]$ModuleName)
-    
     $modulePath = Join-Path $ModulesPath "$ModuleName.psm1"
     return (Test-Path $modulePath -PathType Leaf)
 }
@@ -165,53 +149,27 @@ function Show-ActivityMenu {
     Write-Host "   2. DNS             - Create DNS zones and records" -ForegroundColor $Colors.Menu
     Write-Host "   3. GPOs            - Create and modify Group Policy Objects" -ForegroundColor $Colors.Menu
     Write-Host "   4. Sites           - Create AD sites and subnets" -ForegroundColor $Colors.Menu
-    Write-Host "   5. IOCs            - Generate security events and changes" -ForegroundColor $Colors.Menu
-    Write-Host "   6. All             - Run all activity modules" -ForegroundColor $Colors.MenuHighlight
-    Write-Host "   0. Exit            - Exit without running activities" -ForegroundColor $Colors.Warning
+    Write-Host "   5. IOCs            - Create Indicators of Compromise" -ForegroundColor $Colors.Menu
+    Write-Host "   6. All             - Run all activity modules" -ForegroundColor $Colors.Menu
+    Write-Host "   0. Exit            - Exit without running activities" -ForegroundColor $Colors.Menu
     Write-Host ""
 }
 
 function Get-ActivitySelection {
-    do {
-        Write-Host "Enter selection (0-6, comma-separated for multiple): " -ForegroundColor $Colors.MenuHighlight -NoNewline
-        $selection = Read-Host
+    while ($true) {
+        $choice = Read-Host "Select an option (0-6)"
         
-        if ($selection -eq "0") {
-            return $null
+        switch ($choice) {
+            '1' { return @('DirectoryObjects') }
+            '2' { return @('DNS') }
+            '3' { return @('GPOs') }
+            '4' { return @('Sites') }
+            '5' { return @('IOCs') }
+            '6' { return @('DirectoryObjects', 'DNS', 'GPOs', 'Sites', 'IOCs') }
+            '0' { return @() }
+            default { Write-Status "Invalid selection, please try again" -Level Warning }
         }
-        
-        if ($selection -eq "6") {
-            return @('DirectoryObjects', 'DNS', 'GPOs', 'Sites', 'IOCs')
-        }
-        
-        # Parse comma-separated selections
-        $selections = $selection -split ',' | ForEach-Object { $_.Trim() }
-        $moduleMap = @{
-            '1' = 'DirectoryObjects'
-            '2' = 'DNS'
-            '3' = 'GPOs'
-            '4' = 'Sites'
-            '5' = 'IOCs'
-        }
-        
-        $validSelections = @()
-        $allValid = $true
-        
-        foreach ($sel in $selections) {
-            if ($moduleMap.ContainsKey($sel)) {
-                $validSelections += $moduleMap[$sel]
-            }
-            else {
-                Write-Status "Invalid selection: $sel" -Level Warning
-                $allValid = $false
-            }
-        }
-        
-        if ($allValid -and $validSelections.Count -gt 0) {
-            return $validSelections
-        }
-        
-    } while ($true)
+    }
 }
 
 function Show-ExecutionSummary {
@@ -224,7 +182,7 @@ function Show-ExecutionSummary {
     Write-Header "EXECUTION SUMMARY"
     
     if ($ExecutedModules.Count -gt 0) {
-        Write-Status "Successfully executed: $($ExecutedModules -join ', ')" -Level Success
+        Write-Status "Successfully executed modules: $($ExecutedModules -join ', ')" -Level Success
     }
     
     if ($FailedModules.Count -gt 0) {
@@ -241,6 +199,9 @@ function Show-ExecutionSummary {
 
 try {
     Write-Header "DSP Demo Script - Preflight Initialization"
+    
+    # Load configuration
+    $config = Load-Configuration -ConfigFile $Script:ConfigFile
     
     # Check if modules directory exists
     if (-not (Test-Path $ModulesPath -PathType Container)) {
@@ -282,7 +243,10 @@ try {
     # Attempt DSP connectivity (optional)
     Write-LogHeader "DSP Server Discovery"
     
-    $dspServer = Find-DspServer -DomainInfo $domainInfo
+    # Get DSP server from config, or leave empty for auto-discovery
+    $dspServerFromConfig = $config.DspServer
+    
+    $dspServer = Find-DspServer -DomainInfo $domainInfo -ConfigServer $dspServerFromConfig
     $dspAvailable = $false
     $dspConnection = $null
     
