@@ -81,7 +81,6 @@ function Build-OUStructure {
     
     $ouObjects = @{}
     $createdCount = 0
-    $skippedCount = 0
     
     try {
         # Create all top-level OUs at domain root
@@ -96,14 +95,8 @@ function Build-OUStructure {
             $ou = New-OU -Name $ouName -Path $DomainDN -Description $ouDesc -ProtectFromAccidentalDeletion $ouProtect
             
             if ($ou) {
-                # Check if it was newly created or already existed
-                $ouDN = "OU=$ouName,$DomainDN"
-                $checkOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction SilentlyContinue
-                if ($checkOU) {
-                    Write-Host "    ✓ OK: $ouName" -ForegroundColor Green
-                    $createdCount++
-                }
-                
+                Write-Host "    ✓ OK: $ouName" -ForegroundColor Green
+                $createdCount++
                 $ouObjects[$ouKey] = $ou
                 
                 # Create child OUs if defined
