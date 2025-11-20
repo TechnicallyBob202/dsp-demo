@@ -51,6 +51,8 @@ function Resolve-OUPath {
     <#
     .SYNOPSIS
     Converts logical OU path (e.g. "LabAdmins/Tier0") to Distinguished Name
+    Example: "LabAdmins/Tier0" with domain DC=d3,DC=lab becomes:
+             OU=Tier0,OU=LabAdmins,DC=d3,DC=lab
     #>
     [CmdletBinding()]
     param(
@@ -67,23 +69,20 @@ function Resolve-OUPath {
         return $domainDN
     }
     
-    # Split path and build DN from right to left
+    # Split path from left to right: "LabAdmins/Tier0" -> @("LabAdmins", "Tier0")
     $parts = $LogicalPath -split '/'
-    $dn = ""
     
+    # Build DN from right to left, so child comes first
+    $dnParts = @()
     for ($i = $parts.Count - 1; $i -ge 0; $i--) {
         $part = $parts[$i]
         if ($part -and $part -ne "Root") {
-            $dn = "OU=$part" + $(if ($dn) { ",$dn" })
+            $dnParts += "OU=$part"
         }
     }
     
-    # Append domain DN
-    if ($dn) {
-        $dn = "$dn,$domainDN"
-    } else {
-        $dn = $domainDN
-    }
+    # Join all parts and append domain DN
+    $dn = ($dnParts -join ",") + "," + $domainDN
     
     return $dn
 }
