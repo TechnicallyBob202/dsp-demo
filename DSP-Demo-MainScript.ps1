@@ -1,265 +1,379 @@
 ################################################################################
 ################################################################################
 ##
-## DSP-Demo-MainScript.ps1 (REFACTORED)
+## DSP-Demo-MainScript.ps1
 ##
-## Modular version of Invoke-CreateDspChangeDataForDemos.ps1
-## Uses separate module files for each activity category
+## Main orchestration script for DSP demo activity generation
+## 
+## Features:
+## - Runs Preflight module for environment discovery and setup
+## - Interactive menu for selecting activity modules to run
+## - Run individual activity modules or all modules
+## - Configuration-driven approach
+## - Comprehensive logging and error handling
 ##
-## Author: Rob Ingenthron (Original)
-## Refactored by: [Your Name]
-## Version: 4.0.0-20251119
+## Author: Rob Ingenthron (Original), Bob Lyons (Refactor)
+## Version: 4.2.0-20251119
 ##
 ################################################################################
 ################################################################################
 
 <#
 .SYNOPSIS
-    AD activity generation script for DSP demonstrations (Modular Version)
+    DSP Demo Activity Generation Script - Main Orchestrator
 
 .DESCRIPTION
-    Automatically generate comprehensive AD activities including:
-    - User and group management
-    - OU creation and manipulation
-    - DNS zone and record management
-    - Group Policy Objects
-    - Fine-Grained Password Policies
-    - Security events (brute force, password spray)
-    - DSP undo demonstrations
+    Automatically generates AD activities such as users, groups, DNS, GPOs, 
+    and changes to objects and ACLs. This script uses a modular approach:
+    - Preflight module runs first (environment discovery, DSP connectivity)
+    - Activity modules run based on user selection from interactive menu
+
+.PARAMETER SkipMenu
+    Skip the interactive menu and run all activity modules automatically
+
+.PARAMETER Module
+    Specific activity module to run (can be used to skip menu)
+    Valid values: DirectoryObjects, DNS, GPOs, Sites, IOCs, All
 
 .PARAMETER ConfigPath
-    Path to external JSON configuration file
-
-.PARAMETER SkipDSPOperations
-    Skip DSP-specific undo demonstrations
-
-.PARAMETER SkipSecurityEvents
-    Skip account lockout and password spray demonstrations
-
-.PARAMETER ModulePath
-    Path to modules directory (default: .\modules)
+    Path to external configuration file (optional)
 
 .PARAMETER LogPath
     Custom log file path
 
 .EXAMPLE
     .\DSP-Demo-MainScript.ps1
+    # Runs Preflight, then opens interactive menu to select activities
 
 .EXAMPLE
-    .\DSP-Demo-MainScript.ps1 -SkipDSPOperations -SkipSecurityEvents
+    .\DSP-Demo-MainScript.ps1 -Module DirectoryObjects
+    # Runs Preflight, then runs only DirectoryObjects activity
+
+.EXAMPLE
+    .\DSP-Demo-MainScript.ps1 -SkipMenu
+    # Runs Preflight, then runs all activity modules without menu
 
 .NOTES
-    Author: Rob Ingenthron (Original), [Your Name] (Refactor)
-    Version: 4.0.0-20251119
-    
-    This refactored version:
-    - Separates concerns into individual modules
-    - Reduces code duplication by ~70%
-    - Improves maintainability and testability
-    - Supports configuration-driven approach
-    - Maintains compatibility with original functionality
+    Author     : Rob Ingenthron (Original), Bob Lyons (Refactor)
+    Version    : 4.2.0-20251119
 #>
-
-[CmdletBinding()]
-param(
-    [Parameter(Mandatory=$false)]
-    [string]$ConfigPath,
-    
-    [Parameter(Mandatory=$false)]
-    [switch]$SkipDSPOperations,
-    
-    [Parameter(Mandatory=$false)]
-    [switch]$SkipSecurityEvents,
-    
-    [Parameter(Mandatory=$false)]
-    [string]$ModulePath = "$PSScriptRoot\modules",
-    
-    [Parameter(Mandatory=$false)]
-    [string]$LogPath
-)
 
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
 #Requires -RunAsAdministrator
 
-################################################################################
-# MODULE IMPORTS
-################################################################################
-
-Write-Host ""
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "DSP Demo Script - Module Initialization" -ForegroundColor Cyan
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host ""
-
-$modules = @(
-    'DSP-Demo-01-Core',
-    'DSP-Demo-02-AD-Discovery',
-    'DSP-Demo-03-Users',
-    'DSP-Demo-04-OrgUnits',
-    'DSP-Demo-05-Groups',
-    'DSP-Demo-06-Sites',
-    'DSP-Demo-07-DNS',
-    'DSP-Demo-08-GroupPolicy',
-    'DSP-Demo-09-FGPP',
-    'DSP-Demo-10-SecurityEvents',
-    'DSP-Demo-11-DSPOperations'
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory=$false)]
+    [switch]$SkipMenu,
+    
+    [Parameter(Mandatory=$false)]
+    [ValidateSet('DirectoryObjects','DNS','GPOs','Sites','IOCs','All')]
+    [string]$Module,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$ConfigPath,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$LogPath
 )
 
-$baseModulePath = $ModulePath
+$ErrorActionPreference = "Continue"
 
-foreach ($moduleName in $modules) {
-    $modulePath = Join-Path $baseModulePath "$moduleName.psm1"
+################################################################################
+# INITIALIZATION
+################################################################################
+
+$Script:ScriptPath = $PSScriptRoot
+$Script:ModulesPath = Join-Path $ScriptPath "modules"
+
+################################################################################
+# COLORS AND FORMATTING
+################################################################################
+
+$Colors = @{
+    Header = 'Cyan'
+    Section = 'Green'
+    Success = 'Green'
+    Warning = 'Yellow'
+    Error = 'Red'
+    Info = 'White'
+    Menu = 'Cyan'
+    MenuHighlight = 'Yellow'
+}
+
+################################################################################
+# HELPER FUNCTIONS
+################################################################################
+
+function Write-Header {
+    param([string]$Title)
+    Write-Host ""
+    Write-Host ("=" * 80) -ForegroundColor $Colors.Header
+    Write-Host $Title -ForegroundColor $Colors.Header
+    Write-Host ("=" * 80) -ForegroundColor $Colors.Header
+    Write-Host ""
+}
+
+function Write-Status {
+    param(
+        [string]$Message,
+        [ValidateSet('Info','Success','Warning','Error')]
+        [string]$Level = 'Info'
+    )
     
-    if (-not (Test-Path $modulePath -PathType Leaf)) {
-        Write-Host "  [SKIP] $moduleName - File not found" -ForegroundColor Yellow
-        continue
-    }
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $color = $Colors[$Level]
+    
+    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
+}
+
+function Test-ModuleFile {
+    param([string]$ModuleName)
+    
+    $modulePath = Join-Path $ModulesPath "$ModuleName.psm1"
+    return (Test-Path $modulePath -PathType Leaf)
+}
+
+function Import-DemoModule {
+    param([string]$ModuleName)
     
     try {
+        $modulePath = Join-Path $ModulesPath "$ModuleName.psm1"
+        
+        if (-not (Test-Path $modulePath)) {
+            Write-Status "Module file not found: $modulePath" -Level Error
+            return $false
+        }
+        
         Import-Module $modulePath -Force -ErrorAction Stop
-        Write-Host "  [OK] $moduleName" -ForegroundColor Green
+        Write-Status "Module imported successfully: $ModuleName" -Level Success
+        return $true
     }
     catch {
-        Write-Host "  [ERROR] Failed to import $moduleName" -ForegroundColor Red
-        Write-Host "         $_" -ForegroundColor Red
-        exit 1
+        Write-Status "Failed to import $ModuleName : $_" -Level Error
+        return $false
     }
 }
 
-Write-Host ""
-
-################################################################################
-# CONFIGURATION & INITIALIZATION
-################################################################################
-
-Write-LogHeader "Initializing Environment"
-
-# Validate admin rights
-if (-not (Test-AdminRights)) {
-    Write-ScriptLog "Script requires Administrator rights" -Level Error
-    exit 1
-}
-
-# Discover domain information
-$domainInfo = Get-DomainInfo
-if (-not $domainInfo) {
-    Write-ScriptLog "Failed to discover domain information" -Level Error
-    exit 1
-}
-
-Write-ScriptLog "Domain: $($domainInfo.FQDN)" -Level Info
-Write-ScriptLog "NetBIOS: $($domainInfo.NetBIOS)" -Level Info
-
-# Get domain controllers
-$dcs = Get-ADDomainController
-if ($dcs.Count -eq 0) {
-    Write-ScriptLog "No domain controllers found" -Level Error
-    exit 1
-}
-
-$primaryDC = $dcs[0].HostName
-$secondaryDC = if ($dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
-
-Write-ScriptLog "Primary DC: $primaryDC" -Level Info
-if ($secondaryDC) {
-    Write-ScriptLog "Secondary DC: $secondaryDC" -Level Info
-}
-
-# Setup logging
-if (-not $LogPath) {
-    $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $LogPath = Join-Path $env:TEMP "DSP-Demo-$timestamp.log"
-}
-
-Start-Transcript -Path $LogPath -Append
-
-################################################################################
-# MAIN EXECUTION
-################################################################################
-
-Write-LogHeader "Creating AD Sites and Subnets"
-
-# TODO: Call site/subnet module functions
-# Update-DEFAULTIPSITELINK
-# New-Subnets
-# Update-Subnets
-
-Write-LogHeader "Creating OU Structure"
-
-# TODO: Call OU module functions
-# New-OUStructure
-# Move-ADUsersBetweenOUs
-
-Write-LogHeader "Creating User Accounts"
-
-# TODO: Call user module functions
-# New-ADAdminUser
-# New-ADDemoUser
-# New-ADTestUsers
-
-Write-LogHeader "Creating Groups"
-
-# TODO: Call group module functions
-# New-ADGroup
-# Add-ADGroupMember
-
-Write-LogHeader "Modifying DNS"
-
-# TODO: Call DNS module functions
-# New-DNSReverseZone
-# New-DNSForwardZone
-# New-DNSARecord
-# New-DNSPTRRecord
-
-Write-LogHeader "Creating Group Policies"
-
-# TODO: Call GPO module functions
-# New-GPO
-# Set-GPORegistryValue
-# Update-DefaultDomainPolicy
-
-Write-LogHeader "Creating Fine-Grained Password Policies"
-
-# TODO: Call FGPP module functions
-# New-FGPP
-# Add-FGPPPrincipal
-
-if (-not $SkipSecurityEvents) {
-    Write-LogHeader "Generating Security Events"
+function Show-ActivityMenu {
+    Write-Header "DSP DEMO - SELECT ACTIVITY MODULES"
     
-    # TODO: Call SecurityEvents module functions
-    # Invoke-AccountLockout
-    # Invoke-DspPasswordSpray
+    Write-Host "Available Activity Modules:" -ForegroundColor $Colors.Menu
+    Write-Host ""
+    Write-Host "   1. DirectoryObjects - Create users, groups, OUs, computers, FGPP" -ForegroundColor $Colors.Menu
+    Write-Host "   2. DNS             - Create DNS zones and records" -ForegroundColor $Colors.Menu
+    Write-Host "   3. GPOs            - Create and modify Group Policy Objects" -ForegroundColor $Colors.Menu
+    Write-Host "   4. Sites           - Create AD sites and subnets" -ForegroundColor $Colors.Menu
+    Write-Host "   5. IOCs            - Generate security events and changes" -ForegroundColor $Colors.Menu
+    Write-Host "   6. All             - Run all activity modules" -ForegroundColor $Colors.MenuHighlight
+    Write-Host "   0. Exit            - Exit without running activities" -ForegroundColor $Colors.Warning
+    Write-Host ""
 }
 
-if (-not $SkipDSPOperations) {
-    Write-LogHeader "DSP Operations"
+function Get-ActivitySelection {
+    do {
+        Write-Host "Enter selection (0-6, comma-separated for multiple): " -ForegroundColor $Colors.MenuHighlight -NoNewline
+        $selection = Read-Host
+        
+        if ($selection -eq "0") {
+            return $null
+        }
+        
+        if ($selection -eq "6") {
+            return @('DirectoryObjects', 'DNS', 'GPOs', 'Sites', 'IOCs')
+        }
+        
+        # Parse comma-separated selections
+        $selections = $selection -split ',' | ForEach-Object { $_.Trim() }
+        $moduleMap = @{
+            '1' = 'DirectoryObjects'
+            '2' = 'DNS'
+            '3' = 'GPOs'
+            '4' = 'Sites'
+            '5' = 'IOCs'
+        }
+        
+        $validSelections = @()
+        $allValid = $true
+        
+        foreach ($sel in $selections) {
+            if ($moduleMap.ContainsKey($sel)) {
+                $validSelections += $moduleMap[$sel]
+            }
+            else {
+                Write-Status "Invalid selection: $sel" -Level Warning
+                $allValid = $false
+            }
+        }
+        
+        if ($allValid -and $validSelections.Count -gt 0) {
+            return $validSelections
+        }
+        
+    } while ($true)
+}
+
+function Show-ExecutionSummary {
+    param(
+        [array]$ExecutedModules,
+        [array]$FailedModules,
+        [timespan]$ExecutionTime
+    )
     
-    # TODO: Call DSPOperations module functions
-    # Find-DspManagementServer
-    # Connect-DspManagementServer
-    # Invoke-DspUndo
+    Write-Header "EXECUTION SUMMARY"
+    
+    if ($ExecutedModules.Count -gt 0) {
+        Write-Status "Successfully executed: $($ExecutedModules -join ', ')" -Level Success
+    }
+    
+    if ($FailedModules.Count -gt 0) {
+        Write-Status "Failed modules: $($FailedModules -join ', ')" -Level Warning
+    }
+    
+    Write-Status "Total execution time: $($ExecutionTime.TotalSeconds) seconds" -Level Info
+    Write-Host ""
 }
 
-Write-LogHeader "Finalizing Script"
+################################################################################
+# MAIN SCRIPT
+################################################################################
 
-# Force final replication
-Write-ScriptLog "Forcing final replication..." -Level Info
-Wait-Replication -Seconds 20 -DomainController $primaryDC
-if ($secondaryDC) {
-    Wait-Replication -Seconds 5 -DomainController $secondaryDC
+try {
+    Write-Header "DSP Demo Script - Preflight Initialization"
+    
+    # Check if modules directory exists
+    if (-not (Test-Path $ModulesPath -PathType Container)) {
+        Write-Status "Modules directory not found: $ModulesPath" -Level Warning
+        Write-Status "Creating modules directory..." -Level Info
+        New-Item -ItemType Directory -Path $ModulesPath -Force | Out-Null
+    }
+    
+    # Import and run Preflight module (mandatory)
+    Write-Status "Importing Preflight module..." -Level Info
+    
+    if (-not (Import-DemoModule "DSP-Demo-Preflight")) {
+        Write-Status "FATAL: Failed to import Preflight module" -Level Error
+        exit 1
+    }
+    
+    Write-Host ""
+    
+    # Run Preflight discovery functions
+    Write-LogHeader "Discovering Environment"
+    
+    try {
+        $domainInfo = Get-DomainInfo
+        $dcs = Get-ADDomainControllers
+        $primaryDC = $dcs[0].HostName
+        $secondaryDC = if ($dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
+        $forestInfo = Get-ForestInfo
+        
+        Write-ScriptLog "Primary DC: $primaryDC" -Level Info
+        if ($secondaryDC) {
+            Write-ScriptLog "Secondary DC: $secondaryDC" -Level Info
+        }
+    }
+    catch {
+        Write-ScriptLog "FATAL: Failed to discover environment: $_" -Level Error
+        exit 1
+    }
+    
+    # Attempt DSP connectivity (optional)
+    Write-LogHeader "DSP Server Discovery"
+    
+    $dspServer = Find-DspServer -DomainInfo $domainInfo
+    $dspAvailable = $false
+    $dspConnection = $null
+    
+    if ($dspServer) {
+        if (Test-DspModule) {
+            $dspAvailable = $true
+            $dspConnection = Connect-DspManagementServer -DspServer $dspServer
+            
+            if ($dspConnection) {
+                Write-ScriptLog "DSP connectivity established" -Level Success
+            }
+            else {
+                Write-ScriptLog "DSP module available but connection failed - continuing without DSP" -Level Warning
+                $dspAvailable = $false
+            }
+        }
+        else {
+            Write-ScriptLog "DSP server found but module not installed - continuing without DSP" -Level Warning
+            $dspAvailable = $false
+        }
+    }
+    else {
+        Write-ScriptLog "DSP server not found - continuing without DSP" -Level Warning
+        $dspAvailable = $false
+    }
+    
+    Write-Host ""
+    
+    # Determine which activity modules to run
+    $activityModules = @()
+    
+    if ($Module) {
+        if ($Module -eq 'All') {
+            $activityModules = @('DirectoryObjects', 'DNS', 'GPOs', 'Sites', 'IOCs')
+        }
+        else {
+            $activityModules = @($Module)
+        }
+    }
+    elseif (-not $SkipMenu) {
+        Show-ActivityMenu
+        $activityModules = Get-ActivitySelection
+        
+        if (-not $activityModules) {
+            Write-Status "No activity modules selected - exiting" -Level Info
+            exit 0
+        }
+    }
+    else {
+        $activityModules = @('DirectoryObjects', 'DNS', 'GPOs', 'Sites', 'IOCs')
+    }
+    
+    Write-Header "RUNNING ACTIVITY MODULES"
+    
+    $executionStart = Get-Date
+    $executedModules = @()
+    $failedModules = @()
+    
+    foreach ($activityName in $activityModules) {
+        Write-Host ""
+        Write-Status "Processing activity module: $activityName" -Level Info
+        
+        $moduleFile = "DSP-Demo-01-$activityName"
+        
+        if (Test-ModuleFile $moduleFile) {
+            if (Import-DemoModule $moduleFile) {
+                $executedModules += $activityName
+                Write-Status "Activity $activityName completed" -Level Success
+            }
+            else {
+                $failedModules += $activityName
+                Write-Status "Activity $activityName failed to execute" -Level Error
+            }
+        }
+        else {
+            Write-Status "Activity module file not found: $moduleFile.psm1" -Level Warning
+            $failedModules += $activityName
+        }
+    }
+    
+    $executionEnd = Get-Date
+    $executionTime = $executionEnd - $executionStart
+    
+    Show-ExecutionSummary -ExecutedModules $executedModules -FailedModules $failedModules -ExecutionTime $executionTime
+}
+catch {
+    Write-Header "FATAL ERROR"
+    Write-Status "Script failed: $_" -Level Error
+    exit 1
 }
 
-Write-ScriptLog "Script execution completed successfully" -Level Success
-
-Stop-Transcript
-
-Write-Host ""
-Write-Host "============================================================" -ForegroundColor Green
-Write-Host "DSP Demo Script - Execution Complete" -ForegroundColor Green
-Write-Host "============================================================" -ForegroundColor Green
-Write-Host ""
-Write-Host "Log file: $LogPath" -ForegroundColor Yellow
-Write-Host ""
-
+################################################################################
+# END OF SCRIPT
+################################################################################
