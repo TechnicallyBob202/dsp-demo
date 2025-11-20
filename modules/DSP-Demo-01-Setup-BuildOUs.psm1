@@ -39,6 +39,9 @@ function New-OU {
         }
         
         $ou = New-ADOrganizationalUnit -Name $Name -Path $Path -Description $Description -ProtectedFromAccidentalDeletion $ProtectFromAccidentalDeletion -ErrorAction Stop
+        
+        Start-Sleep -Milliseconds 500
+        
         $createdOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction Stop
         
         Write-Verbose "Created OU: $Name at $Path"
@@ -88,7 +91,13 @@ function Build-OUStructure {
                         
                         Write-Host "    Creating child OU: $childName" -ForegroundColor Cyan
                         
-                        $childOU = New-OU -Name $childName -Path $ou.DistinguishedName -Description $childDesc -ProtectFromAccidentalDeletion $childProtect
+                        $parentDN = $ou.DistinguishedName
+                        if (-not $parentDN) {
+                            Write-Host "      FAILED: Parent OU DN is empty" -ForegroundColor Red
+                            continue
+                        }
+                        
+                        $childOU = New-OU -Name $childName -Path $parentDN -Description $childDesc -ProtectFromAccidentalDeletion $childProtect
                         
                         if ($childOU) {
                             Write-Host "      OK: $childName" -ForegroundColor Green
