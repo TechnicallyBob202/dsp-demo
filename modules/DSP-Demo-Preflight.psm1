@@ -207,20 +207,19 @@ function Get-ADDomainControllers {
     try {
         Write-ScriptLog "Discovering domain controllers..." -Level Info
         
-        $dcs = Get-ADDomainController -Filter * -ErrorAction Stop | Sort-Object -Property HostName
+        $dcs = @(Get-ADDomainController -Discover -ErrorAction Stop | Sort-Object -Property HostName)
         
         if ($dcs.Count -gt 0) {
             Write-ScriptLog "Found $($dcs.Count) domain controller(s)" -Level Success
             foreach ($dc in $dcs) {
                 Write-ScriptLog "  - $($dc.HostName)" -Level Info
             }
+            return $dcs
         }
         else {
             Write-ScriptLog "No domain controllers found" -Level Error
             throw "No domain controllers discovered"
         }
-        
-        return $dcs
     }
     catch {
         Write-ScriptLog "Failed to discover domain controllers: $_" -Level Error
