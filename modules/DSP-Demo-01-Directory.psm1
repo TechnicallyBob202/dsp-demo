@@ -878,7 +878,6 @@ function Invoke-DirectoryActivity {
                 -Description "Demo server for deletion recovery"
     
     Write-ActivityLog "=== Directory Activity Module completed successfully ===" -Level Success
-    return $true
 }
 
 ################################################################################
