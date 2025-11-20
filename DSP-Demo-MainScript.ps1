@@ -389,7 +389,7 @@ function Main {
     Write-Host ""
     
     # Expand config placeholders now that we have domain info
-    $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $Script:DomainInfo
+    $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $domainInfo
     
     $selectedModules = @()
     

@@ -265,6 +265,51 @@ function Get-ForestInfo {
     }
 }
 
+function Expand-ConfigPlaceholders {
+    param(
+        [Parameter(Mandatory=$true)]
+        [hashtable]$Config,
+        
+        [Parameter(Mandatory=$true)]
+        [PSCustomObject]$DomainInfo
+    )
+    
+    $replacements = @{
+        '{DOMAIN_DN}'     = $DomainInfo.DistinguishedName
+        '{DOMAIN}'        = $DomainInfo.FQDN
+        '{NETBIOS}'       = $DomainInfo.NetBIOSName
+        '{PASSWORD}'      = if ($Config.General.DefaultPassword) { $Config.General.DefaultPassword } else { "P@ssw0rd123!" }
+        '{COMPANY}'       = "Semperis"
+    }
+    
+    function Expand-Object {
+        param([object]$Obj)
+        
+        if ($Obj -is [string]) {
+            $result = $Obj
+            foreach ($key in $replacements.Keys) {
+                $result = $result -replace [regex]::Escape($key), $replacements[$key]
+            }
+            return $result
+        }
+        elseif ($Obj -is [hashtable]) {
+            $newHash = @{}
+            foreach ($hkey in $Obj.Keys) {
+                $newHash[$hkey] = Expand-Object $Obj[$hkey]
+            }
+            return $newHash
+        }
+        elseif ($Obj -is [array]) {
+            return @($Obj | ForEach-Object { Expand-Object $_ })
+        }
+        else {
+            return $Obj
+        }
+    }
+    
+    return Expand-Object $Config
+}
+
 ################################################################################
 # DSP CONNECTIVITY FUNCTIONS
 ################################################################################
