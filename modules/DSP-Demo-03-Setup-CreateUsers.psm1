@@ -92,6 +92,7 @@ function New-UserAccount {
     .SYNOPSIS
     Creates a user account with idempotent logic. Returns user object.
     Maps config keys to New-ADUser parameter names.
+    Uses DefaultPassword if user definition doesn't specify one.
     #>
     [CmdletBinding()]
     param(
@@ -99,7 +100,10 @@ function New-UserAccount {
         [hashtable]$UserDef,
         
         [Parameter(Mandatory=$true)]
-        [string]$OUPath
+        [string]$OUPath,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$DefaultPassword
     )
     
     $sam = $UserDef.SamAccountName
@@ -132,12 +136,23 @@ function New-UserAccount {
         'Country' = 'Country'
     }
     
+    # Determine password to use
+    $passwordToUse = $UserDef.Password
+    if ([string]::IsNullOrWhiteSpace($passwordToUse)) {
+        $passwordToUse = $DefaultPassword
+    }
+    
+    if ([string]::IsNullOrWhiteSpace($passwordToUse)) {
+        Write-Status "Failed to create user '$sam': No password specified and no default available" -Level Error
+        return $null
+    }
+    
     # Build params for New-ADUser
     $newUserParams = @{
         SamAccountName = $sam
         Name = $UserDef.Name
         Path = $OUPath
-        AccountPassword = ConvertTo-SecureString $UserDef.Password -AsPlainText -Force
+        AccountPassword = ConvertTo-SecureString $passwordToUse -AsPlainText -Force
         Enabled = $UserDef.Enabled
         PasswordNeverExpires = $UserDef.PasswordNeverExpires
         ErrorAction = 'Stop'
@@ -165,7 +180,8 @@ function New-UserAccount {
 function Add-UserToGroup {
     <#
     .SYNOPSIS
-    Adds user to group if not already member. Returns $true on success.
+    Adds user to group if not already member.
+    Returns $true on success.
     #>
     [CmdletBinding()]
     param(
@@ -222,6 +238,7 @@ function Invoke-CreateUsers {
     )
     
     $DomainInfo = $Environment.DomainInfo
+    $DefaultPassword = if ($Config.General.ContainsKey('DefaultPassword')) { $Config.General.DefaultPassword } else { $null }
     
     Write-Host ""
     Write-Status "Creating user accounts..." -Level Info
@@ -234,7 +251,7 @@ function Invoke-CreateUsers {
         Write-Status "Creating Tier 0 admin accounts..." -Level Info
         foreach ($userDef in $Config.Users.Tier0Admins) {
             $ouPath = Resolve-OUPath $userDef.OUPath $DomainInfo
-            $user = New-UserAccount $userDef $ouPath
+            $user = New-UserAccount $userDef $ouPath $DefaultPassword
             if ($user) { $createdCount++ } else { $skippedCount++ }
             
             if ($userDef.ContainsKey('Groups')) {
@@ -250,7 +267,7 @@ function Invoke-CreateUsers {
         Write-Status "Creating Tier 1 admin accounts..." -Level Info
         foreach ($userDef in $Config.Users.Tier1Admins) {
             $ouPath = Resolve-OUPath $userDef.OUPath $DomainInfo
-            $user = New-UserAccount $userDef $ouPath
+            $user = New-UserAccount $userDef $ouPath $DefaultPassword
             if ($user) { $createdCount++ } else { $skippedCount++ }
             
             if ($userDef.ContainsKey('Groups')) {
@@ -266,7 +283,7 @@ function Invoke-CreateUsers {
         Write-Status "Creating Tier 2 admin accounts..." -Level Info
         foreach ($userDef in $Config.Users.Tier2Admins) {
             $ouPath = Resolve-OUPath $userDef.OUPath $DomainInfo
-            $user = New-UserAccount $userDef $ouPath
+            $user = New-UserAccount $userDef $ouPath $DefaultPassword
             if ($user) { $createdCount++ } else { $skippedCount++ }
             
             if ($userDef.ContainsKey('Groups')) {
@@ -282,7 +299,7 @@ function Invoke-CreateUsers {
         Write-Status "Creating demo user accounts..." -Level Info
         foreach ($userDef in $Config.Users.DemoUsers) {
             $ouPath = Resolve-OUPath $userDef.OUPath $DomainInfo
-            $user = New-UserAccount $userDef $ouPath
+            $user = New-UserAccount $userDef $ouPath $DefaultPassword
             if ($user) { $createdCount++ } else { $skippedCount++ }
             
             if ($userDef.ContainsKey('Groups')) {
@@ -298,7 +315,7 @@ function Invoke-CreateUsers {
         Write-Status "Creating service accounts..." -Level Info
         foreach ($userDef in $Config.Users.ServiceAccounts) {
             $ouPath = Resolve-OUPath $userDef.OUPath $DomainInfo
-            $user = New-UserAccount $userDef $ouPath
+            $user = New-UserAccount $userDef $ouPath $DefaultPassword
             if ($user) { $createdCount++ } else { $skippedCount++ }
             
             if ($userDef.ContainsKey('Groups')) {
@@ -317,7 +334,7 @@ function Invoke-CreateUsers {
         Write-Status "Creating $count bulk user accounts..." -Level Info
         $ouPath = Resolve-OUPath $bulkConfig.OUPath $DomainInfo
         $namePattern = if ($bulkConfig.ContainsKey('NamePattern')) { $bulkConfig.NamePattern } else { "GdAct0r-{0:D6}" }
-        $basePassword = if ($bulkConfig.ContainsKey('Password')) { $bulkConfig.Password } else { $Config.General.DefaultPassword }
+        $basePassword = if ($bulkConfig.ContainsKey('Password')) { $bulkConfig.Password } else { $DefaultPassword }
         
         for ($i = 0; $i -lt $count; $i++) {
             $samName = [string]::Format($namePattern, $i)
@@ -329,7 +346,7 @@ function Invoke-CreateUsers {
                 PasswordNeverExpires = $false
             }
             
-            $user = New-UserAccount $userDef $ouPath
+            $user = New-UserAccount $userDef $ouPath $DefaultPassword
             if ($user) { $createdCount++ } else { $skippedCount++ }
         }
     }
@@ -342,7 +359,7 @@ function Invoke-CreateUsers {
         Write-Status "Creating $count DeleteMe user accounts..." -Level Info
         $ouPath = Resolve-OUPath $deleteConfig.OUPath $DomainInfo
         $namePattern = if ($deleteConfig.ContainsKey('NamePattern')) { $deleteConfig.NamePattern } else { "GenericAct0r-{0:D6}" }
-        $basePassword = if ($deleteConfig.ContainsKey('Password')) { $deleteConfig.Password } else { $Config.General.DefaultPassword }
+        $basePassword = if ($deleteConfig.ContainsKey('Password')) { $deleteConfig.Password } else { $DefaultPassword }
         
         for ($i = 0; $i -lt $count; $i++) {
             $samName = [string]::Format($namePattern, $i)
@@ -354,7 +371,7 @@ function Invoke-CreateUsers {
                 PasswordNeverExpires = $false
             }
             
-            $user = New-UserAccount $userDef $ouPath
+            $user = New-UserAccount $userDef $ouPath $DefaultPassword
             if ($user) { $createdCount++ } else { $skippedCount++ }
         }
     }
