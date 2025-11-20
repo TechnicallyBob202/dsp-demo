@@ -855,22 +855,24 @@ function Invoke-DirectoryActivity {
     }
     
     # Step 5: Create groups
-    if ($Config -and $Config.ContainsKey('Groups') -and $Config.Groups) {
-        Write-ActivityLog "Step 5: Creating security groups..." -Level Info -LogFile $LogFile
+    if ($Config -and $Config.SecurityGroups) {
+        Write-ActivityLog "Step 5: Creating security groups..." -Level Info
         
-        foreach ($groupConfig in $Config.Groups.Values) {
+        foreach ($groupConfig in $Config.SecurityGroups.Values) {
             if ($groupConfig -is [hashtable]) {
+                # Use Path from config, or default to Lab Admins OU
+                $groupPath = if ($groupConfig.Path) { $groupConfig.Path } else { $structure.LabAdminsOU.DistinguishedName }
+                
                 New-Group -Name $groupConfig.Name `
-                         -Path $groupConfig.Path `
-                         -GroupScope $groupConfig.GroupScope `
-                         -GroupCategory $groupConfig.GroupCategory `
-                         -Description $groupConfig.Description `
-                         -Members $groupConfig.Members `
-                         -LogFile $LogFile
+                        -Path $groupPath `
+                        -GroupScope $groupConfig.GroupScope `
+                        -GroupCategory $groupConfig.GroupCategory `
+                        -Description $groupConfig.Description `
+                        -Members $groupConfig.Members
             }
         }
     } else {
-        Write-ActivityLog "Step 5: Skipping groups (not in config)" -Level Info -LogFile $LogFile
+        Write-ActivityLog "Step 5: Skipping groups (not in config)" -Level Info
     }
     
     # Step 6: Create FGPPs
