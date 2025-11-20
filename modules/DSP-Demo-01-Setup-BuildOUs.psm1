@@ -147,7 +147,12 @@ function Invoke-BuildOUs {
             return $false
         }
         
-        $domainDN = $Environment.DomainInfo.DistinguishedName
+        $domainDN = $Environment.DomainInfo.DN
+        
+        if (-not $domainDN) {
+            Write-Error "Domain DN is empty or missing from environment"
+            return $false
+        }
         
         Write-Verbose "Creating OUs in domain: $domainDN"
         
