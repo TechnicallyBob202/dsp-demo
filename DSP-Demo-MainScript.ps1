@@ -219,7 +219,8 @@ function Show-ConfirmationPrompt {
 function Run-ActivityModule {
     param(
         [string]$ModuleName,
-        [hashtable]$Config
+        [hashtable]$Config,
+        [object]$DomainInfo
     )
     
     Write-Header "Running $ModuleName Module"
@@ -236,7 +237,7 @@ function Run-ActivityModule {
         $functionName = $functionMap[$ModuleName]
         
         if (Get-Command $functionName -ErrorAction SilentlyContinue) {
-            & $functionName -Config $Config
+            & $functionName -Config $Config -DomainInfo $DomainInfo
             Write-Status "Module completed: $ModuleName" -Level Success
         }
         else {
@@ -397,10 +398,8 @@ function Main {
     
     $modulesToImport = @(
         "DSP-Demo-01-Directory",
-        "DSP-Demo-02-DNS",
         "DSP-Demo-03-GPOs",
-        "DSP-Demo-04-Sites",
-        "DSP-Demo-05-SecurityEvents"
+        "DSP-Demo-04-Sites"
     )
     
     foreach ($moduleName in $modulesToImport) {
@@ -417,7 +416,7 @@ function Main {
     $failedModules = 0
     
     foreach ($moduleName in $selectedModules) {
-        if (Run-ActivityModule -ModuleName $moduleName -Config $config) {
+        if (Run-ActivityModule -ModuleName $moduleName -Config $config -DomainInfo $Script:DomainInfo) {
             $completedModules++
         }
         else {
