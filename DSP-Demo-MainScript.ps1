@@ -275,12 +275,6 @@ function Run-ActivityModule {
 function Main {
     Write-Header "DSP Demo Activity Generation Suite"
     
-    # Import Preflight module first (provides helper functions)
-    if (-not (Import-DemoModule "DSP-Demo-Preflight")) {
-        Write-Status "FATAL: Failed to import Preflight module" -Level Error
-        exit 1
-    }
-    
     # Load configuration
     Write-Status "Loading configuration..." -Level Info
     $config = Load-Configuration -ConfigFile $Script:ConfigFile
