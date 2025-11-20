@@ -31,6 +31,8 @@ function New-OU {
     
     try {
         $ouDN = "OU=$Name,$Path"
+        Write-Verbose "Checking for existing OU: $ouDN"
+        
         $existingOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction SilentlyContinue
         
         if ($existingOU) {
@@ -38,9 +40,10 @@ function New-OU {
             return $existingOU
         }
         
+        Write-Verbose "Creating new OU with Name='$Name' Path='$Path'"
         $ou = New-ADOrganizationalUnit -Name $Name -Path $Path -Description $Description -ProtectedFromAccidentalDeletion $ProtectFromAccidentalDeletion -ErrorAction Stop
         
-        Start-Sleep -Milliseconds 500
+        Start-Sleep -Milliseconds 200
         
         $createdOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction Stop
         
@@ -92,6 +95,8 @@ function Build-OUStructure {
                         Write-Host "    Creating child OU: $childName" -ForegroundColor Cyan
                         
                         $parentDN = $ou.DistinguishedName
+                        Write-Verbose "Parent DN: $parentDN"
+                        
                         if (-not $parentDN) {
                             Write-Host "      FAILED: Parent OU DN is empty" -ForegroundColor Red
                             continue
