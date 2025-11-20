@@ -416,6 +416,8 @@ function Invoke-CreateUsers {
                         if ($bulkCompany) { $newUserParams['Company'] = $bulkCompany }
                         
                         New-ADUser @newUserParams | Out-Null
+                        # Explicitly enable user immediately after creation
+                        Enable-ADAccount -Identity $samName -ErrorAction SilentlyContinue
                         $createdCount++
                     }
                     catch {
