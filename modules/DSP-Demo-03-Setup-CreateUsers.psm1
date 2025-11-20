@@ -440,44 +440,6 @@ function Invoke-CreateUsers {
     Write-Status "User creation completed - Created: $createdCount, Skipped: $skippedCount" -Level Success
     Write-Host ""
     
-    # Fix existing users - set UPN and enable them
-    Write-Host ""
-    Write-Status "Fixing user attributes (UPN, enabled status)..." -Level Info
-    
-    $fixedCount = 0
-    $allUsers = Get-ADUser -Filter * -Properties UserPrincipalName
-    
-    foreach ($user in $allUsers) {
-        $needsUpdate = $false
-        $updateParams = @{ Identity = $user }
-        
-        # Check if UPN is missing or wrong format
-        $expectedUPN = "$($user.SamAccountName)@$domainFQDN"
-        if ([string]::IsNullOrWhiteSpace($user.UserPrincipalName) -or $user.UserPrincipalName -ne $expectedUPN) {
-            $updateParams['UserPrincipalName'] = $expectedUPN
-            $needsUpdate = $true
-        }
-        
-        # Check if disabled
-        if ($user.Enabled -eq $false) {
-            $updateParams['Enabled'] = $true
-            $needsUpdate = $true
-        }
-        
-        if ($needsUpdate) {
-            try {
-                Set-ADUser @updateParams -ErrorAction Stop
-                $fixedCount++
-            }
-            catch {
-                # Silently skip errors - some users may be system accounts
-            }
-        }
-    }
-    
-    Write-Status "User attribute fix completed - Fixed: $fixedCount" -Level Success
-    Write-Host ""
-    
     return $true
 }
 

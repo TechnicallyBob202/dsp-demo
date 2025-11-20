@@ -601,6 +601,57 @@
     }
     
     #---------------------------------------------------------------------------
+    # COMPUTERS
+    #---------------------------------------------------------------------------
+    Computers = @(
+        @{
+            SamAccountName = "srv-iis-us01"
+            Name = "srv-iis-us01"
+            DisplayName = "srv-iis-us01"
+            Description = "Special application server for lab (srv-iis-us01)"
+            OUPath = "Root/DeleteMe OU/Servers"
+            Password = "{PASSWORD}"
+            Enabled = $true
+        }
+        @{
+            SamAccountName = "ops-app-us05"
+            Name = "ops-app-us05"
+            DisplayName = "ops-app-us05"
+            Description = "Special application server for lab"
+            OUPath = "Root/DeleteMe OU/Resources"
+            Password = "{PASSWORD}"
+            Enabled = $true
+        }
+        @{
+            SamAccountName = "PIMPAM"
+            Name = "PIMPAM"
+            DisplayName = "PIMPAM"
+            Description = "Privileged access server"
+            OUPath = "Root/Special"
+            Password = "{PASSWORD}"
+            Enabled = $true
+        }
+        @{
+            SamAccountName = "VAULT"
+            Name = "VAULT"
+            DisplayName = "VAULT"
+            Description = "Vault server to store passwords and credentials"
+            OUPath = "Root/Special"
+            Password = "{PASSWORD}"
+            Enabled = $true
+        }
+        @{
+            SamAccountName = "BASTION-HOST01"
+            Name = "BASTION-HOST01"
+            DisplayName = "BASTION-HOST01"
+            Description = "Bastion host for restricted privileged access"
+            OUPath = "Root/Special"
+            Password = "{PASSWORD}"
+            Enabled = $true
+        }
+    )
+
+    #---------------------------------------------------------------------------
     # FINE-GRAINED PASSWORD POLICIES (FGPP)
     #---------------------------------------------------------------------------
     FGPPs = @(
