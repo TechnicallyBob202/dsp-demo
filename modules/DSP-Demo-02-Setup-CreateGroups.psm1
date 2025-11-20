@@ -54,7 +54,7 @@ function Resolve-OUPath {
         $DomainInfo
     )
     
-    $domainDN = $DomainInfo.DomainDN
+    $domainDN = $DomainInfo.DN
     
     if ([string]::IsNullOrWhiteSpace($LogicalPath) -or $LogicalPath -eq "Root") {
         return $domainDN
