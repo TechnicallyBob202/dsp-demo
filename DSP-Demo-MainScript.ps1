@@ -89,51 +89,71 @@ function Write-Header {
     Write-Host ""
 }
 
+################################################################################
+# CONFIGURATION & PLACEHOLDER EXPANSION
+################################################################################
+
 function Expand-ConfigPlaceholders {
+    <#
+    .SYNOPSIS
+        Recursively expand all placeholders in config hashtable.
+        Replaces {DOMAIN_DN}, {DOMAIN}, {PASSWORD}, {COMPANY} and other tokens
+        with actual values from domain discovery and config.
+    .PARAMETER Config
+        Configuration hashtable with {PLACEHOLDER} values
+    .PARAMETER DomainInfo
+        Domain info object from Get-DomainInfo (must have DistinguishedName, FQDN, NetBIOSName)
+    #>
+    [CmdletBinding()]
     param(
+        [Parameter(Mandatory=$true)]
         [hashtable]$Config,
-        [object]$DomainInfo
+        
+        [Parameter(Mandatory=$true)]
+        [PSCustomObject]$DomainInfo
     )
     
     Write-Status "Expanding config placeholders..." -Level Info
     
-    $domainDN = $DomainInfo.DistinguishedName
-    $domainName = $DomainInfo.FQDN
-    $domainNetBIOS = $DomainInfo.NetBIOSName
-    
-    function Replace-PlaceholdersInString {
-        param([string]$Value)
-        
-        $value -replace '\{DOMAIN_DN\}', $domainDN `
-               -replace '\{DOMAIN\}', $domainName `
-               -replace '\{DOMAIN_NETBIOS\}', $domainNetBIOS `
-               -replace '\{DOMAIN_DN_ESCAPED\}', ($domainDN -replace ',', '\,')
+    # Build replacement map
+    $replacements = @{
+        '{DOMAIN_DN}'        = $DomainInfo.DistinguishedName
+        '{DOMAIN}'           = $DomainInfo.FQDN
+        '{DOMAIN_NETBIOS}'   = $DomainInfo.NetBIOSName
+        '{NETBIOS}'          = $DomainInfo.NetBIOSName
+        '{PASSWORD}'         = if ($Config.General -and $Config.General.DefaultPassword) { $Config.General.DefaultPassword } else { "P@ssw0rd123!" }
+        '{COMPANY}'          = if ($Config.General -and $Config.General.Company) { $Config.General.Company } else { "Semperis" }
     }
     
-    function Expand-Object {
-        param($Object)
+    function Expand-Value {
+        param($Value)
         
-        if ($Object -is [hashtable]) {
+        if ($Value -is [string]) {
+            $result = $Value
+            foreach ($placeholder in $replacements.Keys) {
+                $result = $result -replace [regex]::Escape($placeholder), $replacements[$placeholder]
+            }
+            return $result
+        }
+        elseif ($Value -is [hashtable]) {
             $expanded = @{}
-            foreach ($key in $Object.Keys) {
-                $expanded[$key] = Expand-Object $Object[$key]
+            foreach ($key in $Value.Keys) {
+                $expanded[$key] = Expand-Value -Value $Value[$key]
             }
             return $expanded
         }
-        elseif ($Object -is [array]) {
-            return @($Object | ForEach-Object { Expand-Object $_ })
-        }
-        elseif ($Object -is [string]) {
-            return Replace-PlaceholdersInString $Object
+        elseif ($Value -is [array]) {
+            return @($Value | ForEach-Object { Expand-Value -Value $_ })
         }
         else {
-            return $Object
+            return $Value
         }
     }
     
-    $expanded = Expand-Object $Config
-    Write-Status "Config placeholders expanded" -Level Success
-    return $expanded
+    $result = Expand-Value -Value $Config
+    Write-Status "Config placeholders expanded successfully" -Level Success
+    
+    return $result
 }
 
 function Load-Configuration {
@@ -197,7 +217,7 @@ function Show-MainMenu {
 }
 
 function Get-MenuSelection {
-    Write-Host "Select modules to run (comma-separated for multiple, e.g. '1,3,5'):" -ForegroundColor $Colors.Prompt
+    Write-Host "Select modules to run (comma-separated for multiple, e.g. 1,3,5):" -ForegroundColor $Colors.Prompt
     Write-Host -NoNewline "Enter selection: " -ForegroundColor $Colors.Prompt
     $selection = Read-Host
     return $selection
@@ -209,54 +229,41 @@ function Parse-MenuSelection {
     $selected = @()
     
     if ($Selection -eq "6") {
-        $selected = @("Directory","DNS","GPOs","Sites","SecurityEvents")
+        return @("Directory","DNS","GPOs","Sites","SecurityEvents")
     }
-    else {
-        $choices = $Selection -split "," | ForEach-Object { $_.Trim() }
-        
-        $moduleMap = @{
-            "1" = "Directory"
-            "2" = "DNS"
-            "3" = "GPOs"
-            "4" = "Sites"
-            "5" = "SecurityEvents"
-        }
-        
-        foreach ($choice in $choices) {
-            if ($moduleMap.ContainsKey($choice)) {
-                $selected += $moduleMap[$choice]
-            }
-            else {
-                Write-Status "Invalid selection: $choice" -Level Warning
-            }
+    
+    $selections = $Selection -split ','
+    
+    $menuMap = @{
+        "1" = "Directory"
+        "2" = "DNS"
+        "3" = "GPOs"
+        "4" = "Sites"
+        "5" = "SecurityEvents"
+    }
+    
+    foreach ($sel in $selections) {
+        $sel = $sel.Trim()
+        if ($menuMap.ContainsKey($sel)) {
+            $selected += $menuMap[$sel]
         }
     }
     
-    return $selected
+    return $selected | Select-Object -Unique
 }
 
 function Show-ConfirmationPrompt {
     param([array]$SelectedModules)
     
-    Write-Header "Confirm Module Execution"
-    
-    Write-Host "You have selected the following modules to execute:" -ForegroundColor $Colors.Info
     Write-Host ""
-    
+    Write-Host "You have selected the following modules:" -ForegroundColor $Colors.Section
     $SelectedModules | ForEach-Object {
-        Write-Host "  [+] $_" -ForegroundColor $Colors.Success
-    }
-    
-    Write-Host ""
-    Write-Host "Configuration:" -ForegroundColor $Colors.Section
-    Write-Host "  Domain:     $($Script:DomainInfo.Name)" -ForegroundColor $Colors.Info
-    Write-Host "  Primary DC: $($Script:PrimaryDC)" -ForegroundColor $Colors.Info
-    if ($Script:SecondaryDC) {
-        Write-Host "  Secondary DC: $($Script:SecondaryDC)" -ForegroundColor $Colors.Info
+        Write-Host "  - $_" -ForegroundColor $Colors.Info
     }
     Write-Host ""
-    
-    Write-Host "Continue with execution?" -ForegroundColor $Colors.Prompt
+    Write-Host "This will generate AD activity for DSP demonstration." -ForegroundColor $Colors.Warning
+    Write-Host ""
+    Write-Host -NoNewline "Proceed with execution? " -ForegroundColor $Colors.Prompt
     Write-Host -NoNewline "[Y]es or [N]o: " -ForegroundColor $Colors.Prompt
     $confirm = Read-Host
     
@@ -388,8 +395,8 @@ function Main {
     
     Write-Host ""
     
-    # Expand config placeholders now that we have domain info
-    $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $domainInfo
+    # EXPAND CONFIG PLACEHOLDERS NOW THAT WE HAVE DOMAIN INFO
+    $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $Script:DomainInfo
     
     $selectedModules = @()
     
@@ -445,9 +452,7 @@ function Main {
     Write-Header "Loading Activity Modules"
     
     $modulesToImport = @(
-        "DSP-Demo-01-Directory",
-        "DSP-Demo-03-GPOs",
-        "DSP-Demo-04-Sites"
+        "DSP-Demo-01-Directory"
     )
     
     foreach ($moduleName in $modulesToImport) {
