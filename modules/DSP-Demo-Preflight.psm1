@@ -1,326 +1,184 @@
 ################################################################################
 ##
-## DSP-Demo-Preflight.psm1
+## DSP-Demo-MainScript.ps1
 ##
-## Preflight module for DSP demo activity generation
-## Handles environment discovery, logging, AD discovery, and DSP connectivity
+## Main orchestration script for DSP demo activity generation
+## 
+## Features:
+## - Runs Preflight module for environment discovery and setup
+## - Displays configuration summary (what will be created/modified)
+## - 15-second confirmation timeout before execution
+## - Executes all configured activities
+## - Comprehensive logging and error handling
 ##
 ## Author: Rob Ingenthron (Original), Bob Lyons (Refactor)
-## Version: 1.0.2-20251120
+## Version: 4.5.0-20251120
 ##
 ################################################################################
 
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
+#Requires -RunAsAdministrator
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory=$false)]
+    [string]$ConfigPath,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$LogPath
+)
+
+$ErrorActionPreference = "Continue"
 
 ################################################################################
-# LOGGING & OUTPUT FUNCTIONS
+# INITIALIZATION
 ################################################################################
 
-function Write-ScriptLog {
-    <#
-    .SYNOPSIS
-        Write a timestamped log message to console and optionally to file.
-    
-    .PARAMETER Message
-        The message to log
-    
-    .PARAMETER Level
-        Log level: Info, Success, Warning, Error
-    
-    .PARAMETER LogFile
-        Optional log file path
-    
-    .EXAMPLE
-        Write-ScriptLog "Domain discovered" -Level Success
-    #>
-    [CmdletBinding()]
+$Script:ScriptPath = $PSScriptRoot
+$Script:ModulesPath = Join-Path $ScriptPath "modules"
+$Script:ConfigFile = if ($ConfigPath) { $ConfigPath } else { Join-Path $ScriptPath "DSP-Demo-Config.psd1" }
+
+################################################################################
+# COLORS AND FORMATTING
+################################################################################
+
+$Colors = @{
+    Header = 'Cyan'
+    Section = 'Green'
+    Success = 'Green'
+    Warning = 'Yellow'
+    Error = 'Red'
+    Info = 'White'
+    Menu = 'Cyan'
+    MenuHighlight = 'Yellow'
+    Prompt = 'Magenta'
+}
+
+################################################################################
+# HELPER FUNCTIONS
+################################################################################
+
+function Write-Status {
     param(
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         [string]$Message,
-        
-        [Parameter(Mandatory=$false)]
         [ValidateSet('Info','Success','Warning','Error')]
-        [string]$Level = 'Info',
-        
-        [Parameter(Mandatory=$false)]
-        [string]$LogFile
+        [string]$Level = 'Info'
     )
     
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $color = $Colors[$Level]
     
-    $colors = @{
-        'Info'    = 'White'
-        'Success' = 'Green'
-        'Warning' = 'Yellow'
-        'Error'   = 'Red'
-    }
-    
-    $color = $colors[$Level]
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
-    
-    if ($LogFile -and (Test-Path (Split-Path $LogFile))) {
-        Add-Content -Path $LogFile -Value "[$timestamp] [$Level] $Message"
-    }
 }
 
-function Write-LogHeader {
-    <#
-    .SYNOPSIS
-        Write a formatted section header to console.
-    
-    .PARAMETER Title
-        The header title
-    
-    .EXAMPLE
-        Write-LogHeader "Discovering Active Directory"
-    #>
+function Write-Header {
+    param([string]$Title)
+    Write-Host ""
+    Write-Host ("=" * 80) -ForegroundColor $Colors.Header
+    Write-Host $Title -ForegroundColor $Colors.Header
+    Write-Host ("=" * 80) -ForegroundColor $Colors.Header
+    Write-Host ""
+}
+
+function Load-Configuration {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [string]$Title
+        [string]$ConfigFile
     )
     
-    Write-Host ""
-    Write-Host ("=" * 80) -ForegroundColor Cyan
-    Write-Host $Title -ForegroundColor Cyan
-    Write-Host ("=" * 80) -ForegroundColor Cyan
-    Write-Host ""
+    if (-not (Test-Path $ConfigFile)) {
+        Write-Status "Configuration file not found: $ConfigFile" -Level Error
+        throw "Missing configuration file"
+    }
+    
+    $config = Import-PowerShellDataFile -Path $ConfigFile
+    return $config
 }
 
-################################################################################
-# ADMIN & ENVIRONMENT CHECKS
-################################################################################
-
-function Test-AdminRights {
-    <#
-    .SYNOPSIS
-        Test if script is running with administrator privileges.
-    
-    .OUTPUTS
-        [bool] - $true if admin, $false otherwise
-    #>
-    [CmdletBinding()]
-    param()
-    
-    try {
-        $currentUser = New-Object Security.Principal.WindowsPrincipal $([Security.Principal.WindowsIdentity]::GetCurrent())
-        $isAdmin = $currentUser.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
-        
-        if ($isAdmin) {
-            Write-ScriptLog "Running with administrator privileges" -Level Success
-        }
-        else {
-            Write-ScriptLog "NOT running with administrator privileges" -Level Error
-        }
-        
-        return $isAdmin
-    }
-    catch {
-        Write-ScriptLog "Failed to check admin rights: $_" -Level Error
-        return $false
-    }
-}
-
-function Test-ModuleAvailable {
-    <#
-    .SYNOPSIS
-        Test if a PowerShell module is available.
-    
-    .PARAMETER ModuleName
-        Name of module to check
-    
-    .EXAMPLE
-        if (Test-ModuleAvailable "ActiveDirectory") { ... }
-    
-    .OUTPUTS
-        [bool] - $true if module available, $false otherwise
-    #>
+function Import-DemoModule {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
         [string]$ModuleName
     )
     
-    $module = Get-Module -ListAvailable -Name $ModuleName -ErrorAction SilentlyContinue
-    return ($null -ne $module)
+    $modulePath = Join-Path $Script:ModulesPath "$ModuleName.psm1"
+    
+    if (-not (Test-Path $modulePath)) {
+        Write-Status "Module not found: $modulePath" -Level Error
+        return $false
+    }
+    
+    try {
+        Import-Module -Name $modulePath -Force -ErrorAction Stop | Out-Null
+        Write-Status "Imported: $ModuleName" -Level Success
+        return $true
+    }
+    catch {
+        Write-Status "Failed to import $ModuleName : $_" -Level Error
+        return $false
+    }
 }
 
-################################################################################
-# AD DISCOVERY FUNCTIONS
-################################################################################
-
 function Get-DomainInfo {
-    <#
-    .SYNOPSIS
-        Discover current domain information.
-    
-    .EXAMPLE
-        $domain = Get-DomainInfo
-        Write-Host "Domain: $($domain.Name)"
-    
-    .OUTPUTS
-        PSCustomObject with domain information including FQDN, DN, NetBIOS
-    #>
     [CmdletBinding()]
     param()
     
     try {
-        Write-ScriptLog "Discovering domain information..." -Level Info
+        $domain = Get-ADDomain -ErrorAction Stop
         
-        $adDomain = Get-ADDomain -Current LocalComputer -ErrorAction Stop
-        
-        $domainInfo = [PSCustomObject]@{
-            Name = $adDomain.Name
-            FQDN = $adDomain.DNSRoot
-            DNSRoot = $adDomain.DNSRoot
-            DistinguishedName = $adDomain.DistinguishedName
-            NetBIOSName = $adDomain.NetBIOSName
-            DomainMode = $adDomain.DomainMode
-            DomainControllers = @($adDomain.ReplicaDirectoryServers)
+        return [PSCustomObject]@{
+            FQDN = $domain.DNSRoot
+            DNSRoot = $domain.DNSRoot
+            DistinguishedName = $domain.DistinguishedName
+            NetBIOSName = $domain.NetBIOSName
+            DomainSID = $domain.DomainSID
+            Forest = $domain.Forest
         }
-        
-        Write-ScriptLog "Domain: $($domainInfo.Name) - FQDN: $($domainInfo.FQDN)" -Level Success
-        
-        return $domainInfo
     }
     catch {
-        Write-ScriptLog "Failed to discover domain information: $_" -Level Error
-        throw
+        Write-Status "Failed to get domain info: $_" -Level Error
+        throw $_
     }
 }
 
 function Get-ADDomainControllers {
-    <#
-    .SYNOPSIS
-        Get list of domain controllers in current domain.
-    
-    .EXAMPLE
-        $dcs = Get-ADDomainControllers
-        foreach ($dc in $dcs) { Write-Host $dc.HostName }
-    
-    .OUTPUTS
-        Array of PSCustomObject with DC information
-    #>
     [CmdletBinding()]
     param()
     
     try {
-        Write-ScriptLog "Discovering domain controllers..." -Level Info
-        
-        $dcs = @(Get-ADDomainController -Discover -ErrorAction Stop | Sort-Object -Property HostName)
-        
-        if ($dcs.Count -gt 0) {
-            Write-ScriptLog "Found $($dcs.Count) domain controller(s)" -Level Success
-            foreach ($dc in $dcs) {
-                Write-ScriptLog "  - $($dc.HostName)" -Level Info
-            }
-            return $dcs
-        }
-        else {
-            Write-ScriptLog "No domain controllers found" -Level Error
-            throw "No domain controllers discovered"
-        }
+        $dcs = Get-ADDomainController -Filter * -ErrorAction Stop
+        return $dcs
     }
     catch {
-        Write-ScriptLog "Failed to discover domain controllers: $_" -Level Error
-        throw
+        Write-Status "Failed to get domain controllers: $_" -Level Error
+        throw $_
     }
 }
 
 function Get-ForestInfo {
-    <#
-    .SYNOPSIS
-        Discover current forest information.
-    
-    .EXAMPLE
-        $forest = Get-ForestInfo
-        Write-Host "Forest: $($forest.Name)"
-    
-    .OUTPUTS
-        PSCustomObject with forest information
-    #>
     [CmdletBinding()]
     param()
     
     try {
-        Write-ScriptLog "Discovering forest information..." -Level Info
+        $forest = Get-ADForest -ErrorAction Stop
         
-        $adForest = Get-ADForest -Current LocalComputer -ErrorAction Stop
-        
-        $forestInfo = [PSCustomObject]@{
-            Name = $adForest.Name
-            RootDomain = $adForest.RootDomain
-            Domains = @($adForest.Domains)
-            DomainCount = $adForest.Domains.Count
-            ForestMode = $adForest.ForestMode
+        return [PSCustomObject]@{
+            RootDomain = $forest.RootDomain
+            ForestMode = $forest.ForestMode
+            Domains = $forest.Domains
+            DomainCount = $forest.Domains.Count
         }
-        
-        Write-ScriptLog "Forest: $($forestInfo.Name) (Root: $($forestInfo.RootDomain))" -Level Success
-        
-        return $forestInfo
     }
     catch {
-        Write-ScriptLog "Failed to discover forest information: $_" -Level Error
-        throw
-    }
-}
-
-function Get-DNSServer {
-    <#
-    .SYNOPSIS
-        Get primary DNS server FQDN from domain.
-    
-    .PARAMETER DomainControllerName
-        Optional DC name to query (default: uses current domain)
-    
-    .EXAMPLE
-        $dnsServer = Get-DNSServer
-        Write-Host "DNS Server: $dnsServer"
-    
-    .OUTPUTS
-        [string] - FQDN of primary DNS server
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$false)]
-        [string]$DomainControllerName
-    )
-    
-    try {
-        Write-ScriptLog "Discovering DNS server..." -Level Info
-        
-        if (-not $DomainControllerName) {
-            $dc = Get-ADDomainController -Discover -ErrorAction Stop
-            $DomainControllerName = $dc.HostName
-        }
-        
-        Write-ScriptLog "Using DNS server: $DomainControllerName" -Level Success
-        return $DomainControllerName
-    }
-    catch {
-        Write-ScriptLog "Failed to discover DNS server: $_" -Level Error
-        throw
+        Write-Status "Failed to get forest info: $_" -Level Error
+        throw $_
     }
 }
 
 function Expand-ConfigPlaceholders {
-    <#
-    .SYNOPSIS
-        Replace placeholder tokens in configuration with actual domain values.
-    
-    .PARAMETER Config
-        Configuration hashtable with {PLACEHOLDER} values
-    
-    .PARAMETER DomainInfo
-        Domain information object from Get-DomainInfo
-    
-    .EXAMPLE
-        $expandedConfig = Expand-ConfigPlaceholders -Config $config -DomainInfo $domainInfo
-    
-    .OUTPUTS
-        [hashtable] - Configuration with all placeholders expanded
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -330,223 +188,302 @@ function Expand-ConfigPlaceholders {
         [PSCustomObject]$DomainInfo
     )
     
+    Write-Status "Expanding config placeholders..." -Level Info
+    
     $replacements = @{
-        '{DOMAIN_DN}'     = $DomainInfo.DistinguishedName
-        '{DOMAIN}'        = $DomainInfo.FQDN
-        '{NETBIOS}'       = $DomainInfo.NetBIOSName
-        '{PASSWORD}'      = if ($Config.General.DefaultPassword) { $Config.General.DefaultPassword } else { "P@ssw0rd123!" }
-        '{COMPANY}'       = if ($Config.General.Company) { $Config.General.Company } else { "Semperis" }
+        '{DOMAIN_DN}'        = $DomainInfo.DistinguishedName
+        '{DOMAIN}'           = if ($DomainInfo.FQDN) { $DomainInfo.FQDN } else { $DomainInfo.DNSRoot }
+        '{DOMAIN_NETBIOS}'   = $DomainInfo.NetBIOSName
+        '{NETBIOS}'          = $DomainInfo.NetBIOSName
+        '{PASSWORD}'         = if ($Config.General -and $Config.General.DefaultPassword) { $Config.General.DefaultPassword } else { "P@ssw0rd123!" }
+        '{COMPANY}'          = if ($Config.General -and $Config.General.Company) { $Config.General.Company } else { "Semperis" }
     }
     
-    function Expand-Object {
-        param([object]$Obj)
+    function Expand-Placeholders {
+        param($Object)
         
-        if ($Obj -is [string]) {
-            $result = $Obj
-            foreach ($key in $replacements.Keys) {
-                $result = $result -replace [regex]::Escape($key), $replacements[$key]
+        if ($Object -is [hashtable]) {
+            $result = @{}
+            foreach ($key in $Object.Keys) {
+                $result[$key] = Expand-Placeholders $Object[$key]
             }
             return $result
         }
-        elseif ($Obj -is [hashtable]) {
-            $newHash = @{}
-            foreach ($hkey in $Obj.Keys) {
-                $newHash[$hkey] = Expand-Object $Obj[$hkey]
-            }
-            return $newHash
+        elseif ($Object -is [array]) {
+            return @($Object | ForEach-Object { Expand-Placeholders $_ })
         }
-        elseif ($Obj -is [array]) {
-            return @($Obj | ForEach-Object { Expand-Object $_ })
+        elseif ($Object -is [string]) {
+            $expanded = $Object
+            foreach ($placeholder in $replacements.Keys) {
+                $expanded = $expanded -replace [regex]::Escape($placeholder), $replacements[$placeholder]
+            }
+            return $expanded
         }
         else {
-            return $Obj
+            return $Object
         }
     }
     
-    return Expand-Object $Config
+    $expanded = Expand-Placeholders $Config
+    Write-Status "Placeholder expansion complete" -Level Success
+    return $expanded
 }
 
-function Test-ConfigSection {
-    <#
-    .SYNOPSIS
-        Test if a configuration section exists and has content.
-    
-    .PARAMETER Config
-        Configuration hashtable
-    
-    .PARAMETER SectionPath
-        Dot-separated path to section (e.g., "General.DspServer")
-    
-    .EXAMPLE
-        if (Test-ConfigSection -Config $config -SectionPath "General.DspServer") {
-            $dspServer = $config.General.DspServer
-        }
-    
-    .OUTPUTS
-        [bool] - $true if section exists and contains value, $false otherwise
-    #>
+function Run-ActivityModule {
     [CmdletBinding()]
     param(
+        [Parameter(Mandatory=$true)]
+        [string]$ModuleName,
+        
         [Parameter(Mandatory=$true)]
         [hashtable]$Config,
         
         [Parameter(Mandatory=$true)]
-        [string]$SectionPath
+        [PSCustomObject]$DomainInfo
     )
     
-    $parts = $SectionPath -split '\.'
-    $current = $Config
+    Write-Status "Executing: $ModuleName" -Level Info
     
-    foreach ($part in $parts) {
-        if ($current -is [hashtable] -and $current.ContainsKey($part)) {
-            $current = $current[$part]
+    try {
+        if (Get-Command Invoke-DemoActivity -ErrorAction SilentlyContinue) {
+            Invoke-DemoActivity -Config $Config -DomainInfo $DomainInfo
+            Write-Status "$ModuleName completed successfully" -Level Success
+            return $true
         }
         else {
+            Write-Status "Module function not found: Invoke-DemoActivity" -Level Error
             return $false
         }
     }
-    
-    return ($null -ne $current)
+    catch {
+        Write-Status "Error in $ModuleName : $_" -Level Error
+        return $false
+    }
 }
 
 ################################################################################
-# DSP CONNECTIVITY FUNCTIONS
+# MAIN FUNCTION
 ################################################################################
 
-function Find-DspServer {
-    <#
-    .SYNOPSIS
-        Find DSP Management Server via config, SCP, or manual discovery.
+function Main {
+    Write-Header "DSP Demo Activity Generation Suite"
     
-    .PARAMETER DomainInfo
-        Domain information object
+    # Load configuration
+    Write-Status "Loading configuration..." -Level Info
+    $config = Load-Configuration -ConfigFile $Script:ConfigFile
+    Write-Status "Configuration loaded" -Level Success
     
-    .PARAMETER ConfigServer
-        Optional DSP server FQDN from config
+    # Import and run Preflight module
+    if (-not (Import-DemoModule "DSP-Demo-Preflight")) {
+        Write-Status "FATAL: Failed to import Preflight module" -Level Error
+        exit 1
+    }
     
-    .EXAMPLE
-        $dspServer = Find-DspServer -DomainInfo $domainInfo -ConfigServer "dsp.domain.com"
+    Write-Host ""
     
-    .OUTPUTS
-        [string] - FQDN of DSP server, or $null if not found
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [PSCustomObject]$DomainInfo,
-        
-        [Parameter(Mandatory=$false)]
-        [string]$ConfigServer
-    )
+    Write-Header "Discovering Environment"
     
     try {
-        # If configured, use that server
-        if ($ConfigServer -and $ConfigServer -ne "") {
-            Write-ScriptLog "Using configured DSP server: $ConfigServer" -Level Info
-            return $ConfigServer
-        }
+        $Script:DomainInfo = Get-DomainInfo
+        $dcs = Get-ADDomainControllers
         
-        # Otherwise, attempt SCP discovery
-        Write-ScriptLog "Attempting to discover DSP server via SCP..." -Level Info
-        
-        $scpPath = "LDAP://CN=Semperis DSP,CN=Services,CN=Configuration," + $DomainInfo.DistinguishedName
-        $scp = Get-ADObject -LDAPFilter "(cn=Semperis DSP)" -SearchBase "CN=Services,CN=Configuration,$($DomainInfo.DistinguishedName)" -ErrorAction SilentlyContinue
-        
-        if ($scp) {
-            Write-ScriptLog "DSP service connection point found" -Level Success
-            return $scp.Name
+        if ($dcs -is [array]) {
+            $Script:PrimaryDC = $dcs[0].HostName
+            $Script:SecondaryDC = if ($dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
         }
         else {
-            Write-ScriptLog "DSP service connection point not found" -Level Warning
-            return $null
+            $Script:PrimaryDC = $dcs.HostName
+            $Script:SecondaryDC = $null
+        }
+        
+        $Script:ForestInfo = Get-ForestInfo
+        
+        Write-Status "Primary DC: $($Script:PrimaryDC)" -Level Info
+        if ($Script:SecondaryDC) {
+            Write-Status "Secondary DC: $($Script:SecondaryDC)" -Level Info
         }
     }
     catch {
-        Write-ScriptLog "Error during DSP discovery: $_" -Level Warning
-        return $null
+        Write-Status "FATAL: Failed to discover environment: $_" -Level Error
+        exit 1
     }
-}
-
-function Connect-DspServer {
-    <#
-    .SYNOPSIS
-        Connect to DSP Server via PowerShell module.
     
-    .PARAMETER DspServer
-        FQDN of DSP server
+    Write-Header "DSP Server Discovery"
     
-    .PARAMETER MaxRetries
-        Maximum number of connection attempts (default: 3)
+    $dspServerFromConfig = if ($config -and $config.General -and $config.General.DspServer) { $config.General.DspServer } else { "" }
     
-    .EXAMPLE
-        $connection = Connect-DspServer -DspServer "dsp.domain.com"
+    $Script:DspAvailable = $false
+    $Script:DspConnection = $null
     
-    .OUTPUTS
-        [PSCustomObject] - Connection object, or $null on failure
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$DspServer,
-        
-        [Parameter(Mandatory=$false)]
-        [int]$MaxRetries = 3
+    Write-Status "Checking for DSP server..." -Level Info
+    try {
+        if (Get-Command Find-DspServer -ErrorAction SilentlyContinue) {
+            $dspServer = Find-DspServer -DomainInfo $Script:DomainInfo -ConfigServer $dspServerFromConfig -ErrorAction SilentlyContinue
+            
+            if ($dspServer) {
+                $Script:DspAvailable = $true
+                Write-Status "DSP Server found: $dspServer" -Level Success
+            }
+            else {
+                Write-Status "DSP Server not found, continuing without DSP integration" -Level Warning
+            }
+        }
+        else {
+            Write-Status "DSP module not available, continuing without DSP integration" -Level Warning
+        }
+    }
+    catch {
+        Write-Status "DSP discovery failed, continuing without DSP integration" -Level Warning
+    }
+    
+    Write-Host ""
+    
+    # Expand placeholders in config
+    $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $Script:DomainInfo
+    
+    Write-Header "Loading Activity Modules"
+    
+    $modulesToImport = @(
+        "DSP-Demo-01-Directory"
     )
     
-    try {
-        Write-ScriptLog "Attempting to connect to DSP server: $DspServer" -Level Info
-        
-        # Check if DSP module is available
-        if (-not (Test-ModuleAvailable "DspModule")) {
-            Write-ScriptLog "DSP PowerShell module not available" -Level Warning
-            return $null
+    foreach ($moduleName in $modulesToImport) {
+        if (-not (Import-DemoModule $moduleName)) {
+            Write-Status "Warning: Failed to import $moduleName" -Level Warning
+        }
+    }
+    
+    Write-Host ""
+    
+    Write-Header "Activity Configuration Summary"
+    
+    # Display what will be created/modified based on config
+    if ($config.General) {
+        Write-Host "General Settings:" -ForegroundColor $Colors.Section
+        Write-Host "  DSP Server: $(if ($config.General.DspServer) { $config.General.DspServer } else { 'Auto-discover' })" -ForegroundColor $Colors.Info
+        Write-Host "  Loop Count: $($config.General.LoopCount)" -ForegroundColor $Colors.Info
+        Write-Host "  Generic Test Users: $($config.General.GenericUserCount)" -ForegroundColor $Colors.Info
+        Write-Host "  Company: $($config.General.Company)" -ForegroundColor $Colors.Info
+        Write-Host ""
+    }
+    
+    if ($config.OUs) {
+        Write-Host "Organizational Units to Create:" -ForegroundColor $Colors.Section
+        foreach ($ou in $config.OUs.Keys) {
+            Write-Host "  - $($config.OUs[$ou].Name)" -ForegroundColor $Colors.Info
+        }
+        Write-Host ""
+    }
+    
+    if ($config.DemoUsers) {
+        Write-Host "Demo User Accounts to Create:" -ForegroundColor $Colors.Section
+        foreach ($user in $config.DemoUsers.Keys) {
+            Write-Host "  - $($config.DemoUsers[$user].Name) ($($config.DemoUsers[$user].SamAccountName))" -ForegroundColor $Colors.Info
+        }
+        Write-Host ""
+    }
+    
+    if ($config.DNS) {
+        Write-Host "DNS Configuration:" -ForegroundColor $Colors.Section
+        Write-Host "  - Zone: $($config.DNS.ForwardZone.Name)" -ForegroundColor $Colors.Info
+        Write-Host "  - Records to Create: $($config.DNS.ForwardZone.Records.Count)" -ForegroundColor $Colors.Info
+        Write-Host ""
+    }
+    
+    if ($config.GPOs) {
+        Write-Host "Group Policy Objects:" -ForegroundColor $Colors.Section
+        foreach ($gpo in $config.GPOs.Keys) {
+            if ($gpo -ne "DefaultDomainPolicy") {
+                Write-Host "  - $($config.GPOs[$gpo].Name)" -ForegroundColor $Colors.Info
+            }
+        }
+        if ($config.GPOs.DefaultDomainPolicy) {
+            Write-Host "  - Default Domain Policy (modifications)" -ForegroundColor $Colors.Info
+        }
+        Write-Host ""
+    }
+    
+    if ($config.Sites) {
+        Write-Host "AD Sites and Services:" -ForegroundColor $Colors.Section
+        foreach ($site in $config.Sites.Keys) {
+            Write-Host "  - $($config.Sites[$site].Name)" -ForegroundColor $Colors.Info
+        }
+        Write-Host ""
+    }
+    
+    if ($config.FGPPs) {
+        Write-Host "Fine-Grained Password Policies:" -ForegroundColor $Colors.Section
+        foreach ($fgpp in $config.FGPPs.Keys) {
+            Write-Host "  - $($config.FGPPs[$fgpp].Name)" -ForegroundColor $Colors.Info
+        }
+        Write-Host ""
+    }
+    
+    if ($config.WMIFilters) {
+        Write-Host "WMI Filters:" -ForegroundColor $Colors.Section
+        Write-Host "  - Count: $($config.WMIFilters.Count)" -ForegroundColor $Colors.Info
+        Write-Host ""
+    }
+    
+    # 15-second confirmation timeout
+    Write-Header "Confirmation Required"
+    Write-Host "Press " -ForegroundColor $Colors.Prompt -NoNewline
+    Write-Host "Y" -ForegroundColor $Colors.MenuHighlight -NoNewline
+    Write-Host " to proceed, " -ForegroundColor $Colors.Prompt -NoNewline
+    Write-Host "N" -ForegroundColor $Colors.MenuHighlight -NoNewline
+    Write-Host " to cancel" -ForegroundColor $Colors.Prompt
+    Write-Host "(Automatically proceeding in 15 seconds...)" -ForegroundColor $Colors.Warning
+    Write-Host ""
+    
+    $confirmationTimer = 0
+    $timeoutSeconds = 15
+    $proceed = $null
+    
+    while ($confirmationTimer -lt $timeoutSeconds) {
+        if ([Console]::KeyAvailable) {
+            $key = [Console]::ReadKey($true).KeyChar
+            if ($key -eq 'Y' -or $key -eq 'y') {
+                $proceed = $true
+                break
+            }
+            elseif ($key -eq 'N' -or $key -eq 'n') {
+                $proceed = $false
+                break
+            }
         }
         
-        $retryCount = 0
-        
-        while ($retryCount -lt $MaxRetries) {
-            try {
-                $retryCount++
-                Write-ScriptLog "Connection attempt $retryCount of $MaxRetries..." -Level Info
-                
-                # Attempt connection
-                $connection = Connect-DspServer -ComputerName $DspServer -ErrorAction Stop
-                
-                Write-ScriptLog "Connected to DSP server: $DspServer" -Level Success
-                return $connection
-            }
-            catch {
-                if ($retryCount -lt $MaxRetries) {
-                    Write-ScriptLog "Connection failed, retrying in 5 seconds..." -Level Warning
-                    Start-Sleep -Seconds 5
-                }
-            }
-        }
-        
-        Write-ScriptLog "Failed to connect to DSP server after $MaxRetries attempts" -Level Warning
-        return $null
+        $remaining = $timeoutSeconds - $confirmationTimer
+        Write-Host "`rProceeding automatically in $remaining seconds..." -ForegroundColor $Colors.Warning -NoNewline
+        Start-Sleep -Seconds 1
+        $confirmationTimer++
     }
-    catch {
-        Write-ScriptLog "Error during DSP connection attempt: $_" -Level Warning
-        return $null
+    
+    # If timeout was reached, proceed = $true (already confirmed by display message)
+    if ($null -eq $proceed) {
+        $proceed = $true
     }
+    
+    if (-not $proceed) {
+        Write-Host ""
+        Write-Status "Execution cancelled by user" -Level Warning
+        exit 0
+    }
+    
+    Write-Host ""
+    Write-Host ""
+    
+    Write-Header "Executing Activity Generation"
+    
+    # Execute all configured activities
+    if (-not (Run-ActivityModule -ModuleName "DSP-Demo-01-Directory" -Config $config -DomainInfo $Script:DomainInfo)) {
+        Write-Status "Activity generation completed with errors" -Level Warning
+    }
+    else {
+        Write-Status "Demo activity generation completed successfully" -Level Success
+    }
+    
+    Write-Host ""
 }
 
-################################################################################
-# EXPORT FUNCTIONS
-################################################################################
-
-Export-ModuleMember -Function @(
-    'Write-ScriptLog',
-    'Write-LogHeader',
-    'Test-AdminRights',
-    'Test-ModuleAvailable',
-    'Get-DomainInfo',
-    'Get-ADDomainControllers',
-    'Get-ForestInfo',
-    'Get-DNSServer',
-    'Expand-ConfigPlaceholders',
-    'Test-ConfigSection',
-    'Find-DspServer',
-    'Connect-DspServer'
-)
+# Execute main function
+Main
