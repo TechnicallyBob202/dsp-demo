@@ -28,7 +28,10 @@ function Write-ActivityLog {
     param(
         [string]$Message,
         [ValidateSet('Info','Success','Warning','Error')]
-        [string]$Level = 'Info'
+        [string]$Level = 'Info',
+        
+        [Parameter(Mandatory=$false)]
+        [string]$LogFile
     )
     
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -41,6 +44,23 @@ function Write-ActivityLog {
     
     $color = $colors[$Level]
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
+    
+    # Always log to file if provided
+    if ($LogFile) {
+        Add-Content -Path $LogFile -Value "[$timestamp] [$Level] $Message" -ErrorAction SilentlyContinue
+    }
+}
+
+function Write-DetailToLog {
+    param(
+        [string]$Detail,
+        [Parameter(Mandatory=$false)]
+        [string]$LogFile
+    )
+    
+    if ($LogFile) {
+        Add-Content -Path $LogFile -Value $Detail -ErrorAction SilentlyContinue
+    }
 }
 
 ################################################################################
@@ -63,6 +83,9 @@ function New-OU {
     
     .PARAMETER ProtectFromAccidentalDeletion
         Enable accidental deletion protection (default: $true)
+    
+    .PARAMETER LogFile
+        Optional log file path for detailed output
     #>
     [CmdletBinding()]
     param(
@@ -76,32 +99,40 @@ function New-OU {
         [string]$Description = "",
         
         [Parameter(Mandatory=$false)]
-        [bool]$ProtectFromAccidentalDeletion = $true
+        [bool]$ProtectFromAccidentalDeletion = $true,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$LogFile
     )
     
     try {
         # Check if OU already exists
-        $existingOU = Get-ADOrganizationalUnit -Filter "Name -eq '$Name'" -ErrorAction SilentlyContinue | `
-                      Where-Object { $_.DistinguishedName -like "*$Path" }
+        $existingOU = Get-ADOrganizationalUnit -Filter "Name -eq '$Name'" -SearchBase $Path -ErrorAction SilentlyContinue
         
         if ($existingOU) {
-            Write-ActivityLog "OU already exists: $Name (using existing)" -Level Info
+            Write-ActivityLog "OU already exists: $Name (using existing)" -Level Info -LogFile $LogFile
+            Write-DetailToLog "  Path: $($existingOU.DistinguishedName)" -LogFile $LogFile
             return $existingOU
         }
         
-        Write-ActivityLog "Creating OU: $Name in $Path" -Level Info
+        Write-ActivityLog "Creating OU: $Name" -Level Info -LogFile $LogFile
         
-        $ou = New-ADOrganizationalUnit -Name $Name `
-                                       -Path $Path `
-                                       -Description $Description `
-                                       -ProtectedFromAccidentalDeletion $ProtectFromAccidentalDeletion `
-                                       -ErrorAction Stop
+        $newOU = New-ADOrganizationalUnit -Name $Name `
+                                         -Path $Path `
+                                         -Description $Description `
+                                         -ProtectedFromAccidentalDeletion $ProtectFromAccidentalDeletion `
+                                         -ErrorAction Stop
         
-        Write-ActivityLog "OU created successfully: $Name" -Level Success
-        return $ou
+        Write-ActivityLog "OU created: $Name" -Level Success -LogFile $LogFile
+        Write-DetailToLog "  Path: $($newOU.DistinguishedName)" -LogFile $LogFile
+        Write-DetailToLog "  Description: $Description" -LogFile $LogFile
+        Write-DetailToLog "  Protected: $ProtectFromAccidentalDeletion" -LogFile $LogFile
+        
+        return $newOU
     }
     catch {
-        Write-ActivityLog "Failed to create OU $Name : $_" -Level Error
+        Write-ActivityLog "Failed to create OU $Name : $_" -Level Error -LogFile $LogFile
+        Write-DetailToLog "  Error Details: $($_.Exception.Message)" -LogFile $LogFile
         return $null
     }
 }
@@ -109,156 +140,69 @@ function New-OU {
 function New-DirectoryStructure {
     <#
     .SYNOPSIS
-        Create the complete OU hierarchy matching original script structure
+        Create the standard directory structure for DSP demo
     
     .PARAMETER DomainDN
-        Domain distinguished name (e.g., DC=contoso,DC=com)
+        Domain Distinguished Name
     
-    .DESCRIPTION
-        Creates the entire OU structure including:
-        - Lab Admins (parent)
-          - Tier 0
-          - Tier 1
-          - Tier 2
-        - Lab Users (parent)
-          - Lab Users 01
-          - Lab Users 02
-        - Bad OU (for modification demos)
-        - DeleteMe OU (for recovery demos)
-        - Tier 0 Special Assets OU (restricted)
-        - TEST OU (for generic bulk users)
-    
-    .EXAMPLE
-        $structure = New-DirectoryStructure -DomainDN "DC=contoso,DC=com"
+    .PARAMETER LogFile
+        Optional log file path
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [string]$DomainDN
+        [string]$DomainDN,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$LogFile
     )
     
-    try {
-        Write-ActivityLog "Creating directory structure in $DomainDN" -Level Info
+    Write-ActivityLog "Creating directory structure in $DomainDN" -Level Info -LogFile $LogFile
+    
+    # Define OU hierarchy
+    $ouStructure = @(
+        @{ Name = 'Lab Admins'; Parent = $DomainDN; Description = 'Lab administrative accounts' }
+        @{ Name = 'Tier 0'; Parent = "OU=Lab Admins,$DomainDN"; Description = 'Tier 0 administrative users' }
+        @{ Name = 'Tier 1'; Parent = "OU=Lab Admins,$DomainDN"; Description = 'Tier 1 administrative users' }
+        @{ Name = 'Tier 2'; Parent = "OU=Lab Admins,$DomainDN"; Description = 'Tier 2 administrative users' }
+        @{ Name = 'Lab Users'; Parent = $DomainDN; Description = 'Lab user accounts' }
+        @{ Name = 'Lab Users 01'; Parent = "OU=Lab Users,$DomainDN"; Description = 'Lab users group 1' }
+        @{ Name = 'Lab Users 02'; Parent = "OU=Lab Users,$DomainDN"; Description = 'Lab users group 2' }
+        @{ Name = 'Bad OU'; Parent = $DomainDN; Description = 'OU for testing recovery' }
+        @{ Name = 'DeleteMe OU'; Parent = $DomainDN; Description = 'OU for deletion testing' }
+        @{ Name = 'Servers'; Parent = $DomainDN; Description = 'Server objects' }
+        @{ Name = 'Tier-0-Special-Assets'; Parent = $DomainDN; Description = 'Tier 0 special assets' }
+        @{ Name = 'TEST'; Parent = $DomainDN; Description = 'Test user container' }
+    )
+    
+    $structure = @{}
+    
+    foreach ($ou in $ouStructure) {
+        $newOU = New-OU -Name $ou.Name -Path $ou.Parent -Description $ou.Description -LogFile $LogFile
         
-        # Create Lab Admins structure (parent OU)
-        $labAdminsOU = New-OU -Name "Lab Admins" `
-                              -Path $DomainDN `
-                              -Description "OU for all lab admins" `
-                              -ProtectFromAccidentalDeletion $true
-        
-        if ($labAdminsOU) {
-            # Create Tier OUs under Lab Admins
-            $tier0OU = New-OU -Name "Tier 0" `
-                              -Path $labAdminsOU.DistinguishedName `
-                              -Description "OU for Tier 0 (highest privilege) lab admins" `
-                              -ProtectFromAccidentalDeletion $true
-            
-            $tier1OU = New-OU -Name "Tier 1" `
-                              -Path $labAdminsOU.DistinguishedName `
-                              -Description "OU for Tier 1 lab admins" `
-                              -ProtectFromAccidentalDeletion $true
-            
-            $tier2OU = New-OU -Name "Tier 2" `
-                              -Path $labAdminsOU.DistinguishedName `
-                              -Description "OU for Tier 2 lab admins" `
-                              -ProtectFromAccidentalDeletion $true
-        }
-        
-        # Create Lab Users structure (parent OU)
-        $labUsersOU = New-OU -Name "Lab Users" `
-                             -Path $DomainDN `
-                             -Description "OU for all lab users" `
-                             -ProtectFromAccidentalDeletion $true
-        
-        if ($labUsersOU) {
-            # Create Lab Users sub-OUs for movement demos
-            $labUsers01OU = New-OU -Name "Lab Users 01" `
-                                   -Path $labUsersOU.DistinguishedName `
-                                   -Description "OU for users in Lab Users 01 (user movement demos)" `
-                                   -ProtectFromAccidentalDeletion $true
-            
-            $labUsers02OU = New-OU -Name "Lab Users 02" `
-                                   -Path $labUsersOU.DistinguishedName `
-                                   -Description "OU for users in Lab Users 02 (user movement demos)" `
-                                   -ProtectFromAccidentalDeletion $true
-        }
-        
-        # Create Bad OU (for ACL modification demos)
-        $badOU = New-OU -Name "Bad OU" `
-                        -Path $DomainDN `
-                        -Description "OU that gets modified (ACL demos)" `
-                        -ProtectFromAccidentalDeletion $true
-        
-        # Create DeleteMe OU (for recovery demos) - no protection for deletion demo
-        $deleteOU = New-OU -Name "DeleteMe OU" `
-                           -Path $DomainDN `
-                           -Description "OU for deletion and recovery demonstrations" `
-                           -ProtectFromAccidentalDeletion $false
-        
-        # Create nested structure in DeleteMe OU
-        if ($deleteOU) {
-            $deleteSubOU = New-OU -Name "Servers" `
-                                  -Path $deleteOU.DistinguishedName `
-                                  -Description "Sub-OU in DeleteMe OU (for recovery demo)" `
-                                  -ProtectFromAccidentalDeletion $false
-        }
-        
-        # Create Tier 0 Special Assets OU (highly restricted)
-        $tier0AssetsOU = New-OU -Name "Tier-0-Special-Assets" `
-                                -Path $DomainDN `
-                                -Description "Tier 0 special assets - Highly restricted access" `
-                                -ProtectFromAccidentalDeletion $true
-        
-        # Create TEST OU (for bulk generic users)
-        $testOU = New-OU -Name "TEST" `
-                         -Path $DomainDN `
-                         -Description "Generic test user accounts (bulk created)" `
-                         -ProtectFromAccidentalDeletion $false
-        
-        Write-ActivityLog "Directory structure created successfully" -Level Success
-        
-        # Return structure info
-        return [PSCustomObject]@{
-            LabAdminsOU = $labAdminsOU
-            Tier0OU = $tier0OU
-            Tier1OU = $tier1OU
-            Tier2OU = $tier2OU
-            LabUsersOU = $labUsersOU
-            LabUsers01OU = $labUsers01OU
-            LabUsers02OU = $labUsers02OU
-            BadOU = $badOU
-            DeleteOU = $deleteOU
-            Tier0AssetsOU = $tier0AssetsOU
-            TestOU = $testOU
+        if ($newOU) {
+            $structure[$ou.Name] = $newOU
         }
     }
-    catch {
-        Write-ActivityLog "Failed to create directory structure: $_" -Level Error
-        return $null
-    }
+    
+    Write-ActivityLog "Directory structure created successfully" -Level Success -LogFile $LogFile
+    return $structure
 }
 
 ################################################################################
 # USER FUNCTIONS
 ################################################################################
 
-
 function New-User {
     <#
     .SYNOPSIS
-        Create a new user account with rich attributes
+        Create a new user account
     
     .PARAMETER SamAccountName
         User login name
     
     .PARAMETER Name
-        User display name (CN)
-    
-    .PARAMETER DisplayName
-        User display name (for display purposes)
-    
-    .PARAMETER Path
-        Distinguished name of target OU
+        User display name
     
     .PARAMETER GivenName
         User first name
@@ -266,29 +210,38 @@ function New-User {
     .PARAMETER Surname
         User last name
     
-    .PARAMETER Description
-        User description
+    .PARAMETER DisplayName
+        User display name
     
     .PARAMETER Title
-        User job title
+        User title/job title
     
     .PARAMETER Department
         User department
     
     .PARAMETER Mail
-        User email address
+        User email
     
     .PARAMETER TelephoneNumber
         User phone number
     
-    .PARAMETER Manager
-        Manager's DN
+    .PARAMETER Description
+        User description
+    
+    .PARAMETER Path
+        Target OU distinguished name
     
     .PARAMETER Password
-        User password (uses secure string)
+        User password (SecureString)
     
     .PARAMETER PasswordNeverExpires
-        Set password to never expire (default: $true)
+        Password expiration setting
+    
+    .PARAMETER Manager
+        User's manager SamAccountName
+    
+    .PARAMETER LogFile
+        Optional log file path
     #>
     [CmdletBinding()]
     param(
@@ -298,41 +251,44 @@ function New-User {
         [Parameter(Mandatory=$true)]
         [string]$Name,
         
+        [Parameter(Mandatory=$false)]
+        [string]$GivenName,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$Surname,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$DisplayName,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$Title,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$Department,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$Mail,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$TelephoneNumber,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$Description,
+        
         [Parameter(Mandatory=$true)]
         [string]$Path,
         
-        [Parameter(Mandatory=$false)]
-        [string]$DisplayName = "",
-        
-        [Parameter(Mandatory=$false)]
-        [string]$GivenName = "",
-        
-        [Parameter(Mandatory=$false)]
-        [string]$Surname = "",
-        
-        [Parameter(Mandatory=$false)]
-        [string]$Description = "",
-        
-        [Parameter(Mandatory=$false)]
-        [string]$Title = "",
-        
-        [Parameter(Mandatory=$false)]
-        [string]$Department = "",
-        
-        [Parameter(Mandatory=$false)]
-        [string]$Mail = "",
-        
-        [Parameter(Mandatory=$false)]
-        [string]$TelephoneNumber = "",
-        
-        [Parameter(Mandatory=$false)]
-        [string]$Manager = "",
-        
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory=$true)]
         [securestring]$Password,
         
         [Parameter(Mandatory=$false)]
-        [bool]$PasswordNeverExpires = $true
+        [bool]$PasswordNeverExpires = $false,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$Manager,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$LogFile
     )
     
     try {
@@ -340,29 +296,31 @@ function New-User {
         $existingUser = Get-ADUser -Filter "SamAccountName -eq '$SamAccountName'" -ErrorAction SilentlyContinue
         
         if ($existingUser) {
-            Write-ActivityLog "User already exists: $SamAccountName" -Level Warning
+            Write-ActivityLog "User already exists: $SamAccountName" -Level Info -LogFile $LogFile
+            Write-DetailToLog "  Display Name: $($existingUser.DisplayName)" -LogFile $LogFile
+            Write-DetailToLog "  Path: $($existingUser.DistinguishedName)" -LogFile $LogFile
             return $existingUser
         }
         
-        Write-ActivityLog "Creating user: $SamAccountName ($Name)" -Level Info
+        Write-ActivityLog "Creating user: $SamAccountName" -Level Info -LogFile $LogFile
         
-        # Build parameters for New-ADUser
         $userParams = @{
             SamAccountName = $SamAccountName
             Name = $Name
             Path = $Path
-            GivenName = $GivenName
-            Surname = $Surname
-            DisplayName = if ($DisplayName) { $DisplayName } else { $Name }
-            Description = $Description
+            AccountPassword = $Password
             Enabled = $true
-            ChangePasswordAtLogon = $false
             CannotChangePassword = $true
             PasswordNeverExpires = $PasswordNeverExpires
+            ChangePasswordAtLogon = $false
             ErrorAction = 'Stop'
         }
         
-        # Add optional attributes
+        if ($GivenName) { $userParams['GivenName'] = $GivenName }
+        if ($Surname) { $userParams['Surname'] = $Surname }
+        if ($DisplayName) { $userParams['DisplayName'] = $DisplayName }
+        if ($Description) { $userParams['Description'] = $Description }
+        
         $otherAttrs = @{}
         if ($Title) { $otherAttrs['title'] = $Title }
         if ($Department) { $otherAttrs['department'] = $Department }
@@ -373,30 +331,41 @@ function New-User {
             $userParams['OtherAttributes'] = $otherAttrs
         }
         
-        if ($Password) {
-            $userParams['AccountPassword'] = $Password
-        } else {
-            $userParams['AccountPassword'] = ConvertTo-SecureString "P@ssw0rd123!" -AsPlainText -Force
-        }
-        
         $user = New-ADUser @userParams
         
         # Set manager if provided
         if ($Manager) {
             try {
                 Set-ADUser -Identity $user.SamAccountName -Manager $Manager -ErrorAction Stop
-                Write-ActivityLog "Set manager for user: $SamAccountName" -Level Info
+                Write-ActivityLog "User created: $SamAccountName" -Level Success -LogFile $LogFile
+                Write-DetailToLog "  Display Name: $DisplayName" -LogFile $LogFile
+                Write-DetailToLog "  Path: $Path" -LogFile $LogFile
+                Write-DetailToLog "  Title: $Title" -LogFile $LogFile
+                Write-DetailToLog "  Department: $Department" -LogFile $LogFile
+                Write-DetailToLog "  Email: $Mail" -LogFile $LogFile
+                Write-DetailToLog "  Phone: $TelephoneNumber" -LogFile $LogFile
+                Write-DetailToLog "  Manager: $Manager" -LogFile $LogFile
             }
             catch {
-                Write-ActivityLog "Failed to set manager for $SamAccountName : $_" -Level Warning
+                Write-ActivityLog "User created (but manager assignment failed): $SamAccountName" -Level Warning -LogFile $LogFile
+                Write-DetailToLog "  Error setting manager: $_" -LogFile $LogFile
             }
         }
+        else {
+            Write-ActivityLog "User created: $SamAccountName" -Level Success -LogFile $LogFile
+            Write-DetailToLog "  Display Name: $DisplayName" -LogFile $LogFile
+            Write-DetailToLog "  Path: $Path" -LogFile $LogFile
+            Write-DetailToLog "  Title: $Title" -LogFile $LogFile
+            Write-DetailToLog "  Department: $Department" -LogFile $LogFile
+            Write-DetailToLog "  Email: $Mail" -LogFile $LogFile
+            Write-DetailToLog "  Phone: $TelephoneNumber" -LogFile $LogFile
+        }
         
-        Write-ActivityLog "User created successfully: $SamAccountName" -Level Success
         return $user
     }
     catch {
-        Write-ActivityLog "Failed to create user $SamAccountName : $_" -Level Error
+        Write-ActivityLog "Failed to create user $SamAccountName : $_" -Level Error -LogFile $LogFile
+        Write-DetailToLog "  Error Details: $($_.Exception.Message)" -LogFile $LogFile
         return $null
     }
 }
@@ -408,7 +377,7 @@ function New-User {
 function New-Group {
     <#
     .SYNOPSIS
-        Create a new group and add members
+        Create a new group
     
     .PARAMETER Name
         Group name
@@ -427,6 +396,9 @@ function New-Group {
     
     .PARAMETER Members
         Array of user SamAccountNames to add to group
+    
+    .PARAMETER LogFile
+        Optional log file path
     #>
     [CmdletBinding()]
     param(
@@ -448,7 +420,10 @@ function New-Group {
         [string]$Description = "",
         
         [Parameter(Mandatory=$false)]
-        [string[]]$Members = @()
+        [string[]]$Members = @(),
+        
+        [Parameter(Mandatory=$false)]
+        [string]$LogFile
     )
     
     try {
@@ -456,62 +431,63 @@ function New-Group {
         $existingGroup = Get-ADGroup -Filter "Name -eq '$Name'" -ErrorAction SilentlyContinue
         
         if ($existingGroup) {
-            Write-ActivityLog "Group already exists: $Name (using existing)" -Level Info
-            $group = $existingGroup
-        }
-        else {
-            Write-ActivityLog "Creating group: $Name" -Level Info
-            
-            $groupParams = @{
-                Name = $Name
-                SamAccountName = $Name -replace '\s', ''
-                Path = $Path
-                GroupScope = $GroupScope
-                GroupCategory = $GroupCategory
-                Description = $Description
-                ErrorAction = 'Stop'
-            }
-            
-            $group = New-ADGroup @groupParams
-            Write-ActivityLog "Group created successfully: $Name" -Level Success
+            Write-ActivityLog "Group already exists: $Name" -Level Info -LogFile $LogFile
+            Write-DetailToLog "  Scope: $($existingGroup.GroupScope)" -LogFile $LogFile
+            Write-DetailToLog "  Path: $($existingGroup.DistinguishedName)" -LogFile $LogFile
+            return $existingGroup
         }
         
-        # Add members to group
-        if ($Members -and $Members.Count -gt 0) {
+        Write-ActivityLog "Creating group: $Name" -Level Info -LogFile $LogFile
+        
+        $group = New-ADGroup -Name $Name `
+                            -Path $Path `
+                            -GroupScope $GroupScope `
+                            -GroupCategory $GroupCategory `
+                            -Description $Description `
+                            -ErrorAction Stop
+        
+        Write-DetailToLog "  Scope: $GroupScope" -LogFile $LogFile
+        Write-DetailToLog "  Category: $GroupCategory" -LogFile $LogFile
+        
+        # Add members if provided
+        if ($Members.Count -gt 0) {
+            $addedCount = 0
+            $failedMembers = @()
+            
             foreach ($member in $Members) {
                 try {
-                    # FIX: Search for the user first to get their proper identity
                     $user = Get-ADUser -Filter "SamAccountName -eq '$member'" -ErrorAction SilentlyContinue
-                    
                     if ($user) {
-                        # Check if already a member
-                        $existingMember = Get-ADGroupMember -Identity $group.DistinguishedName -ErrorAction SilentlyContinue | `
-                                        Where-Object { $_.SamAccountName -eq $member }
-                        
-                        if (-not $existingMember) {
-                            Add-ADGroupMember -Identity $group.DistinguishedName `
-                                            -Members $user.DistinguishedName `
-                                            -ErrorAction Stop
-                            Write-ActivityLog "Added $member to group $Name" -Level Info
-                        }
-                        else {
-                            Write-ActivityLog "$member already in group $Name" -Level Info
-                        }
+                        Add-ADGroupMember -Identity $group.SamAccountName -Members $user -ErrorAction Stop
+                        $addedCount++
+                        Write-DetailToLog "    Added member: $member" -LogFile $LogFile
                     }
                     else {
-                        Write-ActivityLog "User not found: $member" -Level Warning
+                        $failedMembers += $member
                     }
                 }
                 catch {
-                    Write-ActivityLog "Failed to add $member to group $Name : $_" -Level Warning
+                    $failedMembers += $member
+                    Write-DetailToLog "    Failed to add: $member - $_" -LogFile $LogFile
                 }
             }
+            
+            if ($addedCount -gt 0) {
+                Write-ActivityLog "Group created with $addedCount members: $Name" -Level Success -LogFile $LogFile
+            }
+            if ($failedMembers.Count -gt 0) {
+                Write-ActivityLog "Group created with $($failedMembers.Count) member failures: $Name" -Level Warning -LogFile $LogFile
+            }
+        }
+        else {
+            Write-ActivityLog "Group created: $Name" -Level Success -LogFile $LogFile
         }
         
         return $group
     }
     catch {
-        Write-ActivityLog "Failed to create group $Name : $_" -Level Error
+        Write-ActivityLog "Failed to create group $Name : $_" -Level Error -LogFile $LogFile
+        Write-DetailToLog "  Error Details: $($_.Exception.Message)" -LogFile $LogFile
         return $null
     }
 }
@@ -533,6 +509,9 @@ function New-Computer {
     
     .PARAMETER Description
         Computer description
+    
+    .PARAMETER LogFile
+        Optional log file path
     #>
     [CmdletBinding()]
     param(
@@ -543,7 +522,10 @@ function New-Computer {
         [string]$Path,
         
         [Parameter(Mandatory=$false)]
-        [string]$Description = ""
+        [string]$Description = "",
+        
+        [Parameter(Mandatory=$false)]
+        [string]$LogFile
     )
     
     try {
@@ -551,22 +533,27 @@ function New-Computer {
         $existingComputer = Get-ADComputer -Filter "Name -eq '$Name'" -ErrorAction SilentlyContinue
         
         if ($existingComputer) {
-            Write-ActivityLog "Computer already exists: $Name" -Level Warning
+            Write-ActivityLog "Computer already exists: $Name" -Level Info -LogFile $LogFile
+            Write-DetailToLog "  Path: $($existingComputer.DistinguishedName)" -LogFile $LogFile
             return $existingComputer
         }
         
-        Write-ActivityLog "Creating computer: $Name" -Level Info
+        Write-ActivityLog "Creating computer: $Name" -Level Info -LogFile $LogFile
         
         $computer = New-ADComputer -Name $Name `
                                   -Path $Path `
                                   -Description $Description `
                                   -ErrorAction Stop
         
-        Write-ActivityLog "Computer created successfully: $Name" -Level Success
+        Write-ActivityLog "Computer created: $Name" -Level Success -LogFile $LogFile
+        Write-DetailToLog "  Path: $Path" -LogFile $LogFile
+        Write-DetailToLog "  Description: $Description" -LogFile $LogFile
+        
         return $computer
     }
     catch {
-        Write-ActivityLog "Failed to create computer $Name : $_" -Level Error
+        Write-ActivityLog "Failed to create computer $Name : $_" -Level Error -LogFile $LogFile
+        Write-DetailToLog "  Error Details: $($_.Exception.Message)" -LogFile $LogFile
         return $null
     }
 }
@@ -584,19 +571,19 @@ function New-FGPP {
         FGPP name
     
     .PARAMETER Precedence
-        Policy precedence (lower = higher priority)
+        FGPP precedence
     
     .PARAMETER MinPasswordLength
         Minimum password length
     
     .PARAMETER LockoutThreshold
-        Account lockout threshold
+        Lockout threshold (failed attempts)
     
     .PARAMETER PasswordHistoryCount
         Password history count
     
-    .PARAMETER MaxPasswordAge
-        Maximum password age (in days, 0 = never)
+    .PARAMETER LogFile
+        Optional log file path
     #>
     [CmdletBinding()]
     param(
@@ -610,13 +597,16 @@ function New-FGPP {
         [int]$MinPasswordLength = 8,
         
         [Parameter(Mandatory=$false)]
-        [int]$LockoutThreshold = 0,
+        [int]$LockoutThreshold = 10,
         
         [Parameter(Mandatory=$false)]
-        [int]$PasswordHistoryCount = 24,
+        [int]$PasswordHistoryCount = 3,
         
         [Parameter(Mandatory=$false)]
-        [int]$MaxPasswordAge = 0
+        [int]$MaxPasswordAge = 0,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$LogFile
     )
     
     try {
@@ -624,11 +614,12 @@ function New-FGPP {
         $existingFGPP = Get-ADFineGrainedPasswordPolicy -Filter "Name -eq '$Name'" -ErrorAction SilentlyContinue
         
         if ($existingFGPP) {
-            Write-ActivityLog "FGPP already exists: $Name" -Level Warning
+            Write-ActivityLog "FGPP already exists: $Name" -Level Info -LogFile $LogFile
+            Write-DetailToLog "  Precedence: $($existingFGPP.Precedence)" -LogFile $LogFile
             return $existingFGPP
         }
         
-        Write-ActivityLog "Creating FGPP: $Name (Precedence: $Precedence)" -Level Info
+        Write-ActivityLog "Creating FGPP: $Name (Precedence: $Precedence)" -Level Info -LogFile $LogFile
         
         $fgppParams = @{
             Name = $Name
@@ -646,11 +637,17 @@ function New-FGPP {
         
         $fgpp = New-ADFineGrainedPasswordPolicy @fgppParams
         
-        Write-ActivityLog "FGPP created successfully: $Name" -Level Success
+        Write-ActivityLog "FGPP created: $Name" -Level Success -LogFile $LogFile
+        Write-DetailToLog "  Precedence: $Precedence" -LogFile $LogFile
+        Write-DetailToLog "  Min Length: $MinPasswordLength" -LogFile $LogFile
+        Write-DetailToLog "  Lockout Threshold: $LockoutThreshold" -LogFile $LogFile
+        Write-DetailToLog "  History Count: $PasswordHistoryCount" -LogFile $LogFile
+        
         return $fgpp
     }
     catch {
-        Write-ActivityLog "Failed to create FGPP $Name : $_" -Level Error
+        Write-ActivityLog "Failed to create FGPP $Name : $_" -Level Error -LogFile $LogFile
+        Write-DetailToLog "  Error Details: $($_.Exception.Message)" -LogFile $LogFile
         return $null
     }
 }
@@ -672,6 +669,9 @@ function New-BulkGenericUsers {
     
     .PARAMETER Prefix
         User name prefix (default: "GdAct0r")
+    
+    .PARAMETER LogFile
+        Optional log file path
     #>
     [CmdletBinding()]
     param(
@@ -682,17 +682,19 @@ function New-BulkGenericUsers {
         [int]$Count = 250,
         
         [Parameter(Mandatory=$false)]
-        [string]$Prefix = "GdAct0r"
+        [string]$Prefix = "GdAct0r",
+        
+        [Parameter(Mandatory=$false)]
+        [string]$LogFile
     )
     
-    Write-ActivityLog "Creating $Count bulk generic users in $OU" -Level Info
+    Write-ActivityLog "Creating $Count bulk generic users in TEST OU" -Level Info -LogFile $LogFile
     
-    # FIX: Added -AsPlainText -Force to SecureString conversion
     $password = ConvertTo-SecureString "P@ssw0rd123!" -AsPlainText -Force
     $createdCount = 0
+    $skippedCount = 0
     
-    for ($i = 0; $i -lt $Count; $i++) {
-        # Pad the number with leading zeros
+    for ($i = 1; $i -le $Count; $i++) {
         $index = $i.ToString().PadLeft(6, '0')
         $samAccountName = "$Prefix-$index"
         $displayName = "Generic Actor $index"
@@ -717,18 +719,24 @@ function New-BulkGenericUsers {
                 
                 $createdCount++
                 
-                # Show progress every 25 users
-                if (($i + 1) % 25 -eq 0) {
-                    Write-ActivityLog "Created $($i + 1) of $Count users..." -Level Info
+                # Show progress every 50 users
+                if ($createdCount % 50 -eq 0) {
+                    Write-ActivityLog "Created $createdCount of $Count users..." -Level Info -LogFile $LogFile
                 }
             }
             catch {
-                Write-ActivityLog "Failed to create user $samAccountName : $_" -Level Warning
+                Write-DetailToLog "  Failed to create user $samAccountName : $_" -LogFile $LogFile
             }
+        }
+        else {
+            $skippedCount++
         }
     }
     
-    Write-ActivityLog "Bulk user creation completed: $createdCount users created" -Level Success
+    Write-ActivityLog "Bulk user creation completed: $createdCount created, $skippedCount skipped" -Level Success -LogFile $LogFile
+    Write-DetailToLog "  Total processed: $Count" -LogFile $LogFile
+    Write-DetailToLog "  Created: $createdCount" -LogFile $LogFile
+    Write-DetailToLog "  Skipped (existing): $skippedCount" -LogFile $LogFile
 }
 
 ################################################################################
@@ -745,6 +753,9 @@ function Invoke-DirectoryActivity {
     
     .PARAMETER Config
         Configuration hashtable
+    
+    .PARAMETER LogFile
+        Path to log file
     #>
     [CmdletBinding()]
     param(
@@ -752,30 +763,32 @@ function Invoke-DirectoryActivity {
         [PSCustomObject]$DomainInfo,
         
         [Parameter(Mandatory=$false)]
-        [hashtable]$Config
+        [hashtable]$Config,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$LogFile
     )
     
-    Write-ActivityLog "=== Starting Directory Activity Module ===" -Level Info
+    Write-ActivityLog "=== Starting Directory Activity Module ===" -Level Info -LogFile $LogFile
     
     $domainDN = $DomainInfo.DistinguishedName
     
     # Step 1: Create directory structure
-    Write-ActivityLog "Step 1: Creating OU hierarchy..." -Level Info
-    $structure = New-DirectoryStructure -DomainDN $domainDN
+    Write-ActivityLog "Step 1: Creating OU hierarchy..." -Level Info -LogFile $LogFile
+    $structure = New-DirectoryStructure -DomainDN $domainDN -LogFile $LogFile
     
     if (-not $structure) {
-        Write-ActivityLog "Failed to create directory structure - aborting" -Level Error
+        Write-ActivityLog "Failed to create directory structure - aborting" -Level Error -LogFile $LogFile
         return $false
     }
     
     # Step 2: Create admin users (Tier 0, 1, 2)
-    if ($Config -and $Config.AdminUsers) {
-        Write-ActivityLog "Step 2: Creating admin user accounts..." -Level Info
+    if ($Config -and $Config.ContainsKey('AdminUsers') -and $Config.AdminUsers) {
+        Write-ActivityLog "Step 2: Creating admin user accounts..." -Level Info -LogFile $LogFile
         
         foreach ($adminConfig in $Config.AdminUsers.Values) {
             if ($adminConfig -is [hashtable]) {
-                $userPassword = if ($adminConfig.Password) { $adminConfig.Password } else { $Config.General.DefaultPassword }
-                $password = ConvertTo-SecureString $userPassword -AsPlainText -Force
+                $password = ConvertTo-SecureString $adminConfig.Password -AsPlainText -Force
                 
                 New-User -SamAccountName $adminConfig.SamAccountName `
                          -Name $adminConfig.Name `
@@ -789,70 +802,80 @@ function Invoke-DirectoryActivity {
                          -Description $adminConfig.Description `
                          -Path $adminConfig.Path `
                          -Password $password `
-                         -PasswordNeverExpires $true
+                         -PasswordNeverExpires $true `
+                         -LogFile $LogFile
             }
         }
     } else {
-        Write-ActivityLog "Step 2: Skipping admin users (not in config)" -Level Info
+        Write-ActivityLog "Step 2: Skipping admin users (not in config)" -Level Info -LogFile $LogFile
     }
     
     # Step 3: Create demo users
-    if ($Config -and $Config.DemoUsers) {
-        Write-ActivityLog "Step 3: Creating demo user accounts..." -Level Info
+    if ($Config -and $Config.ContainsKey('DemoUsers') -and $Config.DemoUsers) {
+        Write-ActivityLog "Step 3: Creating demo user accounts..." -Level Info -LogFile $LogFile
         
-        foreach ($userConfig in $Config.DemoUsers.Values) {
-            if ($userConfig -is [hashtable]) {
-                $password = ConvertTo-SecureString $userConfig.Password -AsPlainText -Force
+        foreach ($demoConfig in $Config.DemoUsers.Values) {
+            if ($demoConfig -is [hashtable]) {
+                $password = ConvertTo-SecureString $demoConfig.Password -AsPlainText -Force
                 
-                New-User -SamAccountName $userConfig.SamAccountName `
-                         -Name $userConfig.Name `
-                         -GivenName $userConfig.GivenName `
-                         -Surname $userConfig.Surname `
-                         -DisplayName $userConfig.DisplayName `
-                         -Title $userConfig.Title `
-                         -Department $userConfig.Department `
-                         -Mail $userConfig.Mail `
-                         -TelephoneNumber $userConfig.TelephoneNumber `
-                         -Description $userConfig.Description `
-                         -Path $userConfig.Path `
+                New-User -SamAccountName $demoConfig.SamAccountName `
+                         -Name $demoConfig.Name `
+                         -GivenName $demoConfig.GivenName `
+                         -Surname $demoConfig.Surname `
+                         -DisplayName $demoConfig.DisplayName `
+                         -Title $demoConfig.Title `
+                         -Department $demoConfig.Department `
+                         -Mail $demoConfig.Mail `
+                         -TelephoneNumber $demoConfig.TelephoneNumber `
+                         -Description $demoConfig.Description `
+                         -Path $demoConfig.Path `
                          -Password $password `
-                         -PasswordNeverExpires $true
+                         -PasswordNeverExpires $false `
+                         -LogFile $LogFile
             }
         }
     } else {
-        Write-ActivityLog "Step 3: Skipping demo users (not in config)" -Level Info
+        Write-ActivityLog "Step 3: Skipping demo users (not in config)" -Level Info -LogFile $LogFile
     }
     
-    # Step 4: Create bulk generic users
-    if ($Config -and $Config.General -and $Config.General.GenericUserCount -gt 0) {
-        Write-ActivityLog "Step 4: Creating bulk generic users..." -Level Info
-        New-BulkGenericUsers -OU $structure.TestOU.DistinguishedName `
-                            -Count $Config.General.GenericUserCount
+    # Step 4: Create computers
+    if ($Config -and $Config.ContainsKey('Computers') -and $Config.Computers) {
+        Write-ActivityLog "Step 4: Creating computer objects..." -Level Info -LogFile $LogFile
+        
+        foreach ($computerConfig in $Config.Computers.Values) {
+            if ($computerConfig -is [hashtable]) {
+                New-Computer -Name $computerConfig.Name `
+                            -Path $computerConfig.Path `
+                            -Description $computerConfig.Description `
+                            -LogFile $LogFile
+            }
+        }
     } else {
-        Write-ActivityLog "Step 4: Skipping bulk generic users (not in config)" -Level Info
+        Write-ActivityLog "Step 4: Skipping computers (not in config)" -Level Info -LogFile $LogFile
     }
     
     # Step 5: Create groups
-    if ($Config -and $Config.Groups) {
-        Write-ActivityLog "Step 5: Creating groups..." -Level Info
+    if ($Config -and $Config.ContainsKey('Groups') -and $Config.Groups) {
+        Write-ActivityLog "Step 5: Creating security groups..." -Level Info -LogFile $LogFile
         
         foreach ($groupConfig in $Config.Groups.Values) {
             if ($groupConfig -is [hashtable]) {
                 New-Group -Name $groupConfig.Name `
-                         -Path $structure.LabAdminsOU.DistinguishedName `
+                         -Path $groupConfig.Path `
                          -GroupScope $groupConfig.GroupScope `
                          -GroupCategory $groupConfig.GroupCategory `
                          -Description $groupConfig.Description `
-                         -Members $groupConfig.Members
+                         -Members $groupConfig.Members `
+                         -LogFile $LogFile
             }
         }
     } else {
-        Write-ActivityLog "Step 5: Skipping groups (not in config)" -Level Info
+        Write-ActivityLog "Step 5: Skipping groups (not in config)" -Level Info -LogFile $LogFile
     }
     
     # Step 6: Create FGPPs
-    if ($Config -and $Config.FGPPs) {
-        Write-ActivityLog "Step 6: Creating Fine-Grained Password Policies..." -Level Info
+    if ($Config -and $Config.ContainsKey('FGPPs') -and $Config.FGPPs) {
+        Write-ActivityLog "Step 6: Creating Fine-Grained Password Policies..." -Level Info -LogFile $LogFile
         
         foreach ($fgppConfig in $Config.FGPPs.Values) {
             if ($fgppConfig -is [hashtable]) {
@@ -860,24 +883,23 @@ function Invoke-DirectoryActivity {
                         -Precedence $fgppConfig.Precedence `
                         -MinPasswordLength $fgppConfig.MinPasswordLength `
                         -LockoutThreshold $fgppConfig.LockoutThreshold `
-                        -PasswordHistoryCount $fgppConfig.PasswordHistoryCount
+                        -PasswordHistoryCount $fgppConfig.PasswordHistoryCount `
+                        -LogFile $LogFile
             }
         }
     } else {
-        Write-ActivityLog "Step 6: Skipping FGPPs (not in config)" -Level Info
+        Write-ActivityLog "Step 6: Skipping FGPPs (not in config)" -Level Info -LogFile $LogFile
     }
     
-    # Step 7: Create computers in DeleteMe OU
-    Write-ActivityLog "Step 7: Creating sample computers in DeleteMe OU..." -Level Info
-    New-Computer -Name "srv-demo-01" `
-                -Path "$($structure.DeleteOU.DistinguishedName)" `
-                -Description "Demo server for deletion recovery"
+    # Step 7: Create bulk generic users in TEST OU
+    Write-ActivityLog "Step 7: Creating bulk generic test users..." -Level Info -LogFile $LogFile
+    if ($Config -and $Config.General -and $Config.General.GenericUserCount) {
+        $testOU = "OU=TEST,$domainDN"
+        New-BulkGenericUsers -OU $testOU -Count $Config.General.GenericUserCount -LogFile $LogFile
+    }
     
-    New-Computer -Name "srv-demo-02" `
-                -Path "$($structure.DeleteOU.DistinguishedName)" `
-                -Description "Demo server for deletion recovery"
-    
-    Write-ActivityLog "=== Directory Activity Module completed successfully ===" -Level Success
+    Write-ActivityLog "=== Directory Activity Module completed successfully ===" -Level Success -LogFile $LogFile
+    return $true
 }
 
 ################################################################################
@@ -892,7 +914,8 @@ Export-ModuleMember -Function @(
     'New-Computer',
     'New-FGPP',
     'New-BulkGenericUsers',
-    'Invoke-DirectoryActivity'
+    'Invoke-DirectoryActivity',
+    'Write-ActivityLog'
 )
 
 ################################################################################
