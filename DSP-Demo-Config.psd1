@@ -405,7 +405,7 @@
                 Name = "Special Lab Users"
                 DisplayName = "Special Lab Users"
                 Description = "Members of this lab group are special"
-                OUPath = "Root/LabUsers"
+                OUPath = "Root/Lab Users"
                 GroupScope = "Global"
                 GroupCategory = "Security"
             }
@@ -414,7 +414,7 @@
                 Name = "Pizza Party Group"
                 DisplayName = "Pizza Party Group"
                 Description = "Members of this lab group get info about pizza parties"
-                OUPath = "Root/LabUsers"
+                OUPath = "Root/Lab Users"
                 GroupScope = "Global"
                 GroupCategory = "Distribution"
             }
@@ -423,7 +423,7 @@
                 Name = "Party Planners Group"
                 DisplayName = "Party Planners Group"
                 Description = "Members of this lab group do party planning"
-                OUPath = "Root/LabUsers"
+                OUPath = "Root/Lab Users"
                 GroupScope = "Global"
                 GroupCategory = "Distribution"
             }
@@ -432,7 +432,7 @@
                 Name = "Helpdesk Ops"
                 DisplayName = "Helpdesk Ops"
                 Description = "Members of this lab group are Helpdesk operators"
-                OUPath = "Root/LabUsers"
+                OUPath = "Root/Lab Users"
                 GroupScope = "Global"
                 GroupCategory = "Security"
             }
@@ -444,7 +444,7 @@
                 Name = "Special Lab Admins"
                 DisplayName = "Special Lab Admins"
                 Description = "Members of this lab group are admins"
-                OUPath = "Root/LabAdmins"
+                OUPath = "Root/Lab Admins"
                 GroupScope = "Global"
                 GroupCategory = "Security"
             }
@@ -453,7 +453,7 @@
                 Name = "Special Accounts"
                 DisplayName = "Special Accounts"
                 Description = "Members of this lab group are special accts and service accts"
-                OUPath = "Root/LabAdmins"
+                OUPath = "Root/Lab Admins"
                 GroupScope = "Universal"
                 GroupCategory = "Security"
             }
@@ -465,7 +465,7 @@
                 Name = "Special Access - Datacenter"
                 DisplayName = "Special Access - Datacenter"
                 Description = "Resource Administrators for special Lab"
-                OUPath = "Root/DeleteMeOU/CorpSpecial"
+                OUPath = "Root/DeleteMe OU/Corp Special OU"
                 GroupScope = "Global"
                 GroupCategory = "Security"
             }
@@ -474,7 +474,7 @@
                 Name = "Server Admins - US"
                 DisplayName = "Server Admins - US"
                 Description = "Resource Administrators for special Lab"
-                OUPath = "Root/DeleteMeOU/Servers"
+                OUPath = "Root/DeleteMe OU/Servers"
                 GroupScope = "Global"
                 GroupCategory = "Security"
             }
@@ -483,7 +483,7 @@
                 Name = "Server Admins - APAC"
                 DisplayName = "Server Admins - APAC"
                 Description = "Resource Administrators for special Lab"
-                OUPath = "Root/DeleteMeOU/Servers"
+                OUPath = "Root/DeleteMe OU/Servers"
                 GroupScope = "Global"
                 GroupCategory = "Security"
             }
@@ -492,7 +492,7 @@
                 Name = "Resource Admins"
                 DisplayName = "Resource Admins"
                 Description = "Resource Administrators for special Lab"
-                OUPath = "Root/DeleteMeOU/Resources"
+                OUPath = "Root/DeleteMe OU/Resources"
                 GroupScope = "Global"
                 GroupCategory = "Security"
             }
