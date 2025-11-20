@@ -57,8 +57,11 @@ function New-OU {
         # Create the OU
         $ou = New-ADOrganizationalUnit -Name $Name -Path $Path -Description $Description -ProtectedFromAccidentalDeletion $ProtectFromAccidentalDeletion -ErrorAction Stop
         
-        Write-Verbose "Created OU: $Name at $Path"
-        return $ou
+        # Retrieve the newly created OU to get full properties
+        $createdOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction Stop
+        
+        Write-Verbose "Created OU: $Name at $Path (DN: $ouDN)"
+        return $createdOU
     }
     catch {
         Write-Error "Failed to create OU $Name : $_"
@@ -77,6 +80,8 @@ function Build-OUStructure {
     )
     
     $ouObjects = @{}
+    $createdCount = 0
+    $skippedCount = 0
     
     try {
         # Create all top-level OUs at domain root
@@ -86,11 +91,19 @@ function Build-OUStructure {
             $ouDesc = $ouDef.Description
             $ouProtect = $ouDef.ProtectFromAccidentalDeletion
             
-            Write-Verbose "Creating top-level OU: $ouName"
+            Write-Host "  Creating OU: $ouName" -ForegroundColor Cyan
             
             $ou = New-OU -Name $ouName -Path $DomainDN -Description $ouDesc -ProtectFromAccidentalDeletion $ouProtect
             
             if ($ou) {
+                # Check if it was newly created or already existed
+                $ouDN = "OU=$ouName,$DomainDN"
+                $checkOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction SilentlyContinue
+                if ($checkOU) {
+                    Write-Host "    ✓ OK: $ouName" -ForegroundColor Green
+                    $createdCount++
+                }
+                
                 $ouObjects[$ouKey] = $ou
                 
                 # Create child OUs if defined
@@ -101,17 +114,28 @@ function Build-OUStructure {
                         $childDesc = $childDef.Description
                         $childProtect = $childDef.ProtectFromAccidentalDeletion
                         
-                        Write-Verbose "Creating child OU: $childName under $ouName"
+                        Write-Host "    Creating child OU: $childName" -ForegroundColor Cyan
                         
                         $childOU = New-OU -Name $childName -Path $ou.DistinguishedName -Description $childDesc -ProtectFromAccidentalDeletion $childProtect
                         
                         if ($childOU) {
+                            Write-Host "      ✓ OK: $childName" -ForegroundColor Green
+                            $createdCount++
                             $ouObjects["$ouKey/$childKey"] = $childOU
+                        }
+                        else {
+                            Write-Host "      ✗ FAILED: $childName" -ForegroundColor Red
                         }
                     }
                 }
             }
+            else {
+                Write-Host "    ✗ FAILED: $ouName" -ForegroundColor Red
+            }
         }
+        
+        Write-Host ""
+        Write-Host "  Summary: $createdCount OUs created/verified" -ForegroundColor Green
         
         return $ouObjects
     }
@@ -157,7 +181,9 @@ function Invoke-BuildOUs {
             return $false
         }
         
-        Write-Verbose "Creating OUs in domain: $domainDN"
+        Write-Host ""
+        Write-Host "Creating OU hierarchy at: $domainDN" -ForegroundColor Cyan
+        Write-Host ""
         
         # Build OU structure
         $ouObjects = Build-OUStructure -DomainDN $domainDN -OUConfig $Config.OUs
@@ -166,6 +192,9 @@ function Invoke-BuildOUs {
             Write-Error "Failed to create OU structure"
             return $false
         }
+        
+        Write-Host ""
+        Write-Host "✓ OU hierarchy created successfully" -ForegroundColor Green
         
         Write-Verbose "BuildOUs module completed successfully"
         
