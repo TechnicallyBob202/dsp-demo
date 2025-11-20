@@ -325,7 +325,7 @@ function Invoke-CreateUsers {
         }
     }
     
-# Process Generic Bulk Users with progress bar and password fix
+    # Process Generic Bulk Users with progress bar and password fix
     if ($Config.ContainsKey('Users') -and $Config.Users.ContainsKey('GenericUsers')) {
         foreach ($bulkConfig in $Config.Users.GenericUsers) {
             $prefix = if ($bulkConfig.ContainsKey('SamAccountNamePrefix')) { $bulkConfig.SamAccountNamePrefix } else { "GdAct0r" }
@@ -340,22 +340,13 @@ function Invoke-CreateUsers {
             $bulkCompany = if ($bulkConfig.ContainsKey('Company')) { $bulkConfig.Company } else { "" }
             $bulkEnabled = if ($bulkConfig.ContainsKey('Enabled')) { $bulkConfig.Enabled } else { $true }
             
+            # Get domain FQDN for UPN
+            $domainFQDN = $DomainInfo.FQDN
+            
             Write-Status "Creating $count generic user accounts (prefix: $prefix) in $($bulkConfig.OUPath)..." -Level Info
             
             for ($i = 0; $i -lt $count; $i++) {
                 $samName = "$prefix-{0:D6}" -f $i
-                $userDef = @{
-                    SamAccountName = $samName
-                    Name = $samName
-                    Password = $bulkPassword
-                    Description = $bulkDescription
-                    Enabled = $bulkEnabled
-                    PasswordNeverExpires = $false
-                }
-                
-                if ($bulkCompany) {
-                    $userDef['Company'] = $bulkCompany
-                }
                 
                 $existing = Get-ADUser -Filter { SamAccountName -eq $samName } -ErrorAction SilentlyContinue
                 if (-not $existing) {
@@ -363,9 +354,10 @@ function Invoke-CreateUsers {
                         $newUserParams = @{
                             SamAccountName = $samName
                             Name = $samName
+                            UserPrincipalName = "$samName@$domainFQDN"
                             Path = $ouPath
                             AccountPassword = ConvertTo-SecureString $bulkPassword -AsPlainText -Force
-                            Enabled = $bulkEnabled
+                            Enabled = $true
                             PasswordNeverExpires = $false
                             ErrorAction = 'Stop'
                         }
@@ -388,6 +380,7 @@ function Invoke-CreateUsers {
             }
             Write-Progress -Activity "Creating bulk users ($prefix)" -Completed
         }
+    }
     }
     
     Write-Host ""
