@@ -13,15 +13,6 @@
 # HELPER FUNCTIONS
 ################################################################################
 
-function Escape-DNComponent {
-    param([string]$Component)
-    # Escape special characters in DN components
-    $Component = $Component -replace ',', '\,'
-    $Component = $Component -replace '\\', '\\'
-    $Component = $Component -replace '"', '\"'
-    return $Component
-}
-
 function New-OU {
     [CmdletBinding()]
     param(
@@ -38,31 +29,35 @@ function New-OU {
         [bool]$ProtectFromAccidentalDeletion = $true
     )
     
+    $ouDN = "OU=$Name,$Path"
+    Write-Host "        Checking for existing: $ouDN" -ForegroundColor Gray
+    
+    $existingOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction SilentlyContinue
+    
+    if ($existingOU) {
+        Write-Host "        Already exists at: $ouDN" -ForegroundColor Gray
+        return $existingOU
+    }
+    
+    Write-Host "        Creating new OU at: $ouDN" -ForegroundColor Gray
+    
     try {
-        $ouDN = "OU=$(Escape-DNComponent $Name),$Path"
-        Write-Host "        Checking for existing: $ouDN" -ForegroundColor Gray
+        $ou = New-ADOrganizationalUnit -Name $Name -Path $Path -Description $Description -ProtectedFromAccidentalDeletion $ProtectFromAccidentalDeletion
+        Write-Host "        Creation command succeeded" -ForegroundColor Gray
         
-        $existingOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction SilentlyContinue
-        
-        if ($existingOU) {
-            Write-Host "        Already exists at: $ouDN" -ForegroundColor Gray
-            return $existingOU
-        }
-        
-        Write-Host "        Creating new OU at: $ouDN" -ForegroundColor Gray
-        $ou = New-ADOrganizationalUnit -Name $Name -Path $Path -Description $Description -ProtectedFromAccidentalDeletion $ProtectFromAccidentalDeletion -ErrorAction Stop
-        
-        Start-Sleep -Milliseconds 300
+        Start-Sleep -Milliseconds 500
         
         Write-Host "        Fetching created OU from: $ouDN" -ForegroundColor Gray
         $createdOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction Stop
+        Write-Host "        Fetch succeeded" -ForegroundColor Gray
         
-        Write-Host "        Created successfully: $ouDN" -ForegroundColor Gray
         return $createdOU
     }
     catch {
-        Write-Host "        ERROR - Failed to create: $ouDN" -ForegroundColor Red
-        Write-Host "        Error details: $_" -ForegroundColor Red
+        Write-Host "        ERROR in New-OU" -ForegroundColor Red
+        Write-Host "        Full exception: $($_.Exception.GetType().Name)" -ForegroundColor Red
+        Write-Host "        Message: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "        StackTrace: $($_.Exception.StackTrace)" -ForegroundColor Red
         return $null
     }
 }
@@ -106,10 +101,7 @@ function Build-OUStructure {
                         Write-Host "    Creating child OU: $childName" -ForegroundColor Cyan
                         
                         $parentDN = $ou.DistinguishedName
-                        $expectedChildDN = "OU=$(Escape-DNComponent $childName),$parentDN"
-                        
                         Write-Host "      Parent OU DN: $parentDN" -ForegroundColor Yellow
-                        Write-Host "      Expected child DN: $expectedChildDN" -ForegroundColor Yellow
                         Write-Host "      Child Name: $childName" -ForegroundColor Yellow
                         
                         if (-not $parentDN) {
