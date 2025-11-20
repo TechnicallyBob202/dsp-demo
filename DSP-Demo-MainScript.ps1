@@ -295,7 +295,7 @@ function Main {
     Write-Host ""
     
     $confirmationTimer = 0
-    $timeoutSeconds = 15
+    $timeoutSeconds = 30
     $proceed = $null
     
     while ($confirmationTimer -lt $timeoutSeconds) {
