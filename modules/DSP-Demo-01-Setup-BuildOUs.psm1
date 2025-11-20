@@ -39,6 +39,14 @@ function New-OU {
             return $existingOU
         }
         
+        # Check if OU exists anywhere else in the forest
+        $existingAnyywhere = Get-ADOrganizationalUnit -Filter "Name -eq '$Name'" -ErrorAction SilentlyContinue
+        if ($existingAnyywhere) {
+            Write-Host "        WARNING: OU '$Name' exists elsewhere. Current location: $($existingAnyywhere.DistinguishedName)" -ForegroundColor Yellow
+            Write-Host "        Expected location: $ouDN" -ForegroundColor Yellow
+            return $null
+        }
+        
         Write-Verbose "Creating new OU with Name='$Name' Path='$Path'"
         $ou = New-ADOrganizationalUnit -Name $Name -Path $Path -Description $Description -ProtectedFromAccidentalDeletion $ProtectFromAccidentalDeletion -ErrorAction Stop
         
