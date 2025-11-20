@@ -302,17 +302,6 @@
         }
         
         # DeleteMe OU Groups - created for deletion and recovery demos
-        SpecialAccessDatacenter = @{
-            Name = "Special Access - Datacenter"
-            SamAccountName = "SpecialAccess-Datacenter"
-            DisplayName = "Special Access - Datacenter"
-            Description = "Resource Administrators for special Lab"
-            GroupCategory = "Security"
-            GroupScope = "Global"
-            Path = "OU=Corp Special OU,OU=DELETEME OU,{DOMAIN_DN}"
-            Members = @()
-        }
-        
         ServerAdminsUS = @{
             Name = "Server Admins - US"
             SamAccountName = "ServerAdmins-US"
@@ -342,7 +331,18 @@
             Description = "Resource Administrators for special Lab"
             GroupCategory = "Security"
             GroupScope = "Global"
-            Path = "OU=Resources,OU=DELETEME OU,{DOMAIN_DN}"
+            Path = "OU=Resources,OU=DeleteMe-OU,{DOMAIN_DN}"
+            Members = @()
+        }
+        
+        SpecialAccessDatacenter = @{
+            Name = "Special Access - Datacenter"
+            SamAccountName = "SpecialAccessDatacenter"
+            DisplayName = "Special Access - Datacenter"
+            Description = "Resource Administrators for special Lab"
+            GroupCategory = "Security"
+            GroupScope = "Global"
+            Path = "OU=Corp Special OU,OU=DeleteMe-OU,{DOMAIN_DN}"
             Members = @()
         }
     }
