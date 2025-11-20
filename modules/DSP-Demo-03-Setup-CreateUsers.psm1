@@ -5,16 +5,6 @@
 ## Creates user accounts from configuration file.
 ## Operator-configurable via DSP-Demo-Config.psd1
 ##
-## Configuration sections consumed:
-##  - Tier0Admins, Tier1Admins, Tier2Admins
-##  - DemoUsers
-##  - ServiceAccounts
-##  - BulkUsers (generates numbered accounts)
-##  - DeleteMeUsers (generates numbered accounts)
-##
-## All users created with idempotent logic (create if not exists).
-## Group membership applied as configured.
-##
 ################################################################################
 
 #Requires -Version 5.1
@@ -84,6 +74,8 @@ function Resolve-OUPath {
     # Join all parts and append domain DN
     $dn = ($dnParts -join ",") + "," + $domainDN
     
+    Write-Status "OUPath '$LogicalPath' -> DN '$dn'" -Level Info
+    
     return $dn
 }
 
@@ -104,11 +96,20 @@ function New-UserAccount {
     
     $sam = $UserDef.SamAccountName
     
+    Write-Status "Processing user '$sam' - OUPath: '$OUPath'" -Level Info
+    
     # Check if user exists
     $existing = Get-ADUser -Filter { SamAccountName -eq $sam } -ErrorAction SilentlyContinue
     if ($existing) {
         Write-Status "User '$sam' already exists - skipping" -Level Info
         return $existing
+    }
+    
+    # Verify OU exists
+    $ouTest = Get-ADObject -LDAPFilter "(objectClass=organizationalUnit)" -SearchBase $OUPath -Scope Base -ErrorAction SilentlyContinue
+    if (-not $ouTest) {
+        Write-Status "OU does not exist at path: $OUPath" -Level Error
+        return $null
     }
     
     # Map config keys to New-ADUser parameters
@@ -152,6 +153,7 @@ function New-UserAccount {
     }
     
     try {
+        Write-Status "Creating user '$sam' in OU: $OUPath" -Level Info
         $user = New-ADUser @newUserParams -PassThru
         Write-Status "Created user '$sam'" -Level Success
         return $user
@@ -225,6 +227,7 @@ function Invoke-CreateUsers {
     
     Write-Host ""
     Write-Status "Creating user accounts..." -Level Info
+    Write-Status "Domain Info DN: $($DomainInfo.DN)" -Level Info
     
     $createdCount = 0
     $skippedCount = 0
