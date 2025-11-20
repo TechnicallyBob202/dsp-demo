@@ -159,9 +159,7 @@ function New-UserAccount {
     
     $existing = Get-ADUser -Filter { SamAccountName -eq $sam } -ErrorAction SilentlyContinue
     if ($existing) {
-        Write-Status "User '$sam' already exists - skipping creation" -Level Info
-        # Update existing user to ensure UPN and enabled
-        Update-UserAccount $sam $DomainFQDN
+        Write-Status "User '$sam' already exists - skipping" -Level Info
         return $existing
     }
     
@@ -425,8 +423,6 @@ function Invoke-CreateUsers {
                     }
                 }
                 else {
-                    # Update existing user to ensure UPN and enabled
-                    Update-UserAccount $samName $domainFQDN
                     $skippedCount++
                 }
                 
