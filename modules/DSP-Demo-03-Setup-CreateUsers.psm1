@@ -68,11 +68,9 @@ function Resolve-OUPath {
         return $domainDN
     }
     
-    # Split path from left to right: "Lab Admins/Tier 0" -> @("Lab Admins", "Tier 0")
     $parts = $LogicalPath -split '/'
-    
-    # Build DN from right to left, so child comes first
     $dnParts = @()
+    
     for ($i = $parts.Count - 1; $i -ge 0; $i--) {
         $part = $parts[$i]
         if ($part -and $part -ne "Root") {
@@ -80,9 +78,7 @@ function Resolve-OUPath {
         }
     }
     
-    # Join all parts and append domain DN
     $dn = ($dnParts -join ",") + "," + $domainDN
-    
     return $dn
 }
 
@@ -102,19 +98,20 @@ function New-UserAccount {
         [string]$OUPath,
         
         [Parameter(Mandatory=$false)]
-        [string]$DefaultPassword
+        [string]$DefaultPassword,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$DomainFQDN
     )
     
     $sam = $UserDef.SamAccountName
     
-    # Check if user exists
     $existing = Get-ADUser -Filter { SamAccountName -eq $sam } -ErrorAction SilentlyContinue
     if ($existing) {
         Write-Status "User '$sam' already exists - skipping" -Level Info
         return $existing
     }
     
-    # Map config keys to New-ADUser parameters
     $paramMap = @{
         'GivenName' = 'GivenName'
         'Surname' = 'Surname'
@@ -135,7 +132,6 @@ function New-UserAccount {
         'Country' = 'Country'
     }
     
-    # Determine password to use
     $passwordToUse = $UserDef.Password
     if ([string]::IsNullOrWhiteSpace($passwordToUse)) {
         $passwordToUse = $DefaultPassword
@@ -146,7 +142,6 @@ function New-UserAccount {
         return $null
     }
     
-    # Build params for New-ADUser
     $newUserParams = @{
         SamAccountName = $sam
         Name = $UserDef.Name
@@ -157,7 +152,10 @@ function New-UserAccount {
         ErrorAction = 'Stop'
     }
     
-    # Add mapped attributes if present in config
+    if ($DomainFQDN) {
+        $newUserParams['UserPrincipalName'] = "$sam@$DomainFQDN"
+    }
+    
     foreach ($configKey in $paramMap.Keys) {
         if ($UserDef.ContainsKey($configKey) -and -not [string]::IsNullOrWhiteSpace($UserDef[$configKey])) {
             $paramKey = $paramMap[$configKey]
@@ -238,6 +236,7 @@ function Invoke-CreateUsers {
     
     $DomainInfo = $Environment.DomainInfo
     $DefaultPassword = if ($Config.General.ContainsKey('DefaultPassword')) { $Config.General.DefaultPassword } else { $null }
+    $domainFQDN = $DomainInfo.FQDN
     
     Write-Host ""
     Write-Status "Creating user accounts..." -Level Info
@@ -250,7 +249,7 @@ function Invoke-CreateUsers {
         Write-Status "Creating Tier 0 admin accounts..." -Level Info
         foreach ($userDef in $Config.Users.Tier0Admins) {
             $ouPath = Resolve-OUPath $userDef.OUPath $DomainInfo
-            $user = New-UserAccount $userDef $ouPath $DefaultPassword
+            $user = New-UserAccount $userDef $ouPath $DefaultPassword $domainFQDN
             if ($user) { $createdCount++ } else { $skippedCount++ }
             
             if ($userDef.ContainsKey('Groups')) {
@@ -266,7 +265,7 @@ function Invoke-CreateUsers {
         Write-Status "Creating Tier 1 admin accounts..." -Level Info
         foreach ($userDef in $Config.Users.Tier1Admins) {
             $ouPath = Resolve-OUPath $userDef.OUPath $DomainInfo
-            $user = New-UserAccount $userDef $ouPath $DefaultPassword
+            $user = New-UserAccount $userDef $ouPath $DefaultPassword $domainFQDN
             if ($user) { $createdCount++ } else { $skippedCount++ }
             
             if ($userDef.ContainsKey('Groups')) {
@@ -282,7 +281,7 @@ function Invoke-CreateUsers {
         Write-Status "Creating Tier 2 admin accounts..." -Level Info
         foreach ($userDef in $Config.Users.Tier2Admins) {
             $ouPath = Resolve-OUPath $userDef.OUPath $DomainInfo
-            $user = New-UserAccount $userDef $ouPath $DefaultPassword
+            $user = New-UserAccount $userDef $ouPath $DefaultPassword $domainFQDN
             if ($user) { $createdCount++ } else { $skippedCount++ }
             
             if ($userDef.ContainsKey('Groups')) {
@@ -298,7 +297,7 @@ function Invoke-CreateUsers {
         Write-Status "Creating demo user accounts..." -Level Info
         foreach ($userDef in $Config.Users.DemoUsers) {
             $ouPath = Resolve-OUPath $userDef.OUPath $DomainInfo
-            $user = New-UserAccount $userDef $ouPath $DefaultPassword
+            $user = New-UserAccount $userDef $ouPath $DefaultPassword $domainFQDN
             if ($user) { $createdCount++ } else { $skippedCount++ }
             
             if ($userDef.ContainsKey('Groups')) {
@@ -314,7 +313,7 @@ function Invoke-CreateUsers {
         Write-Status "Creating service accounts..." -Level Info
         foreach ($userDef in $Config.Users.ServiceAccounts) {
             $ouPath = Resolve-OUPath $userDef.OUPath $DomainInfo
-            $user = New-UserAccount $userDef $ouPath $DefaultPassword
+            $user = New-UserAccount $userDef $ouPath $DefaultPassword $domainFQDN
             if ($user) { $createdCount++ } else { $skippedCount++ }
             
             if ($userDef.ContainsKey('Groups')) {
@@ -325,23 +324,19 @@ function Invoke-CreateUsers {
         }
     }
     
-    # Process Generic Bulk Users with progress bar and password fix
+    # Process Generic Bulk Users with progress bar
     if ($Config.ContainsKey('Users') -and $Config.Users.ContainsKey('GenericUsers')) {
         foreach ($bulkConfig in $Config.Users.GenericUsers) {
             $prefix = if ($bulkConfig.ContainsKey('SamAccountNamePrefix')) { $bulkConfig.SamAccountNamePrefix } else { "GdAct0r" }
             $count = if ($bulkConfig.ContainsKey('Count')) { $bulkConfig.Count } else { 250 }
             $ouPath = Resolve-OUPath $bulkConfig.OUPath $DomainInfo
             
-            # FIX: Handle {PASSWORD} placeholder and null/empty passwords
+            # Handle {PASSWORD} placeholder
             $rawPassword = if ($bulkConfig.ContainsKey('Password')) { $bulkConfig.Password } else { $DefaultPassword }
             $bulkPassword = if ([string]::IsNullOrWhiteSpace($rawPassword) -or $rawPassword -eq "{PASSWORD}") { $DefaultPassword } else { $rawPassword }
             
             $bulkDescription = if ($bulkConfig.ContainsKey('Description')) { $bulkConfig.Description } else { "Generic bulk user account" }
             $bulkCompany = if ($bulkConfig.ContainsKey('Company')) { $bulkConfig.Company } else { "" }
-            $bulkEnabled = if ($bulkConfig.ContainsKey('Enabled')) { $bulkConfig.Enabled } else { $true }
-            
-            # Get domain FQDN for UPN
-            $domainFQDN = $DomainInfo.FQDN
             
             Write-Status "Creating $count generic user accounts (prefix: $prefix) in $($bulkConfig.OUPath)..." -Level Info
             
@@ -370,17 +365,17 @@ function Invoke-CreateUsers {
                     catch {
                         $skippedCount++
                     }
-                } else {
+                }
+                else {
                     $skippedCount++
                 }
                 
-                # Progress bar: update every user
+                # Progress bar update
                 $percentComplete = [math]::Round((($i + 1) / $count) * 100)
                 Write-Progress -Activity "Creating bulk users ($prefix)" -Status "$($i + 1) of $count" -PercentComplete $percentComplete
             }
             Write-Progress -Activity "Creating bulk users ($prefix)" -Completed
         }
-    }
     }
     
     Write-Host ""
