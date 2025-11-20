@@ -86,6 +86,7 @@ function Update-UserAccount {
     <#
     .SYNOPSIS
     Updates existing user account to ensure UPN is set and account is enabled.
+    Does NOT change password.
     #>
     [CmdletBinding()]
     param(
@@ -189,8 +190,8 @@ function New-UserAccount {
         $passwordToUse = $DefaultPassword
     }
     
-    # Handle {PASSWORD} placeholder
-    if ($passwordToUse -eq "{PASSWORD}") {
+    # Handle {PASSWORD} placeholder - same fix as bulk users
+    if ([string]::IsNullOrWhiteSpace($passwordToUse) -or $passwordToUse -eq "{PASSWORD}") {
         $passwordToUse = $DefaultPassword
     }
     
