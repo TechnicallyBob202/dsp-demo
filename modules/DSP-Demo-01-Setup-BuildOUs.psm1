@@ -31,7 +31,6 @@ function New-OU {
     
     try {
         $ouDN = "OU=$Name,$Path"
-        Write-Verbose "Checking for existing OU: $ouDN"
         
         $existingOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction SilentlyContinue
         
@@ -95,7 +94,8 @@ function Build-OUStructure {
                         Write-Host "    Creating child OU: $childName" -ForegroundColor Cyan
                         
                         $parentDN = $ou.DistinguishedName
-                        Write-Verbose "Parent DN: $parentDN"
+                        Write-Host "      Parent DN: $parentDN" -ForegroundColor Yellow
+                        Write-Host "      Child Name: $childName" -ForegroundColor Yellow
                         
                         if (-not $parentDN) {
                             Write-Host "      FAILED: Parent OU DN is empty" -ForegroundColor Red
