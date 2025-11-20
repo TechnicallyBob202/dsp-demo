@@ -226,10 +226,20 @@ try {
     try {
         $domainInfo = Get-DomainInfo
         $dcs = Get-ADDomainControllers
+        
+        # DEBUG: Check what we got back
+        Write-Status "DEBUG: dcs object type: $($dcs.GetType().Name)" -Level Info
+        Write-Status "DEBUG: dcs count: $($dcs.Count)" -Level Info
+        if ($dcs) {
+            Write-Status "DEBUG: dcs[0] = $($dcs[0])" -Level Info
+            Write-Status "DEBUG: dcs[0].HostName = $($dcs[0].HostName)" -Level Info
+        }
+        
         $primaryDC = if ($dcs.Count -gt 0) { $dcs[0].HostName } else { $null }
         $secondaryDC = if ($dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
         $forestInfo = Get-ForestInfo
         
+        Write-Status "DEBUG: primaryDC variable = '$primaryDC'" -Level Info
         Write-Status "Primary DC: $primaryDC" -Level Info
         if ($secondaryDC) {
             Write-Status "Secondary DC: $secondaryDC" -Level Info
@@ -244,7 +254,17 @@ try {
     Write-Header "DSP Server Discovery"
     
     # Get DSP server from config, or leave empty for auto-discovery
+    Write-Status "DEBUG: config object type: $($config.GetType().Name)" -Level Info
+    Write-Status "DEBUG: config keys: $($config.Keys -join ', ')" -Level Info
+    Write-Status "DEBUG: config.DspServer exists: $(if ($config.ContainsKey('DspServer')) { 'YES' } else { 'NO' })" -Level Info
+    if ($config.ContainsKey('DspServer')) {
+        Write-Status "DEBUG: config.DspServer value: '$($config.DspServer)'" -Level Info
+        Write-Status "DEBUG: config.DspServer length: $($config.DspServer.Length)" -Level Info
+        Write-Status "DEBUG: config.DspServer is null: $($null -eq $config.DspServer)" -Level Info
+    }
+    
     $dspServerFromConfig = if ($config -and $config.DspServer) { $config.DspServer } else { "" }
+    Write-Status "DEBUG: dspServerFromConfig final value: '$dspServerFromConfig'" -Level Info
     Write-Status "DSP Server from config: '$dspServerFromConfig'" -Level Info
     
     $dspServer = Find-DspServer -DomainInfo $domainInfo -ConfigServer $dspServerFromConfig

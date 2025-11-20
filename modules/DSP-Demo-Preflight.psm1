@@ -302,18 +302,23 @@ function Find-DspServer {
         return $ConfigServer
     }
     
+    Write-ScriptLog "DEBUG: ConfigServer parameter is empty/null, proceeding to SCP search" -Level Info
+    
     # Otherwise, search for DSP SCP
     try {
         Write-ScriptLog "Searching for DSP Service Connection Point..." -Level Info
         
         $dn = $DomainInfo.DistinguishedName
         $searchBase = "CN=Services,CN=Configuration,$dn"
+        Write-ScriptLog "DEBUG: Search base DN: $searchBase" -Level Info
         
         # Search for DSP SCP
         $scp = Get-ADObject -SearchBase $searchBase `
                            -Filter "objectClass -eq 'serviceConnectionPoint' -and cn -like '*Semperis.Dsp.Management*'" `
                            -Properties serviceBindingInformation `
                            -ErrorAction SilentlyContinue
+        
+        Write-ScriptLog "DEBUG: SCP search returned: $($scp.Count) object(s)" -Level Info
         
         if ($scp) {
             $dspServer = $scp.serviceBindingInformation[0]
