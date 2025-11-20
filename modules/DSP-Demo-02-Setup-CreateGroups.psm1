@@ -51,7 +51,7 @@ function Resolve-OUPath {
         [string]$LogicalPath,
         
         [Parameter(Mandatory=$true)]
-        [hashtable]$DomainInfo
+        $DomainInfo
     )
     
     $domainDN = $DomainInfo.DomainDN
