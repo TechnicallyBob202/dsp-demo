@@ -4,19 +4,6 @@
 ##
 ## Creates all organizational unit (OU) structure for the demo environment.
 ##
-## OUs Created (at domain root):
-## - Lab Admins (parent)
-##   - Tier 0, Tier 1, Tier 2
-## - Lab Users (parent)
-##   - Dept101, Dept999
-## - Bad OU (standalone)
-## - DeleteMe OU (parent)
-##   - Corp Special OU, Resources, Servers
-## - TEST (standalone)
-##
-## All OUs created with idempotent logic (create if not exists).
-## No modifications or deletions in this phase.
-##
 ################################################################################
 
 #Requires -Version 5.1
@@ -43,10 +30,7 @@ function New-OU {
     )
     
     try {
-        # Build the DN for this OU
         $ouDN = "OU=$Name,$Path"
-        
-        # Check if OU already exists at this exact path
         $existingOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction SilentlyContinue
         
         if ($existingOU) {
@@ -54,13 +38,10 @@ function New-OU {
             return $existingOU
         }
         
-        # Create the OU
         $ou = New-ADOrganizationalUnit -Name $Name -Path $Path -Description $Description -ProtectedFromAccidentalDeletion $ProtectFromAccidentalDeletion -ErrorAction Stop
-        
-        # Retrieve the newly created OU to get full properties
         $createdOU = Get-ADOrganizationalUnit -Identity $ouDN -ErrorAction Stop
         
-        Write-Verbose "Created OU: $Name at $Path (DN: $ouDN)"
+        Write-Verbose "Created OU: $Name at $Path"
         return $createdOU
     }
     catch {
@@ -83,7 +64,6 @@ function Build-OUStructure {
     $createdCount = 0
     
     try {
-        # Create all top-level OUs at domain root
         foreach ($ouKey in $OUConfig.Keys) {
             $ouDef = $OUConfig[$ouKey]
             $ouName = $ouDef.Name
@@ -95,11 +75,10 @@ function Build-OUStructure {
             $ou = New-OU -Name $ouName -Path $DomainDN -Description $ouDesc -ProtectFromAccidentalDeletion $ouProtect
             
             if ($ou) {
-                Write-Host "    ✓ OK: $ouName" -ForegroundColor Green
+                Write-Host "    OK: $ouName" -ForegroundColor Green
                 $createdCount++
                 $ouObjects[$ouKey] = $ou
                 
-                # Create child OUs if defined
                 if ($ouDef.ContainsKey('Children') -and $ouDef.Children) {
                     foreach ($childKey in $ouDef.Children.Keys) {
                         $childDef = $ouDef.Children[$childKey]
@@ -112,18 +91,18 @@ function Build-OUStructure {
                         $childOU = New-OU -Name $childName -Path $ou.DistinguishedName -Description $childDesc -ProtectFromAccidentalDeletion $childProtect
                         
                         if ($childOU) {
-                            Write-Host "      ✓ OK: $childName" -ForegroundColor Green
+                            Write-Host "      OK: $childName" -ForegroundColor Green
                             $createdCount++
                             $ouObjects["$ouKey/$childKey"] = $childOU
                         }
                         else {
-                            Write-Host "      ✗ FAILED: $childName" -ForegroundColor Red
+                            Write-Host "      FAILED: $childName" -ForegroundColor Red
                         }
                     }
                 }
             }
             else {
-                Write-Host "    ✗ FAILED: $ouName" -ForegroundColor Red
+                Write-Host "    FAILED: $ouName" -ForegroundColor Red
             }
         }
         
@@ -155,13 +134,11 @@ function Invoke-BuildOUs {
     try {
         Write-Verbose "Starting BuildOUs module"
         
-        # Validate config
         if (-not $Config -or -not $Config.ContainsKey('OUs')) {
             Write-Warning "No OUs defined in configuration"
             return $true
         }
         
-        # Validate environment
         if (-not $Environment -or -not $Environment.DomainInfo) {
             Write-Error "Invalid environment object"
             return $false
@@ -178,7 +155,6 @@ function Invoke-BuildOUs {
         Write-Host "Creating OU hierarchy at: $domainDN" -ForegroundColor Cyan
         Write-Host ""
         
-        # Build OU structure
         $ouObjects = Build-OUStructure -DomainDN $domainDN -OUConfig $Config.OUs
         
         if (-not $ouObjects) {
@@ -187,11 +163,10 @@ function Invoke-BuildOUs {
         }
         
         Write-Host ""
-        Write-Host "✓ OU hierarchy created successfully" -ForegroundColor Green
+        Write-Host "OU hierarchy created successfully" -ForegroundColor Green
         
         Write-Verbose "BuildOUs module completed successfully"
         
-        # Store OU objects in script-level variable for use by other modules
         $script:OUObjects = $ouObjects
         
         return $true
