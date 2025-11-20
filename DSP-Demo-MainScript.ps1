@@ -115,10 +115,10 @@ function Expand-ConfigPlaceholders {
     
     Write-Status "Expanding config placeholders..." -Level Info
     
-    # Build replacement map
+    # Build replacement map (use FQDN for {DOMAIN} placeholder)
     $replacements = @{
         '{DOMAIN_DN}'        = $DomainInfo.DistinguishedName
-        '{DOMAIN}'           = $DomainInfo.FQDN
+        '{DOMAIN}'           = if ($DomainInfo.FQDN) { $DomainInfo.FQDN } else { $DomainInfo.DNSRoot }
         '{DOMAIN_NETBIOS}'   = $DomainInfo.NetBIOSName
         '{NETBIOS}'          = $DomainInfo.NetBIOSName
         '{PASSWORD}'         = if ($Config.General -and $Config.General.DefaultPassword) { $Config.General.DefaultPassword } else { "P@ssw0rd123!" }

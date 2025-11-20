@@ -98,7 +98,10 @@ function Test-AdminRights {
         Test if script is running with administrator privileges.
     
     .OUTPUTS
-        [bool] - $true if admin, $false otherwise
+        [bool] - $true if running as admin, $false otherwise
+    
+    .EXAMPLE
+        if (-not (Test-AdminRights)) { Write-Error "Must run as admin"; exit 1 }
     #>
     [CmdletBinding()]
     param()
@@ -160,7 +163,7 @@ function Get-DomainInfo {
         Write-Host "Domain: $($domain.Name)"
     
     .OUTPUTS
-        PSCustomObject with domain information
+        PSCustomObject with domain information: Name, FQDN, DistinguishedName, NetBIOSName, DomainMode, DomainControllers
     #>
     [CmdletBinding()]
     param()
@@ -172,6 +175,7 @@ function Get-DomainInfo {
         
         $domainInfo = [PSCustomObject]@{
             Name = $adDomain.Name
+            FQDN = $adDomain.DNSRoot
             DNSRoot = $adDomain.DNSRoot
             DistinguishedName = $adDomain.DistinguishedName
             NetBIOSName = $adDomain.NetBIOSName
@@ -179,7 +183,8 @@ function Get-DomainInfo {
             DomainControllers = @($adDomain.ReplicaDirectoryServers)
         }
         
-        Write-ScriptLog "Domain: $($domainInfo.Name) - DNSRoot: $($domainInfo.DNSRoot)" -Level Success
+        Write-ScriptLog "Domain: $($domainInfo.Name) - DNSRoot: $($domainInfo.FQDN)" -Level Success
+        Write-ScriptLog "Domain DN: $($domainInfo.DistinguishedName)" -Level Info
         
         return $domainInfo
     }
@@ -263,51 +268,6 @@ function Get-ForestInfo {
         Write-ScriptLog "Failed to discover forest information: $_" -Level Error
         throw
     }
-}
-
-function Expand-ConfigPlaceholders {
-    param(
-        [Parameter(Mandatory=$true)]
-        [hashtable]$Config,
-        
-        [Parameter(Mandatory=$true)]
-        [PSCustomObject]$DomainInfo
-    )
-    
-    $replacements = @{
-        '{DOMAIN_DN}'     = $DomainInfo.DistinguishedName
-        '{DOMAIN}'        = $DomainInfo.FQDN
-        '{NETBIOS}'       = $DomainInfo.NetBIOSName
-        '{PASSWORD}'      = if ($Config.General.DefaultPassword) { $Config.General.DefaultPassword } else { "P@ssw0rd123!" }
-        '{COMPANY}'       = "Semperis"
-    }
-    
-    function Expand-Object {
-        param([object]$Obj)
-        
-        if ($Obj -is [string]) {
-            $result = $Obj
-            foreach ($key in $replacements.Keys) {
-                $result = $result -replace [regex]::Escape($key), $replacements[$key]
-            }
-            return $result
-        }
-        elseif ($Obj -is [hashtable]) {
-            $newHash = @{}
-            foreach ($hkey in $Obj.Keys) {
-                $newHash[$hkey] = Expand-Object $Obj[$hkey]
-            }
-            return $newHash
-        }
-        elseif ($Obj -is [array]) {
-            return @($Obj | ForEach-Object { Expand-Object $_ })
-        }
-        else {
-            return $Obj
-        }
-    }
-    
-    return Expand-Object $Config
 }
 
 ################################################################################
@@ -410,59 +370,58 @@ function Connect-DspManagementServer {
     .SYNOPSIS
         Connect to DSP Management Server with retry logic.
     
-    .PARAMETER DspServer
-        FQDN of DSP server
+    .PARAMETER Server
+        DSP Management Server FQDN
     
     .PARAMETER MaxRetries
-        Maximum number of connection attempts (default: 3)
+        Maximum connection attempts (default: 3)
     
     .EXAMPLE
-        $connection = Connect-DspManagementServer -DspServer "dsp.domain.com"
+        $conn = Connect-DspManagementServer -Server "dsp.domain.com"
     
     .OUTPUTS
-        [PSCustomObject] - Connection object, or $null on failure
+        PSCustomObject with connection details, or $null if failed
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [string]$DspServer,
+        [string]$Server,
         
         [Parameter(Mandatory=$false)]
         [int]$MaxRetries = 3
     )
     
-    try {
-        Write-ScriptLog "Attempting to connect to DSP server: $DspServer" -Level Info
-        
-        $retryCount = 0
-        $connected = $false
-        
-        while ($retryCount -lt $MaxRetries -and -not $connected) {
-            try {
-                $retryCount++
-                Write-ScriptLog "Connection attempt $retryCount of $MaxRetries..." -Level Info
-                
-                # Attempt connection using Connect-DSPServer cmdlet
-                $connection = Connect-DSPServer -ComputerName $DspServer -ErrorAction Stop
-                
-                Write-ScriptLog "Connected to DSP server: $DspServer" -Level Success
+    $retryCount = 0
+    
+    while ($retryCount -lt $MaxRetries) {
+        try {
+            Write-ScriptLog "Attempting to connect to DSP server: $Server (attempt $($retryCount + 1)/$MaxRetries)" -Level Info
+            
+            # Try to connect using DSP module if available
+            if (Get-Command Connect-DSPManagementServer -ErrorAction SilentlyContinue) {
+                $connection = Connect-DSPManagementServer -Server $Server -ErrorAction Stop
+                Write-ScriptLog "Successfully connected to DSP server: $Server" -Level Success
                 return $connection
             }
-            catch {
-                if ($retryCount -lt $MaxRetries) {
-                    Write-ScriptLog "Connection failed, retrying in 5 seconds..." -Level Warning
-                    Start-Sleep -Seconds 5
-                }
+            else {
+                Write-ScriptLog "DSP module not available or Connect-DSPManagementServer not found" -Level Warning
+                return $null
             }
         }
-        
-        Write-ScriptLog "Failed to connect to DSP server after $MaxRetries attempts" -Level Warning
-        return $null
+        catch {
+            $retryCount++
+            if ($retryCount -lt $MaxRetries) {
+                Write-ScriptLog "Connection failed: $_. Retrying in 5 seconds..." -Level Warning
+                Start-Sleep -Seconds 5
+            }
+            else {
+                Write-ScriptLog "Failed to connect to DSP server after $MaxRetries attempts: $_" -Level Error
+                return $null
+            }
+        }
     }
-    catch {
-        Write-ScriptLog "Error during DSP connection attempt: $_" -Level Warning
-        return $null
-    }
+    
+    return $null
 }
 
 ################################################################################
@@ -481,3 +440,7 @@ Export-ModuleMember -Function @(
     'Test-DspModule',
     'Connect-DspManagementServer'
 )
+
+################################################################################
+# END OF MODULE
+################################################################################
