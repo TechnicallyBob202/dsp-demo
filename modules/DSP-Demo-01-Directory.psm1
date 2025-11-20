@@ -744,7 +744,8 @@ function Invoke-DirectoryActivity {
         
         foreach ($adminConfig in $Config.AdminUsers.Values) {
             if ($adminConfig -is [hashtable]) {
-                $password = ConvertTo-SecureString $adminConfig.Password -AsPlainText -Force
+                $userPassword = if ($adminConfig.Password) { $adminConfig.Password } else { $Config.General.DefaultPassword }
+                $password = ConvertTo-SecureString $userPassword -AsPlainText -Force
                 
                 New-User -SamAccountName $adminConfig.SamAccountName `
                          -Name $adminConfig.Name `
