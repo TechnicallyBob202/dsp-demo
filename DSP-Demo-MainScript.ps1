@@ -97,39 +97,41 @@ function Expand-ConfigPlaceholders {
     
     Write-Status "Expanding config placeholders..." -Level Info
     
-    # Get domain DN from DomainInfo
     $domainDN = $DomainInfo.DistinguishedName
     $domainName = $DomainInfo.FQDN
     $domainNetBIOS = $DomainInfo.NetBIOSName
     
-    # Function to recursively expand placeholders in an object
-    function Expand-Placeholders {
+    function Replace-PlaceholdersInString {
+        param([string]$Value)
+        
+        $value -replace '\{DOMAIN_DN\}', $domainDN `
+               -replace '\{DOMAIN\}', $domainName `
+               -replace '\{DOMAIN_NETBIOS\}', $domainNetBIOS `
+               -replace '\{DOMAIN_DN_ESCAPED\}', ($domainDN -replace ',', '\,')
+    }
+    
+    function Expand-Object {
         param($Object)
         
         if ($Object -is [hashtable]) {
             $expanded = @{}
             foreach ($key in $Object.Keys) {
-                $expanded[$key] = Expand-Placeholders $Object[$key]
+                $expanded[$key] = Expand-Object $Object[$key]
             }
             return $expanded
         }
         elseif ($Object -is [array]) {
-            return @($Object | ForEach-Object { Expand-Placeholders $_ })
+            return @($Object | ForEach-Object { Expand-Object $_ })
         }
         elseif ($Object -is [string]) {
-            $result = $Object
-            $result = $result -replace '\{DOMAIN_DN\}', $domainDN
-            $result = $result -replace '\{DOMAIN\}', $domainName
-            $result = $result -replace '\{DOMAIN_NETBIOS\}', $domainNetBIOS
-            $result = $result -replace '\{DOMAIN_DN_ESCAPED\}', ($domainDN -replace ',', '\,')
-            return $result
+            return Replace-PlaceholdersInString $Object
         }
         else {
             return $Object
         }
     }
     
-    $expanded = Expand-Placeholders $Config
+    $expanded = Expand-Object $Config
     Write-Status "Config placeholders expanded" -Level Success
     return $expanded
 }
