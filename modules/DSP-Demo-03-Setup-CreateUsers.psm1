@@ -9,8 +9,7 @@
 ##  - Tier0Admins, Tier1Admins, Tier2Admins
 ##  - DemoUsers
 ##  - ServiceAccounts
-##  - BulkUsers (generates numbered accounts)
-##  - DeleteMeUsers (generates numbered accounts)
+##  - GenericUsers (bulk numbered accounts with progress bar)
 ##
 ## All users created with idempotent logic (create if not exists).
 ## Group membership applied as configured.
@@ -326,15 +325,17 @@ function Invoke-CreateUsers {
         }
     }
     
-
-    
-    # Process Generic Bulk Users
+    # Process Generic Bulk Users with progress bar and password fix
     if ($Config.ContainsKey('Users') -and $Config.Users.ContainsKey('GenericUsers')) {
         foreach ($bulkConfig in $Config.Users.GenericUsers) {
             $prefix = if ($bulkConfig.ContainsKey('SamAccountNamePrefix')) { $bulkConfig.SamAccountNamePrefix } else { "GdAct0r" }
             $count = if ($bulkConfig.ContainsKey('Count')) { $bulkConfig.Count } else { 250 }
             $ouPath = Resolve-OUPath $bulkConfig.OUPath $DomainInfo
-            $bulkPassword = if ($bulkConfig.ContainsKey('Password')) { $bulkConfig.Password } else { $DefaultPassword }
+            
+            # FIX: Handle {PASSWORD} placeholder and null/empty passwords
+            $rawPassword = if ($bulkConfig.ContainsKey('Password')) { $bulkConfig.Password } else { $DefaultPassword }
+            $bulkPassword = if ([string]::IsNullOrWhiteSpace($rawPassword) -or $rawPassword -eq "{PASSWORD}") { $DefaultPassword } else { $rawPassword }
+            
             $bulkDescription = if ($bulkConfig.ContainsKey('Description')) { $bulkConfig.Description } else { "Generic bulk user account" }
             $bulkCompany = if ($bulkConfig.ContainsKey('Company')) { $bulkConfig.Company } else { "" }
             $bulkEnabled = if ($bulkConfig.ContainsKey('Enabled')) { $bulkConfig.Enabled } else { $true }
@@ -358,7 +359,14 @@ function Invoke-CreateUsers {
                 
                 $user = New-UserAccount $userDef $ouPath $DefaultPassword
                 if ($user) { $createdCount++ } else { $skippedCount++ }
+                
+                # Progress bar: update every 10 users or at end
+                if (($i + 1) % 10 -eq 0 -or $i -eq ($count - 1)) {
+                    $percentComplete = [math]::Round((($i + 1) / $count) * 100)
+                    Write-Progress -Activity "Creating bulk users ($prefix)" -Status "$($i + 1) of $count" -PercentComplete $percentComplete
+                }
             }
+            Write-Progress -Activity "Creating bulk users ($prefix)" -Completed
         }
     }
     
