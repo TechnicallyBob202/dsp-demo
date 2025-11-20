@@ -119,18 +119,31 @@ function New-DirectoryStructure {
         $tier0OU = New-OU -Name "Tier-0-Special-Assets" -Path $DomainDN -Description "Tier 0 special assets with restricted access"
         $testOU = New-OU -Name "TEST" -Path $DomainDN -Description "Generic test user accounts (bulk created)" -ProtectFromAccidentalDeletion $false
         
-        # Sub-OUs under Lab Admins
-        $tier0AdminsOU = New-OU -Name "Tier 0" -Path $labAdminsOU.DistinguishedName -Description "Tier 0 administrators"
-        $tier1AdminsOU = New-OU -Name "Tier 1" -Path $labAdminsOU.DistinguishedName -Description "Tier 1 administrators"
-        $tier2AdminsOU = New-OU -Name "Tier 2" -Path $labAdminsOU.DistinguishedName -Description "Tier 2 administrators"
+        # Sub-OUs under Lab Admins (if parent exists)
+        $tier0AdminsOU = $null
+        $tier1AdminsOU = $null
+        $tier2AdminsOU = $null
+        if ($labAdminsOU) {
+            $tier0AdminsOU = New-OU -Name "Tier 0" -Path $labAdminsOU.DistinguishedName -Description "Tier 0 administrators"
+            $tier1AdminsOU = New-OU -Name "Tier 1" -Path $labAdminsOU.DistinguishedName -Description "Tier 1 administrators"
+            $tier2AdminsOU = New-OU -Name "Tier 2" -Path $labAdminsOU.DistinguishedName -Description "Tier 2 administrators"
+        }
         
-        # Sub-OUs under Lab Users
-        $labUsers01OU = New-OU -Name "Lab Users 01" -Path $labUsersOU.DistinguishedName -Description "Lab users group 1"
-        $labUsers02OU = New-OU -Name "Lab Users 02" -Path $labUsersOU.DistinguishedName -Description "Lab users group 2"
+        # Sub-OUs under Lab Users (if parent exists)
+        $labUsers01OU = $null
+        $labUsers02OU = $null
+        if ($labUsersOU) {
+            $labUsers01OU = New-OU -Name "Lab Users 01" -Path $labUsersOU.DistinguishedName -Description "Lab users group 1"
+            $labUsers02OU = New-OU -Name "Lab Users 02" -Path $labUsersOU.DistinguishedName -Description "Lab users group 2"
+        }
         
-        # Sub-OUs under DeleteMe OU (for deletion demos)
-        $resourcesOU = New-OU -Name "Resources" -Path $deleteOU.DistinguishedName -Description "Resources sub-OU" -ProtectFromAccidentalDeletion $false
-        $corpSpecialOU = New-OU -Name "Corp Special OU" -Path $deleteOU.DistinguishedName -Description "Corporate special OU" -ProtectFromAccidentalDeletion $false
+        # Sub-OUs under DeleteMe OU (if parent exists)
+        $resourcesOU = $null
+        $corpSpecialOU = $null
+        if ($deleteOU) {
+            $resourcesOU = New-OU -Name "Resources" -Path $deleteOU.DistinguishedName -Description "Resources sub-OU" -ProtectFromAccidentalDeletion $false
+            $corpSpecialOU = New-OU -Name "Corp Special OU" -Path $deleteOU.DistinguishedName -Description "Corporate special OU" -ProtectFromAccidentalDeletion $false
+        }
         
         Write-ActivityLog "Directory structure created successfully" -Level Success
         
