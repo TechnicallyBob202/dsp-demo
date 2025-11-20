@@ -5,6 +5,12 @@
 ## Configuration file for DSP Demo script suite
 ## This centralizes all the hardcoded values from the original script
 ##
+## Supports placeholder expansion in DSP-Demo-MainScript.ps1:
+##   {DOMAIN_DN}  - Replaced with actual domain DN
+##   {DOMAIN}     - Replaced with domain FQDN
+##   {COMPANY}    - Replaced with company name
+##   {PASSWORD}   - Replaced with DefaultPassword
+##
 ################################################################################
 
 @{
@@ -14,16 +20,21 @@
     General = @{
         # Set this to your DSP server FQDN if you want to use a specific server
         # Leave empty string "" to auto-discover via SCP
+        # Example: "dsp.contoso.com" or ""
         DspServer = "dsp.d3.lab"
-        
-        # Number of times to loop the entire script
+
+        # Number of times to loop the entire script (default: 1)
         LoopCount = 1
         
         # Number of generic test users to create in OU=TEST
         GenericUserCount = 250
         
-        # Default password for demo accounts (will prompt if not set)
+        # Default password for demo accounts
+        # This is used for all user accounts created and replaces {PASSWORD} placeholder
         DefaultPassword = "P@ssw0rd123!"
+        
+        # Company name (replaces {COMPANY} placeholder)
+        Company = "Semperis"
         
         # Logging settings
         LogPath = "C:\Logs\DSP-Demo"
@@ -33,381 +44,287 @@
     #---------------------------------------------------------------------------
     # DEMO USER ACCOUNTS
     #
-    # Named demo users that get specific attributes and changes throughout
-    # the script to generate interesting DSP change data.
+    # These are the named demo users that get specific attributes and changes
+    # throughout the script to generate interesting DSP change data.
     #
+    # Original script context:
+    # - DemoUser1 (Axl Rose): Primary demo user, gets many attribute changes
+    # - DemoUser2 (Slash Hudson): Used for account lockout demos
+    # - DemoUser3 (Duff McKagan): Used for auto-undo rule testing (Title attribute)
+    # - DemoUser4 (Paul McCartney): Additional demo user for variety
+    #---------------------------------------------------------------------------
     DemoUsers = @{
-        AdminTier0 = @{
-            Name = 'Admin-Tier0'
-            SamAccountName = 'Admin-Tier0'
-            GivenName = 'Admin'
-            Surname = 'Tier0'
-            DisplayName = 'Admin-Tier0'
-            Initials = 'AT0'
-            Description = 'Tier 0 Non-Privileged Admin'
-            Mail = 'Admin-Tier0@fabrikam.com'
-            Title = 'Sr Solution Architect'
-            Department = 'Pre-Sales'
-            Division = 'Product Sales'
-            Company = 'Semperis'
-            TelephoneNumber = '408-555-0100'
-            City = 'Silicon Valley'
-            EmployeeID = '000000100'
-            Path = "{LAB_USERS_OU}"
-        }
-        
-        AdminTier1 = @{
-            Name = 'Admin-Tier1'
-            SamAccountName = 'Admin-Tier1'
-            GivenName = 'Admin'
-            Surname = 'Tier1'
-            DisplayName = 'Admin-Tier1'
-            Initials = 'AT1'
-            Description = 'Tier 1 Admin Account'
-            Mail = 'Admin-Tier1@fabrikam.com'
-            Title = 'Infrastructure Admin'
-            Department = 'IT Operations'
-            Division = 'Infrastructure'
-            Company = 'Semperis'
-            TelephoneNumber = '408-555-0101'
-            City = 'Silicon Valley'
-            EmployeeID = '000000101'
-            Path = "{LAB_USERS_OU}"
-        }
-        
-        OpsAdmin1 = @{
-            Name = 'OpsAdmin1'
-            SamAccountName = 'opsadmin1'
-            GivenName = 'Operations'
-            Surname = 'Admin'
-            DisplayName = 'OpsAdmin1'
-            Initials = 'OA1'
-            Description = 'Ops Admin - Tier 1 admin account'
-            Mail = 'opsadmin1@fabrikam.com'
-            Title = 'Operations Manager'
-            Department = 'IT Operations'
-            Division = 'Operations'
-            Company = 'Semperis'
-            TelephoneNumber = '408-555-0200'
-            City = 'Silicon Valley'
-            EmployeeID = '000000200'
-            Path = "{LAB_USERS_OU}"
-        }
-        
         DemoUser1 = @{
-            Name = 'Axl Rose'
-            SamAccountName = 'arose'
-            GivenName = 'William'
-            Surname = 'Rose'
-            DisplayName = 'Axl Rose'
-            Initials = 'AFR'
-            Description = 'Coder'
-            Mail = 'arose@fabrikam.com'
-            Title = 'Application Mgr'
-            Department = 'Sales'
-            Division = 'Rock Analysis'
-            Company = 'Roses and Guns'
-            TelephoneNumber = '408-555-1212'
-            TelephoneNumberAlt = '(000) 867-5309'
-            FAX = '(408) 555-1212'
-            FAXalt = '+501 11-0001'
-            City = 'City of Angels'
-            EmployeeID = '000123456'
-            Path = "{LAB_USERS_OU}"
+            Name = "Axl Rose"
+            GivenName = "Axl"
+            Surname = "Rose"
+            SamAccountName = "arose"
+            UserPrincipalName = "arose@{DOMAIN}"
+            DisplayName = "Axl Rose"
+            Description = "Demo user #1 for DSP testing - Primary demo account"
+            Department = "Music"
+            Title = "Lead Singer"
+            Company = "Guns N Roses"
+            Office = "Los Angeles"
+            StreetAddress = "123 Sunset Blvd"
+            City = "Los Angeles"
+            State = "CA"
+            PostalCode = "90028"
+            Country = "US"
+            TelephoneNumber = "555-0101"
+            MobilePhone = "555-0102"
+            Fax = "555-0103"
+            EmployeeID = "100001"
+            EmployeeNumber = "EMP-001"
+            Manager = $null
+            Enabled = $true
+            PasswordNeverExpires = $false
+            Path = "OU=Lab Users,{DOMAIN_DN}"
+            Password = "{PASSWORD}"
         }
         
         DemoUser2 = @{
-            Name = 'Brian May'
-            SamAccountName = 'bmay'
-            GivenName = 'Brian'
-            Surname = 'May'
-            DisplayName = 'Brian May'
-            Initials = 'BHM'
-            Description = 'Sales Engineer'
-            Mail = 'bmay@fabrikam.com'
-            Title = 'Sales Engineer'
-            Department = 'Engineering'
-            Division = 'Solutions'
-            Company = 'Semperis'
-            TelephoneNumber = '408-555-2200'
-            TelephoneNumberAlt = '408-555-2201'
-            City = 'London'
-            EmployeeID = '000123457'
-            Path = "{LAB_USERS_OU}"
+            Name = "Slash Hudson"
+            GivenName = "Slash"
+            Surname = "Hudson"
+            SamAccountName = "shudson"
+            UserPrincipalName = "shudson@{DOMAIN}"
+            DisplayName = "Slash Hudson"
+            Description = "Demo user #2 for DSP testing - Account lockout demonstrations"
+            Department = "Music"
+            Title = "Lead Guitarist"
+            Company = "Guns N Roses"
+            Office = "Los Angeles"
+            City = "Los Angeles"
+            EmployeeID = "100002"
+            TelephoneNumber = "555-0104"
+            Fax = "555-0105"
+            Enabled = $true
+            PasswordNeverExpires = $false
+            Path = "OU=Lab Users,{DOMAIN_DN}"
+            Password = "{PASSWORD}"
         }
         
         DemoUser3 = @{
-            Name = 'Freddie Mercury'
-            SamAccountName = 'fmercury'
-            GivenName = 'Freddie'
-            Surname = 'Mercury'
-            DisplayName = 'Freddie Mercury'
-            Initials = 'FM'
-            Description = 'Product Manager'
-            Mail = 'fmercury@fabrikam.com'
-            Title = 'Product Manager'
-            Department = 'Product'
-            Division = 'Engineering'
-            Company = 'Semperis'
-            TelephoneNumber = '408-555-3300'
-            City = 'London'
-            EmployeeID = '000123458'
-            Path = "{LAB_USERS_OU}"
+            Name = "Duff McKagan"
+            GivenName = "Duff"
+            Surname = "McKagan"
+            SamAccountName = "dmckagan"
+            UserPrincipalName = "dmckagan@{DOMAIN}"
+            DisplayName = "Duff McKagan"
+            Description = "Demo user #3 for DSP testing - Auto-undo rule trigger"
+            Department = "Music"
+            Title = "Bass Player"
+            Company = "Guns N Roses"
+            City = "Los Angeles"
+            EmployeeID = "100003"
+            TelephoneNumber = "555-0106"
+            Fax = "555-0107"
+            Enabled = $true
+            PasswordNeverExpires = $false
+            Path = "OU=Lab Users,{DOMAIN_DN}"
+            Password = "{PASSWORD}"
         }
         
         DemoUser4 = @{
-            Name = 'Roger Taylor'
-            SamAccountName = 'rtaylor'
-            GivenName = 'Roger'
-            Surname = 'Taylor'
-            DisplayName = 'Roger Taylor'
-            Initials = 'RMT'
-            Description = 'Support Engineer'
-            Mail = 'rtaylor@fabrikam.com'
-            Title = 'Support Engineer'
-            Department = 'Support'
-            Division = 'Operations'
-            Company = 'Semperis'
-            TelephoneNumber = '408-555-4400'
-            City = 'London'
-            EmployeeID = '000123459'
-            Path = "{LAB_USERS_OU}"
-        }
-        
-        DemoUser5 = @{
-            Name = 'John Deacon'
-            SamAccountName = 'jdeacon'
-            GivenName = 'John'
-            Surname = 'Deacon'
-            DisplayName = 'John Deacon'
-            Initials = 'JD'
-            Description = 'Developer'
-            Mail = 'jdeacon@fabrikam.com'
-            Title = 'Developer'
-            Department = 'Engineering'
-            Division = 'Development'
-            Company = 'Semperis'
-            TelephoneNumber = '408-555-5500'
-            City = 'London'
-            EmployeeID = '000123460'
-            Path = "{LAB_USERS_OU}"
-        }
-        
-        DemoUser6 = @{
-            Name = 'David Bowie'
-            SamAccountName = 'dbowie'
-            GivenName = 'David'
-            Surname = 'Bowie'
-            DisplayName = 'David Bowie'
-            Initials = 'DB'
-            Description = 'System Administrator'
-            Mail = 'dbowie@fabrikam.com'
-            Title = 'System Administrator'
-            Department = 'IT Operations'
-            Division = 'Operations'
-            Company = 'Semperis'
-            TelephoneNumber = '408-555-6600'
-            City = 'London'
-            EmployeeID = '000123461'
-            Path = "{LAB_USERS_OU}"
-        }
-        
-        DemoUser7 = @{
-            Name = 'Prince'
-            SamAccountName = 'prince'
-            GivenName = 'Prince'
-            Surname = 'Rogers'
-            DisplayName = 'Prince'
-            Initials = 'PR'
-            Description = 'Database Administrator'
-            Mail = 'prince@fabrikam.com'
-            Title = 'Database Administrator'
-            Department = 'Data Services'
-            Division = 'Engineering'
-            Company = 'Semperis'
-            TelephoneNumber = '408-555-7700'
-            City = 'Minneapolis'
-            EmployeeID = '000123462'
-            Path = "{LAB_USERS_OU}"
-        }
-        
-        DemoUser8 = @{
-            Name = 'Michael Jackson'
-            SamAccountName = 'mjackson'
-            GivenName = 'Michael'
-            Surname = 'Jackson'
-            DisplayName = 'Michael Jackson'
-            Initials = 'MJ'
-            Description = 'Security Officer'
-            Mail = 'mjackson@fabrikam.com'
-            Title = 'Security Officer'
-            Department = 'Security'
-            Division = 'Operations'
-            Company = 'Semperis'
-            TelephoneNumber = '408-555-8800'
-            City = 'Los Angeles'
-            EmployeeID = '000123463'
-            Path = "{LAB_USERS_OU}"
-        }
-        
-        DemoUser9 = @{
-            Name = 'Madonna'
-            SamAccountName = 'madonna'
-            GivenName = 'Madonna'
-            Surname = 'Veronica'
-            DisplayName = 'Madonna'
-            Initials = 'MV'
-            Description = 'Help Desk Manager'
-            Mail = 'madonna@fabrikam.com'
-            Title = 'Help Desk Manager'
-            Department = 'Support'
-            Division = 'Operations'
-            Company = 'Semperis'
-            TelephoneNumber = '408-555-9900'
-            City = 'New York'
-            EmployeeID = '000123464'
-            Path = "{LAB_USERS_OU}"
-        }
-        
-        DemoUser10 = @{
-            Name = 'Kurt Cobain'
-            SamAccountName = 'kcobain'
-            GivenName = 'Kurt'
-            Surname = 'Cobain'
-            DisplayName = 'Kurt Cobain'
-            Initials = 'KC'
-            Description = 'Network Engineer'
-            Mail = 'kcobain@fabrikam.com'
-            Title = 'Network Engineer'
-            Department = 'Networking'
-            Division = 'Infrastructure'
-            Company = 'Semperis'
-            TelephoneNumber = '408-555-0010'
-            City = 'Seattle'
-            EmployeeID = '000123465'
-            Path = "{LAB_USERS_OU}"
-        }
-        
-        AutomationAcct1 = @{
-            Name = 'AutomationAcct1'
-            SamAccountName = 'AutomationAcct1'
-            GivenName = 'Automation'
-            Surname = 'Account'
-            DisplayName = 'AutomationAcct1'
-            Initials = 'AA'
-            Description = 'Automation Account'
-            Mail = 'automation@fabrikam.com'
-            Title = 'Automation Account'
-            Department = 'IT Operations'
-            Division = 'Automation'
-            Company = 'Semperis'
-            EmployeeID = '000999001'
-            Path = "{LAB_USERS_OU}"
-        }
-        
-        MonitoringAcct1 = @{
-            Name = 'MonitoringAcct1'
-            SamAccountName = 'MonitoringAcct1'
-            GivenName = 'Monitoring'
-            Surname = 'Account'
-            DisplayName = 'MonitoringAcct1'
-            Initials = 'MA'
-            Description = 'Monitoring Account'
-            Mail = 'monitoring@fabrikam.com'
-            Title = 'Monitoring Account'
-            Department = 'IT Operations'
-            Division = 'Monitoring'
-            Company = 'Semperis'
-            EmployeeID = '000999002'
-            Path = "{LAB_USERS_OU}"
+            Name = "Paul McCartney"
+            GivenName = "Paul"
+            Surname = "McCartney"
+            SamAccountName = "pmccartney"
+            UserPrincipalName = "pmccartney@{DOMAIN}"
+            DisplayName = "Paul McCartney"
+            Description = "Demo user #4 for DSP testing - Additional variety"
+            Department = "Music"
+            Title = "Bassist"
+            Company = "The Beatles"
+            City = "Liverpool"
+            EmployeeID = "100004"
+            TelephoneNumber = "555-0108"
+            Enabled = $true
+            PasswordNeverExpires = $false
+            Path = "OU=Lab Users,{DOMAIN_DN}"
+            Password = "{PASSWORD}"
         }
     }
     
     #---------------------------------------------------------------------------
-    # DEMO GROUP ACCOUNTS
+    # ADMINISTRATIVE ACCOUNTS
     #
-    # Named demo groups created to show group membership changes and 
-    # group object modifications
-    #
-    DemoGroups = @{
-        SpecialLabUsers = @{
-            Name = 'SpecialLabUsers'
-            Description = 'Special Lab Users Group'
-            Path = "{LAB_GROUPS_OU}"
-            Members = @('arose', 'bmay', 'fmercury')
+    # Special administrative accounts used for different scenarios
+    #---------------------------------------------------------------------------
+    AdminUsers = @{
+        # Tier 2 Administrator
+        # Used for general admin operations and group membership changes
+        Tier2Admin = @{
+            Name = "T2 Admin Demo"
+            GivenName = "T2"
+            Surname = "Admin"
+            SamAccountName = "t2admin"
+            UserPrincipalName = "t2admin@{DOMAIN}"
+            DisplayName = "T2 Admin Demo"
+            Description = "Tier 2 administrator for DSP demos"
+            Department = "IT Operations"
+            Title = "Tier 2 Administrator"
+            Company = "{COMPANY}"
+            EmployeeID = "200001"
+            TelephoneNumber = "555-0201"
+            Enabled = $true
+            PasswordNeverExpires = $true
+            MemberOf = @("Domain Admins")
+            Path = "OU=Lab Admins,{DOMAIN_DN}"
+            Password = "{PASSWORD}"
         }
         
+        # Operations Admin
+        # Used with Credential Manager to make changes as a different user
+        # This demonstrates "who made the change" scenarios in DSP
+        OpsAdmin1 = @{
+            Name = "Ops Admin Tier 1"
+            GivenName = "Ops"
+            Surname = "Admin"
+            SamAccountName = "opsadmin1"
+            UserPrincipalName = "opsadmin1@{DOMAIN}"
+            DisplayName = "Operations Admin - Tier 1"
+            Description = "Tier 1 operations administrator - Used for alternative credential demos"
+            Department = "IT Operations"
+            Title = "Operations Administrator"
+            EmployeeID = "200002"
+            TelephoneNumber = "555-0202"
+            Enabled = $true
+            PasswordNeverExpires = $true
+            MemberOf = @("Account Operators")
+            Path = "OU=Lab Admins,{DOMAIN_DN}"
+            Password = "{PASSWORD}"
+        }
+        
+        # Unprivileged DSP Admin
+        # Used for DSP operations without full Domain Admin rights
+        DspAdmin = @{
+            Name = "DSP Admin Demo"
+            GivenName = "DSP"
+            Surname = "Admin"
+            SamAccountName = "dspadmin"
+            UserPrincipalName = "dspadmin@{DOMAIN}"
+            DisplayName = "DSP Administrator (Unprivileged)"
+            Description = "Unprivileged DSP administrator for demonstrations"
+            Department = "IT Security"
+            Title = "DSP Administrator"
+            EmployeeID = "200003"
+            TelephoneNumber = "555-0203"
+            Enabled = $true
+            PasswordNeverExpires = $true
+            Path = "OU=Lab Admins,{DOMAIN_DN}"
+            Password = "{PASSWORD}"
+        }
+    }
+    
+    #---------------------------------------------------------------------------
+    # GROUP OBJECTS
+    #---------------------------------------------------------------------------
+    Groups = @{
+        # Special Lab Admins - Used for auto-undo demo
         SpecialLabAdmins = @{
-            Name = 'SpecialLabAdmins'
-            Description = 'Special Lab Admins Group'
-            Path = "{LAB_GROUPS_OU}"
-            Members = @('Admin-Tier0', 'Admin-Tier1', 'opsadmin1')
+            Name = "DSP-LAB-Special-Admins"
+            SamAccountName = "DSP-LAB-Special-Admins"
+            DisplayName = "DSP Lab Special Administrators"
+            Description = "Special lab administrators group for DSP demos - Auto-undo trigger"
+            GroupCategory = "Security"
+            GroupScope = "Global"
+            ManagedBy = "t2admin"
+            Members = @("arose", "shudson", "t2admin")
         }
         
-        PizzaParty = @{
-            Name = 'PizzaParty'
-            Description = 'Pizza Party Planning Group'
-            Path = "{LAB_GROUPS_OU}"
-            Members = @('madonna', 'mjackson')
+        # Special Lab Users
+        SpecialLabUsers = @{
+            Name = "DSP-LAB-Special-Users"
+            SamAccountName = "DSP-LAB-Special-Users"
+            DisplayName = "DSP Lab Special Users"
+            Description = "Special lab users group for DSP demos"
+            GroupCategory = "Security"
+            GroupScope = "Global"
+            Members = @("arose", "shudson", "dmckagan", "pmccartney")
         }
         
-        PartyPlannersGroup = @{
-            Name = 'PartyPlanners'
-            Description = 'Event Planning Group'
-            Path = "{LAB_GROUPS_OU}"
-            Members = @('dbowie', 'prince')
+        # Helpdesk Operations
+        HelpdeskOps = @{
+            Name = "Helpdesk-Operations"
+            SamAccountName = "Helpdesk-Ops"
+            DisplayName = "Helpdesk Operations Team"
+            Description = "Helpdesk operations team members"
+            GroupCategory = "Security"
+            GroupScope = "Global"
+            Members = @("opsadmin1")
+        }
+        
+        # Tier 0 Admins - High security group
+        TierZeroAdmins = @{
+            Name = "Tier-0-Admins"
+            SamAccountName = "Tier0Admins"
+            DisplayName = "Tier 0 Administrators"
+            Description = "Tier 0 privileged administrators - Highest security"
+            GroupCategory = "Security"
+            GroupScope = "Universal"
+            Members = @("Administrator", "t2admin")
         }
     }
     
     #---------------------------------------------------------------------------
-    # ORGANIZATIONAL UNITS (OUs)
+    # ORGANIZATIONAL UNIT STRUCTURE
     #---------------------------------------------------------------------------
     OUs = @{
-        # Main demo OU structure
-        DemoOU = @{
+        # Root OU for all demo objects
+        DemoRoot = @{
             Name = "DSP-Demo-Objects"
-            Description = "OU for DSP demo objects"
+            Description = "Root OU for all DSP demonstration objects"
+            Path = "{DOMAIN_DN}"
+            ProtectFromAccidentalDeletion = $true
+        }
+        
+        # Users OU under demo root
+        DemoUsers = @{
+            Name = "Users"
+            Description = "Demo user accounts"
+            ParentOU = "DSP-Demo-Objects"
+            ProtectFromAccidentalDeletion = $true
+        }
+        
+        # Groups OU under demo root
+        DemoGroups = @{
+            Name = "Groups"
+            Description = "Demo group objects"
+            ParentOU = "DSP-Demo-Objects"
+            ProtectFromAccidentalDeletion = $true
+        }
+        
+        # Computers OU under demo root
+        DemoComputers = @{
+            Name = "Computers"
+            Description = "Demo computer objects"
+            ParentOU = "DSP-Demo-Objects"
+            ProtectFromAccidentalDeletion = $true
+        }
+        
+        # Generic test users OU (at domain root)
+        TestOU = @{
+            Name = "TEST"
+            Description = "Generic test user accounts (bulk created)"
             Path = "{DOMAIN_DN}"
             ProtectFromAccidentalDeletion = $false
         }
         
-        # Lab Users OU
-        LabUsersOU = @{
-            Name = "Lab Users"
-            Description = "Lab user accounts"
-            Path = "OU=DSP-Demo-Objects,{DOMAIN_DN}"
-            ProtectFromAccidentalDeletion = $false
-        }
-        
-        # Lab Groups OU
-        LabGroupsOU = @{
-            Name = "Lab Groups"
-            Description = "Lab group accounts"
-            Path = "OU=DSP-Demo-Objects,{DOMAIN_DN}"
-            ProtectFromAccidentalDeletion = $false
-        }
-        
-        # Lab Computers OU
-        LabComputersOU = @{
-            Name = "Lab Computers"
-            Description = "Lab computer accounts"
-            Path = "OU=DSP-Demo-Objects,{DOMAIN_DN}"
-            ProtectFromAccidentalDeletion = $false
-        }
-        
-        # TEST OU for generic user creation/deletion demos
-        TestOU = @{
-            Name = "TEST"
-            Description = "Test OU - for demonstrating OU recovery"
-            Path = "OU=DSP-Demo-Objects,{DOMAIN_DN}"
+        # OU that gets deleted for recovery demos
+        ToBeDeleted = @{
+            Name = "DeleteMe-OU"
+            Description = "OU for deletion and recovery demonstrations - Will be deleted!"
+            Path = "{DOMAIN_DN}"
             ProtectFromAccidentalDeletion = $false
             PopulateWithUsers = $true
             UserCount = 5
             DeleteAfterCreation = $true
         }
         
-        # Tier 0 Assets OU - highly restricted
-        TierZeroOU = @{
+        # Highly restricted Tier 0 OU
+        TierZero = @{
             Name = "Tier-0-Assets"
             Description = "Tier 0 assets - Highly restricted access"
             Path = "{DOMAIN_DN}"
@@ -445,20 +362,6 @@
                 @{Name = "12"; Type = "PTR"; PtrDomainName = "demo-server3.{DOMAIN}"}
             )
         }
-        
-        # Demo zone for deletion demos
-        DemoZone = @{
-            Name = "demo-zone.local"
-            CreateZone = $true
-            ReplicationScope = "Domain"
-            Records = @(
-                @{Name = "test1"; Type = "A"; IPv4Address = "10.10.10.10"}
-                @{Name = "test2"; Type = "A"; IPv4Address = "10.10.10.11"}
-                @{Name = "test3"; Type = "A"; IPv4Address = "10.10.10.12"}
-                @{Name = "www"; Type = "CNAME"; HostNameAlias = "test1.demo-zone.local"}
-            )
-            DeleteAfterCreation = $true
-        }
     }
     
     #---------------------------------------------------------------------------
@@ -470,13 +373,7 @@
             Name = "DSP-Demo-GPO"
             Comment = "Demo GPO for DSP change tracking demonstrations"
             LinkedTo = "OU=DSP-Demo-Objects,{DOMAIN_DN}"
-        }
-        
-        # Questionable GPO for policy change demos
-        QuestionableGPO = @{
-            Name = "Questionable-Policy-GPO"
-            Comment = "GPO with questionable settings for demo purposes"
-            LinkedTo = $null
+            Settings = @{}
         }
         
         # SMB Client Policy GPO
@@ -484,6 +381,7 @@
             Name = "Lab-SMB-Client-Policy"
             Comment = "SMB client security policy for lab"
             LinkedTo = "OU=DSP-Demo-Objects,{DOMAIN_DN}"
+            Settings = @{}
         }
         
         # Default Domain Policy modifications
@@ -499,7 +397,6 @@
     # AD SITES AND SERVICES
     #---------------------------------------------------------------------------
     Sites = @{
-        # Demo site
         DemoSite = @{
             Name = "SemperisLabs"
             Description = "AD site for Semperis Labs"
@@ -513,77 +410,69 @@
             )
             SiteLink = "DefaultIPSiteLink"
         }
-        
-        # Additional demo subnets
+    }
+    
+    # Subnet modifications
+    Subnets = @{
         DemoSubnets = @(
-            @{Name = "192.168.200.0/24"; Description = "Lab Subnet 1"; Location = "Lab"}
-            @{Name = "192.168.201.0/24"; Description = "Lab Subnet 2"; Location = "Lab"}
+            @{Name = "192.168.200.0/24"; Site = "Default-First-Site-Name"; Description = "Demo Subnet 1"; Location = "Lab"}
+            @{Name = "192.168.201.0/24"; Site = "Default-First-Site-Name"; Description = "Demo Subnet 2"; Location = "Lab"}
+            @{Name = "192.168.202.0/24"; Site = "Default-First-Site-Name"; Description = "Demo Subnet 3"; Location = "Lab"}
         )
     }
     
     #---------------------------------------------------------------------------
-    # FGPP (Fine-Grained Password Policies)
+    # FINE-GRAINED PASSWORD POLICIES (FGPP)
     #---------------------------------------------------------------------------
-    FGPP = @{
-        # Demo FGPP
-        DemoPolicy = @{
-            Name = "DemoPwdPolicy1"
-            Description = "Demo fine-grained password policy"
-            Precedence = 10
-            MinPasswordLength = 10
-            PasswordHistoryCount = 5
-            MaxPasswordAge = 90
-            MinPasswordAge = 1
-            LockoutThreshold = 10
-            LockoutDuration = 30
-            LockoutObservationWindow = 30
-            AppliesTo = @()  # Will apply to specific groups
+    FGPPs = @{
+        SpecialLabUsersFGPP = @{
+            Name = "SpecialLabUsers_PSO"
+            Precedence = 100
+            ComplexityEnabled = $true
+            LockoutDuration = "00:30:00"
+            LockoutObservationWindow = "00:30:00"
+            LockoutThreshold = 5
+            MaxPasswordAge = "42.00:00:00"
+            MinPasswordAge = "1.00:00:00"
+            MinPasswordLength = 12
+            PasswordHistoryCount = 24
+            ReversibleEncryptionEnabled = $false
+            AppliesTo = "CN=DSP-LAB-Special-Users,OU=Groups,OU=DSP-Demo-Objects,{DOMAIN_DN}"
+        }
+        
+        DemoFGPP = @{
+            Name = "DSP-Demo-FGPP"
+            Precedence = 200
+            ComplexityEnabled = $true
+            LockoutThreshold = 3
+            MinPasswordLength = 14
+            PasswordHistoryCount = 12
+            DeleteAfterCreation = $true
         }
     }
     
     #---------------------------------------------------------------------------
-    # ACCOUNT LOCKOUT CONFIGURATION
+    # WMI FILTERS
     #---------------------------------------------------------------------------
-    AccountLockout = @{
-        # User to lock out for demos
-        UserToLockout = "DemoUser1"
-        # Number of bad password attempts to trigger lockout
-        BadPasswordAttempts = 11
-    }
-    
-    #---------------------------------------------------------------------------
-    # CREDENTIAL MANAGEMENT FOR ALTERNATE ADMIN
-    #---------------------------------------------------------------------------
-    CredentialManagement = @{
-        # Alternate admin account for demonstrating "who" changes
-        AlternateAdmin = @{
-            Name = "OpsAdmin1"
-            SamAccountName = "opsadmin1"
+    WMIFilters = @{
+        Filter1 = @{
+            Name = "WMI-Filter-Windows-10"
+            Description = "Windows 10 operating systems"
+            Query = "SELECT * FROM Win32_OperatingSystem WHERE Caption LIKE '%Windows 10%'"
         }
-    }
-    
-    #---------------------------------------------------------------------------
-    # ATTRIBUTE CHANGES FOR DEMO
-    #
-    # These are specific attribute changes that will be made to demo users
-    # to show change tracking in DSP
-    #---------------------------------------------------------------------------
-    AttributeChanges = @{
-        DemoUser1 = @{
-            # Phone number changes
-            TelephoneNumberChanges = @(
-                @{Attribute = "telephoneNumber"; OldValue = "408-555-1212"; NewValue = "(000) 867-5309"}
-            )
-            # Title changes
-            TitleChanges = @(
-                @{OldValue = "Application Mgr"; NewValue = "CEO"}
-                @{OldValue = "CEO"; NewValue = "CTO"}
-                @{OldValue = "CTO"; NewValue = "Application Mgr"}
-            )
-            # FAX changes
-            FAXChanges = @(
-                @{Attribute = "facsimileTelephoneNumber"; OldValue = "(408) 555-1212"; NewValue = "+501 11-0001"}
-            )
+        Filter2 = @{
+            Name = "WMI-Filter-Windows-Server"
+            Description = "Windows Server operating systems"
+            Query = "SELECT * FROM Win32_OperatingSystem WHERE Caption LIKE '%Server%'"
+        }
+        Filter3 = @{
+            Name = "WMI-Filter-Domain-Controllers"
+            Description = "Domain Controller systems"
+            Query = "SELECT * FROM Win32_OperatingSystem WHERE ProductType = '2'"
         }
     }
 }
+
+################################################################################
+# END OF CONFIGURATION
+################################################################################

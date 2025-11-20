@@ -6,6 +6,7 @@
 ## 
 ## Features:
 ## - Loads configuration from config file
+## - Expands placeholders in configuration
 ## - Runs Preflight module for environment discovery and setup
 ## - Interactive menu for selecting activity modules to run
 ## - Run individual activity modules or all modules
@@ -13,7 +14,7 @@
 ## - Comprehensive logging and error handling
 ##
 ## Author: Rob Ingenthron (Original), Bob Lyons (Refactor)
-## Version: 4.3.0-20251119
+## Version: 4.4.0-20251119 (Updated with placeholder expansion)
 ##
 ################################################################################
 
@@ -111,6 +112,96 @@ function Load-Configuration {
         Write-Status "Continuing with defaults..." -Level Info
         return @{}
     }
+}
+
+function Expand-ConfigPlaceholders {
+    <#
+    .SYNOPSIS
+        Replace placeholders in configuration with actual values
+    
+    .DESCRIPTION
+        Replaces {PLACEHOLDER} values in config with actual domain/forest info
+        
+        Supported placeholders:
+        - {DOMAIN_DN}: Domain distinguished name (e.g., DC=d3,DC=lab)
+        - {DOMAIN}: Domain FQDN (e.g., d3.lab)
+        - {COMPANY}: Company name from config
+        - {PASSWORD}: Default password from General.DefaultPassword
+    
+    .PARAMETER Config
+        Configuration hashtable to process
+    
+    .PARAMETER DomainInfo
+        Domain information object (from Get-DomainInfo)
+    
+    .EXAMPLE
+        $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $domainInfo
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [hashtable]$Config,
+        
+        [Parameter(Mandatory=$true)]
+        [PSCustomObject]$DomainInfo
+    )
+    
+    # Get default password from config
+    $defaultPassword = if ($Config.General.DefaultPassword) { 
+        $Config.General.DefaultPassword 
+    } else { 
+        "P@ssw0rd123!" 
+    }
+    
+    $company = if ($Config.General.Company) { 
+        $Config.General.Company 
+    } else { 
+        "Semperis" 
+    }
+    
+    # Build replacement hashtable
+    $replacements = @{
+        '{DOMAIN_DN}'  = $DomainInfo.DistinguishedName
+        '{DOMAIN}'     = $DomainInfo.FQDN
+        '{COMPANY}'    = $company
+        '{PASSWORD}'   = $defaultPassword
+    }
+    
+    Write-Status "Expanding config placeholders..." -Level Info
+    Write-Status "  {DOMAIN_DN} = $($replacements['{DOMAIN_DN}'])" -Level Info
+    Write-Status "  {DOMAIN} = $($replacements['{DOMAIN}'])" -Level Info
+    Write-Status "  {COMPANY} = $($replacements['{COMPANY}'])" -Level Info
+    Write-Status "  {PASSWORD} = ***hidden***" -Level Info
+    
+    # Recursively process all values in config
+    function Process-Object {
+        param($obj)
+        
+        if ($obj -is [hashtable]) {
+            $newTable = @{}
+            foreach ($key in $obj.Keys) {
+                $newTable[$key] = Process-Object $obj[$key]
+            }
+            return $newTable
+        }
+        elseif ($obj -is [string]) {
+            $result = $obj
+            foreach ($placeholder in $replacements.Keys) {
+                $result = $result -replace [regex]::Escape($placeholder), $replacements[$placeholder]
+            }
+            return $result
+        }
+        elseif ($obj -is [array]) {
+            return @($obj | ForEach-Object { Process-Object $_ })
+        }
+        else {
+            return $obj
+        }
+    }
+    
+    $expandedConfig = Process-Object $Config
+    Write-Status "Config placeholders expanded successfully" -Level Success
+    return $expandedConfig
 }
 
 function Test-ModuleFile {
@@ -247,6 +338,9 @@ try {
         Write-Status "FATAL: Failed to discover environment: $_" -Level Error
         exit 1
     }
+    
+    # EXPAND PLACEHOLDERS IN CONFIG AFTER GETTING DOMAIN INFO
+    $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $domainInfo
     
     # Attempt DSP connectivity (optional)
     Write-Header "DSP Server Discovery"
