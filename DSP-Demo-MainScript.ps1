@@ -221,11 +221,7 @@ function Main {
     
     Write-Host ""
     
-    Write-Header "Loading Activity Modules"
-    Write-Host "(Placeholder for future activity modules)" -ForegroundColor $Colors.Info
-    Write-Host ""
-    
-    Write-Header "Active Directory Baseline Configuration Summary"
+    Write-Header "Setup Tasks"
     
     $colWidth = 38
     $spacing = "  "
@@ -381,11 +377,11 @@ function Main {
     Write-Host " to proceed, " -ForegroundColor $Colors.Prompt -NoNewline
     Write-Host "N" -ForegroundColor $Colors.MenuHighlight -NoNewline
     Write-Host " to cancel" -ForegroundColor $Colors.Prompt
-    Write-Host "(Proceeding automatically in 30 seconds - scroll up to review, or press N to cancel)" -ForegroundColor $Colors.Warning
+    Write-Host "(Proceeding automatically in 120 seconds - scroll up to review, or press N to cancel)" -ForegroundColor $Colors.Warning
     Write-Host ""
     
     $confirmationTimer = 0
-    $timeoutSeconds = 30
+    $timeoutSeconds = 120
     $proceed = $null
     
     while ($confirmationTimer -lt $timeoutSeconds) {
