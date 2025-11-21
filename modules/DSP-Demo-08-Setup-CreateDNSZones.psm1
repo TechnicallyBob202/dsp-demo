@@ -23,14 +23,9 @@ function Invoke-CreateDNSZones {
     Write-Host "Creating DNS Zones" -ForegroundColor Cyan
     Write-Host ""
     
-    $dnsServer = $Environment.DomainInfo.PrimaryDC
+    $dnsServer = if ($Environment.PrimaryDC) { $Environment.PrimaryDC } else { "localhost" }
     $createdCount = 0
     $skippedCount = 0
-    
-    if (-not $dnsServer) {
-        Write-Host "  ERROR: No DNS server available from environment" -ForegroundColor Red
-        return $false
-    }
     
     # Create forward zones if configured
     if ($Config.ContainsKey('DnsForwardZones') -and $Config.DnsForwardZones) {
