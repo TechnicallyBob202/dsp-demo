@@ -221,13 +221,13 @@ function Main {
     
     Write-Host ""
     
-    Write-Header "Setup Tasks"
+    Write-Header "Script Modules To Be Run"
     
     $colWidth = 38
     $spacing = "  "
     
     # Column headers
-    Write-Host "$(("SETUP ACTIVITIES").PadRight($colWidth))$spacing$(("ACTIVITY CREATION").PadRight($colWidth))" -ForegroundColor $Colors.Header
+    Write-Host "$(("SETUP MODULES").PadRight($colWidth))$spacing$(("ACTIVITY MODULES").PadRight($colWidth))" -ForegroundColor $Colors.Header
     Write-Host "$("=" * $colWidth)$spacing$("=" * $colWidth)" -ForegroundColor $Colors.Header
     Write-Host ""
     
@@ -369,8 +369,11 @@ function Main {
     Write-Host ""
     
     Write-Header "Confirmation Required"
-    Write-Host "Running this script will create/update all of the objects listed in the Setup section above," -ForegroundColor $Colors.Info
-    Write-Host "and then create all of the activity listed in the Activity section." -ForegroundColor $Colors.Info
+    Write-Host "Scroll UP to review preflight results!" -ForegroundColor $Colors.Prompt
+    Write-Host "Do not proceed if errors were encountered!" -ForegroundColor $Colors.Prompt
+    Write-Host ""
+    Write-Host "Running this script will create/update all of the objects listed in the" -ForegroundColor $Colors.Info
+    Write-Host "Setup Modules above and then generate activity listed in the Activity Modules." -ForegroundColor $Colors.Info
     Write-Host ""
     Write-Host "Press " -ForegroundColor $Colors.Prompt -NoNewline
     Write-Host "Y" -ForegroundColor $Colors.MenuHighlight -NoNewline
