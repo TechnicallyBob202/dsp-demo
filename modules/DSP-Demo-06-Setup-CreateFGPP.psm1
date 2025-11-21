@@ -207,11 +207,11 @@ function Invoke-CreateFGPP {
     .SYNOPSIS
     Creates all Fine-Grained Password Policies for the demo environment.
     
-    .PARAMETER DomainInfo
-    Hashtable containing domain information (DomainDN, DomainDNSRoot, etc.)
-    
     .PARAMETER Config
     Hashtable containing configuration with FGPPs section
+    
+    .PARAMETER Environment
+    PSCustomObject containing environment information with DomainInfo property
     
     .OUTPUTS
     Boolean - $true on success, $false on failure
@@ -219,20 +219,27 @@ function Invoke-CreateFGPP {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [hashtable]$DomainInfo,
+        [hashtable]$Config,
         
         [Parameter(Mandatory=$true)]
-        [hashtable]$Config
+        [PSCustomObject]$Environment
     )
     
     Write-ActivityLog "=== Starting FGPP Creation ===" -Level Info
     
-    if (-not $DomainInfo.ContainsKey('DomainDN') -or -not $DomainInfo['DomainDN']) {
+    if (-not $Environment.DomainInfo) {
+        Write-ActivityLog "ERROR: DomainInfo not found in Environment" -Level Error
+        return $false
+    }
+    
+    $domainInfo = $Environment.DomainInfo
+    
+    if (-not $domainInfo.ContainsKey('DomainDN') -or -not $domainInfo['DomainDN']) {
         Write-ActivityLog "ERROR: DomainDN not found in DomainInfo" -Level Error
         return $false
     }
     
-    $domainDN = $DomainInfo['DomainDN']
+    $domainDN = $domainInfo['DomainDN']
     
     # Check if FGPPs section exists in config
     if (-not $Config.ContainsKey('FGPPs') -or -not $Config['FGPPs']) {
