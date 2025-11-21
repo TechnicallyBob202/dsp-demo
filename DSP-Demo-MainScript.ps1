@@ -372,9 +372,13 @@ function Main {
     Write-Host "Scroll UP to review preflight results!" -ForegroundColor $Colors.Prompt
     Write-Host "Do not proceed if errors were encountered!" -ForegroundColor $Colors.Prompt
     Write-Host ""
-    Write-Host "Running this script will create/update all of the objects listed in the" -ForegroundColor $Colors.Info
-    Write-Host "Setup Modules above and then generate activity listed in the Activity Modules." -ForegroundColor $Colors.Info
+    Write-Host "Continuing to run this script will create/update all of the objects listed in the" -ForegroundColor $Colors.Info
+    Write-Host "Setup Modules above and then generate activity based on the Activity Modules." -ForegroundColor $Colors.Info
     Write-Host ""
+    Write-Host ""
+    Write-Host "If you want to make changes to the objects created by Setup Modules, or modify" -ForegroundColor $Colors.Info
+    Write-Host "the activity generation, modify the details of the DSP-Demo-Config.psd1 file." -ForegroundColor $Colors.Info
+    Write-Host ""    
     Write-Host "Press " -ForegroundColor $Colors.Prompt -NoNewline
     Write-Host "Y" -ForegroundColor $Colors.MenuHighlight -NoNewline
     Write-Host " to proceed, " -ForegroundColor $Colors.Prompt -NoNewline
