@@ -77,6 +77,7 @@ function Invoke-CreateADSitesAndSubnets {
             
             if (-not $subnetConfig.Site) {
                 Write-Host "    $subnetName - SKIPPED (no Site specified)" -ForegroundColor Yellow
+                $skippedCount++
                 continue
             }
             
@@ -124,6 +125,7 @@ function Invoke-CreateADSitesAndSubnets {
             
             if (-not $linkConfig.Sites -or $linkConfig.Sites.Count -lt 2) {
                 Write-Host "    $linkName - SKIPPED (need at least 2 sites)" -ForegroundColor Yellow
+                $skippedCount++
                 continue
             }
             

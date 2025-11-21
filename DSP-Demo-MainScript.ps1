@@ -7,12 +7,12 @@
 ## Features:
 ## - Calls Preflight module for ALL environment discovery and setup
 ## - Displays configuration summary
-## - 15-second confirmation timeout before execution
+## - 30-second confirmation timeout before execution
 ## - Executes all configured activities
 ## - Comprehensive logging and error handling
 ##
 ## Author: Rob Ingenthron (Original), Bob Lyons (Refactor)
-## Version: 4.5.1-20251120
+## Version: 4.5.2-20251120
 ##
 ################################################################################
 
@@ -161,43 +161,6 @@ function Expand-ConfigPlaceholders {
     return $Config
 }
 
-function Run-ActivityModule {
-    param(
-        [string]$ModuleName,
-        [hashtable]$Config,
-        [PSCustomObject]$Environment
-    )
-    
-    Write-Header "Running $ModuleName Module"
-    
-    try {
-        $functionMap = @{
-            "Directory" = "Invoke-DirectoryActivity"
-            "DNS" = "Invoke-DNSActivity"
-            "GPOs" = "Invoke-GPOActivity"
-            "Sites" = "Invoke-SitesActivity"
-            "SecurityEvents" = "Invoke-SecurityEventsActivity"
-        }
-        
-        $functionName = $functionMap[$ModuleName]
-        
-        if (Get-Command $functionName -ErrorAction SilentlyContinue) {
-            & $functionName -Config $Config -Environment $Environment
-            Write-Status "Module completed: $ModuleName" -Level Success
-        }
-        else {
-            Write-Status "Function $functionName not found in module" -Level Error
-            return $false
-        }
-    }
-    catch {
-        Write-Status "Error executing $ModuleName : $_" -Level Error
-        return $false
-    }
-    
-    return $true
-}
-
 ################################################################################
 # MAIN FUNCTION
 ################################################################################
@@ -260,7 +223,6 @@ function Main {
     
     Write-Header "Activity Configuration Summary"
     
-    # Display what will be created/modified based on config
     if ($config.General) {
         Write-Host "General Settings:" -ForegroundColor $Colors.Section
         Write-Host "  DSP Server: $(if ($environment.DspAvailable) { $environment.DspServer } else { 'Not available' })" -ForegroundColor $Colors.Info
@@ -278,20 +240,13 @@ function Main {
         Write-Host ""
     }
     
-    if ($config.DemoUsers) {
-        Write-Host "Demo User Accounts to Create:" -ForegroundColor $Colors.Section
-        $count = @($config.DemoUsers.Keys).Count
-        Write-Host "  - $count named accounts" -ForegroundColor $Colors.Info
-        Write-Host ""
-    }
-    
     Write-Header "Confirmation Required"
     Write-Host "Press " -ForegroundColor $Colors.Prompt -NoNewline
     Write-Host "Y" -ForegroundColor $Colors.MenuHighlight -NoNewline
     Write-Host " to proceed, " -ForegroundColor $Colors.Prompt -NoNewline
     Write-Host "N" -ForegroundColor $Colors.MenuHighlight -NoNewline
     Write-Host " to cancel" -ForegroundColor $Colors.Prompt
-    Write-Host "(Automatically proceeding in 15 seconds...)" -ForegroundColor $Colors.Warning
+    Write-Host "(Automatically proceeding in 30 seconds...)" -ForegroundColor $Colors.Warning
     Write-Host ""
     
     $confirmationTimer = 0
@@ -317,7 +272,6 @@ function Main {
         $confirmationTimer++
     }
     
-    # If timeout was reached, proceed = $true (already confirmed by display message)
     if ($null -eq $proceed) {
         $proceed = $true
     }
@@ -345,7 +299,7 @@ function Main {
         if (Get-Command $functionName -ErrorAction SilentlyContinue) {
             Write-Header "Running $moduleName"
             try {
-                & $functionName -Config $config -Environment $environment
+                [void](& $functionName -Config $config -Environment $environment)
                 Write-Status "Module completed: $moduleName" -Level Success
                 $completedModules++
             }

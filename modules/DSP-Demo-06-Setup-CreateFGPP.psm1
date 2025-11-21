@@ -330,6 +330,7 @@ function Invoke-CreateFGPP {
     }
     
     Write-ActivityLog "=== FGPP Creation completed successfully ===" -Level Success
+    
     return $true
 }
 

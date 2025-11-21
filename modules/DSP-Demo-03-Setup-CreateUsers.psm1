@@ -160,7 +160,7 @@ function New-UserAccount {
     $existing = Get-ADUser -Filter { SamAccountName -eq $sam } -ErrorAction SilentlyContinue
     if ($existing) {
         Write-Status "User '$sam' already exists - skipping" -Level Info
-        return $existing
+        return $null
     }
     
     $paramMap = @{
@@ -439,7 +439,7 @@ function Invoke-CreateUsers {
     Write-Host ""
     Write-Status "User creation completed - Created: $createdCount, Skipped: $skippedCount" -Level Success
     Write-Host ""
-    
+
     return $true
 }
 

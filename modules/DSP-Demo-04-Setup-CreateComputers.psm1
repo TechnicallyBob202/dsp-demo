@@ -121,14 +121,14 @@ function New-ComputerAccount {
         # Computer exists - check if it's in the right place
         if ($existing.DistinguishedName -eq "CN=$($ComputerDef.Name),$OUPath") {
             Write-Status "Computer '$sam' already exists in correct location - skipping" -Level Info
-            return $existing
+            return $null
         }
         else {
             # Computer exists but in wrong location - move it
             try {
                 Move-ADObject -Identity $existing.DistinguishedName -TargetPath $OUPath -ErrorAction Stop
                 Write-Status "Moved computer '$sam' to correct OU" -Level Success
-                return $existing
+                return $null
             }
             catch {
                 Write-Status "Failed to move computer '$sam' to correct OU: $_" -Level Error
@@ -223,7 +223,7 @@ function Invoke-CreateComputers {
     Write-Host ""
     Write-Status "Computer creation completed - Created: $createdCount, Skipped: $skippedCount" -Level Success
     Write-Host ""
-    
+
     return $true
 }
 
