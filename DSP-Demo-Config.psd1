@@ -755,5 +755,28 @@ AdSiteLinks = @{
 }
 
 ################################################################################
+# CONFIGURATION SECTION FOR DSP-Demo-08 (DNS Zones)
+# 
+################################################################################
+
+DnsForwardZones = @{
+    "specialsite.lab" = @{
+        Description = "Custom lab zone for demonstrations"
+    }
+}
+
+DnsReverseZones = @{
+    "10.in-addr.arpa" = @{
+        Description = "Reverse zone for 10.x.x.x network"
+    }
+    "172.in-addr.arpa" = @{
+        Description = "Reverse zone for 172.x.x.x network"
+    }
+    "168.192.in-addr.arpa" = @{
+        Description = "Reverse zone for 192.168.x.x network"
+    }
+}
+
+################################################################################
 # END OF CONFIGURATION
 ################################################################################
