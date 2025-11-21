@@ -366,8 +366,6 @@ function Main {
         Write-Host "$($leftLine.PadRight($colWidth))$spacing$rightLine" -ForegroundColor $Colors.Info
     }
     
-    Write-Host ""
-    
     Write-Header "Confirmation Required"
     Write-Host "Scroll UP to review preflight results! Do not proceed if errors were encountered!" -ForegroundColor $Colors.Prompt
     Write-Host ""
