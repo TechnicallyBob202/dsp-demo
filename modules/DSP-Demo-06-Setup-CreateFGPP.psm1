@@ -257,12 +257,12 @@ function Invoke-CreateFGPP {
     
     $domainInfo = $Environment.DomainInfo
     
-    if (-not $domainInfo.DomainDN) {
-        Write-ActivityLog "ERROR: DomainDN not found in DomainInfo" -Level Error
+    if (-not $domainInfo.DistinguishedName) {
+        Write-ActivityLog "ERROR: DistinguishedName not found in DomainInfo" -Level Error
         return $false
     }
     
-    $domainDN = $domainInfo.DomainDN
+    $domainDN = $domainInfo.DistinguishedName
     
     # Check if FGPPs section exists in config
     if (-not $Config.ContainsKey('FGPPs') -or -not $Config['FGPPs']) {
