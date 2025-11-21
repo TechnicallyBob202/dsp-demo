@@ -696,5 +696,64 @@
 }
 
 ################################################################################
+# CONFIGURATION SECTION FOR DSP-Demo-07 (Sites and Subnets)
+# 
+################################################################################
+
+AdSites = @{
+    LabSite001 = @{
+        Description = "Lab site for demonstration"
+        Location = "SemperisLabs-USA-AZ"
+    }
+}
+
+AdSubnets = @{
+    "172.16.0.0/24" = @{
+        Site = "LabSite001"
+        Description = "Lab network subnet"
+        Location = "Lab-Primary"
+    }
+    "10.0.0.0/24" = @{
+        Site = "LabSite001"
+        Description = "Additional lab subnet"
+        Location = "Lab-Secondary"
+    }
+    "10.0.0.0/8" = @{
+        Site = "LabSite001"
+        Description = "Primary Lab Infrastructure Network"
+        Location = "Lab-USA-All"
+    }
+    "172.16.32.0/20" = @{
+        Site = "LabSite001"
+        Description = "Special demo lab subnet"
+        Location = "Lab-USA-CA"
+    }
+    "10.222.0.0/16" = @{
+        Site = "LabSite001"
+        Description = "Special Devices Infrastructure Network"
+        Location = "Lab-USA-East"
+    }
+    "192.168.0.0/16" = @{
+        Site = "LabSite001"
+        Description = "Primary Demo Lab Infrastructure Network"
+        Location = "Lab-USA-TX"
+    }
+    "192.168.57.0/24" = @{
+        Site = "LabSite001"
+        Description = "Special DMZ network"
+        Location = "Lab-USA-AZ"
+    }
+}
+
+AdSiteLinks = @{
+    "Default-First-Site-Name -- LabSite001" = @{
+        Sites = @("Default-First-Site-Name", "LabSite001")
+        Cost = 22
+        ReplicationFrequencyInMinutes = 18
+        Description = "Site link for lab replication"
+    }
+}
+
+################################################################################
 # END OF CONFIGURATION
 ################################################################################
