@@ -693,107 +693,101 @@
         LockoutObservationWindow = 30
         ReversibleEncryption = $false
     }
-}
-
-################################################################################
-# CONFIGURATION SECTION FOR DSP-Demo-07 (Sites and Subnets)
-# 
-################################################################################
-
-AdSites = @{
-    LabSite001 = @{
-        Description = "Lab site for demonstration"
-        Location = "SemperisLabs-USA-AZ"
+    
+    AdSites = @{
+        LabSite001 = @{
+            Description = "Lab site for demonstration"
+            Location = "SemperisLabs-USA-AZ"
+        }
     }
-}
-
-AdSubnets = @{
-    "172.16.0.0/24" = @{
-        Site = "LabSite001"
-        Description = "Lab network subnet"
-        Location = "Lab-Primary"
+    
+    AdSubnets = @{
+        "172.16.0.0/24" = @{
+            Site = "LabSite001"
+            Description = "Lab network subnet"
+            Location = "Lab-Primary"
+        }
+        "10.0.0.0/24" = @{
+            Site = "LabSite001"
+            Description = "Additional lab subnet"
+            Location = "Lab-Secondary"
+        }
+        "10.0.0.0/8" = @{
+            Site = "LabSite001"
+            Description = "Primary Lab Infrastructure Network"
+            Location = "Lab-USA-All"
+        }
+        "172.16.32.0/20" = @{
+            Site = "LabSite001"
+            Description = "Special demo lab subnet"
+            Location = "Lab-USA-CA"
+        }
+        "10.222.0.0/16" = @{
+            Site = "LabSite001"
+            Description = "Special Devices Infrastructure Network"
+            Location = "Lab-USA-East"
+        }
+        "192.168.0.0/16" = @{
+            Site = "LabSite001"
+            Description = "Primary Demo Lab Infrastructure Network"
+            Location = "Lab-USA-TX"
+        }
+        "192.168.57.0/24" = @{
+            Site = "LabSite001"
+            Description = "Special DMZ network"
+            Location = "Lab-USA-AZ"
+        }
     }
-    "10.0.0.0/24" = @{
-        Site = "LabSite001"
-        Description = "Additional lab subnet"
-        Location = "Lab-Secondary"
+    
+    AdSiteLinks = @{
+        "Default-First-Site-Name -- LabSite001" = @{
+            Sites = @("Default-First-Site-Name", "LabSite001")
+            Cost = 22
+            ReplicationFrequencyInMinutes = 18
+            Description = "Site link for lab replication"
+        }
     }
-    "10.0.0.0/8" = @{
-        Site = "LabSite001"
-        Description = "Primary Lab Infrastructure Network"
-        Location = "Lab-USA-All"
+    
+    ################################################################################
+    # CONFIGURATION SECTION FOR DSP-Demo-08 (DNS Zones)
+    # 
+    ################################################################################
+    
+    DnsForwardZones = @{
+        "specialsite.lab" = @{
+            Description = "Custom lab zone for demonstrations"
+        }
     }
-    "172.16.32.0/20" = @{
-        Site = "LabSite001"
-        Description = "Special demo lab subnet"
-        Location = "Lab-USA-CA"
+    
+    DnsReverseZones = @{
+        "10.in-addr.arpa" = @{
+            Description = "Reverse zone for 10.x.x.x network"
+        }
+        "172.in-addr.arpa" = @{
+            Description = "Reverse zone for 172.x.x.x network"
+        }
+        "168.192.in-addr.arpa" = @{
+            Description = "Reverse zone for 192.168.x.x network"
+        }
     }
-    "10.222.0.0/16" = @{
-        Site = "LabSite001"
-        Description = "Special Devices Infrastructure Network"
-        Location = "Lab-USA-East"
+    
+    ################################################################################
+    # CONFIGURATION SECTION FOR DSP-Demo-09 (GPOs)
+    # 
+    ################################################################################
+    
+    GPOs = @{
+        "Questionable GPO" = @{
+            Comment = "Simple test GPO for demonstrations"
+        }
+        "Lab SMB Client Policy GPO" = @{
+            Comment = "SMB client security configuration for lab"
+        }
+        "CIS Benchmark Windows Server Policy GPO" = @{
+            Comment = "CIS Windows Server hardening policy baseline"
+        }
     }
-    "192.168.0.0/16" = @{
-        Site = "LabSite001"
-        Description = "Primary Demo Lab Infrastructure Network"
-        Location = "Lab-USA-TX"
-    }
-    "192.168.57.0/24" = @{
-        Site = "LabSite001"
-        Description = "Special DMZ network"
-        Location = "Lab-USA-AZ"
-    }
-}
-
-AdSiteLinks = @{
-    "Default-First-Site-Name -- LabSite001" = @{
-        Sites = @("Default-First-Site-Name", "LabSite001")
-        Cost = 22
-        ReplicationFrequencyInMinutes = 18
-        Description = "Site link for lab replication"
-    }
-}
-
-################################################################################
-# CONFIGURATION SECTION FOR DSP-Demo-08 (DNS Zones)
-# 
-################################################################################
-
-DnsForwardZones = @{
-    "specialsite.lab" = @{
-        Description = "Custom lab zone for demonstrations"
-    }
-}
-
-DnsReverseZones = @{
-    "10.in-addr.arpa" = @{
-        Description = "Reverse zone for 10.x.x.x network"
-    }
-    "172.in-addr.arpa" = @{
-        Description = "Reverse zone for 172.x.x.x network"
-    }
-    "168.192.in-addr.arpa" = @{
-        Description = "Reverse zone for 192.168.x.x network"
-    }
-}
-
-################################################################################
-# CONFIGURATION SECTION FOR DSP-Demo-09 (GPOs)
-# 
-################################################################################
-
-GPOs = @{
-    "Questionable GPO" = @{
-        Comment = "Simple test GPO for demonstrations"
-    }
-    "Lab SMB Client Policy GPO" = @{
-        Comment = "SMB client security configuration for lab"
-    }
-    "CIS Benchmark Windows Server Policy GPO" = @{
-        Comment = "CIS Windows Server hardening policy baseline"
-    }
-}
-
-################################################################################
-# END OF CONFIGURATION
-################################################################################
+    
+    ################################################################################
+    # END OF CONFIGURATION
+    ################################################################################}
