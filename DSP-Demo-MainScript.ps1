@@ -373,7 +373,7 @@ function Main {
     Write-Host " to proceed, " -ForegroundColor $Colors.Prompt -NoNewline
     Write-Host "N" -ForegroundColor $Colors.MenuHighlight -NoNewline
     Write-Host " to cancel" -ForegroundColor $Colors.Prompt
-    Write-Host "(Automatically proceeding in 15 seconds...)" -ForegroundColor $Colors.Warning
+    Write-Host "(Proceeding automatically in 30 seconds - scroll up to review, or press N to cancel)" -ForegroundColor $Colors.Warning
     Write-Host ""
     
     $confirmationTimer = 0
@@ -393,8 +393,6 @@ function Main {
             }
         }
         
-        $remaining = $timeoutSeconds - $confirmationTimer
-        Write-Host "`rProceeding automatically in $remaining seconds..." -ForegroundColor $Colors.Warning -NoNewline
         Start-Sleep -Seconds 1
         $confirmationTimer++
     }
