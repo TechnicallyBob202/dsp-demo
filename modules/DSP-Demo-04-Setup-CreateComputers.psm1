@@ -94,9 +94,10 @@ function Resolve-OUPath {
 function New-ComputerAccount {
     <#
     .SYNOPSIS
-    Creates a computer account with idempotent logic. Returns computer object.
-    Maps config keys to New-ADComputer parameter names.
-    Uses DefaultPassword if computer definition doesn't specify one.
+    Creates a computer account with full idempotent logic:
+    - If computer exists in correct OU: return it (no action)
+    - If computer exists in wrong OU: move it to correct OU
+    - If computer doesn't exist: create it in correct OU
     #>
     [CmdletBinding()]
     param(
@@ -112,11 +113,27 @@ function New-ComputerAccount {
     
     $sam = $ComputerDef.SamAccountName
     
-    # Check if computer exists
+    # Check if computer exists anywhere
     $existing = Get-ADComputer -Filter { SamAccountName -eq $sam } -ErrorAction SilentlyContinue
+    
     if ($existing) {
-        Write-Status "Computer '$sam' already exists - skipping" -Level Info
-        return $existing
+        # Computer exists - check if it's in the right place
+        if ($existing.DistinguishedName -eq "CN=$($ComputerDef.Name),$OUPath") {
+            Write-Status "Computer '$sam' already exists in correct location - skipping" -Level Info
+            return $existing
+        }
+        else {
+            # Computer exists but in wrong location - move it
+            try {
+                Move-ADObject -Identity $existing.DistinguishedName -TargetPath $OUPath -ErrorAction Stop
+                Write-Status "Moved computer '$sam' to correct OU" -Level Success
+                return $existing
+            }
+            catch {
+                Write-Status "Failed to move computer '$sam' to correct OU: $_" -Level Error
+                return $null
+            }
+        }
     }
     
     # Map config keys to New-ADComputer parameters
