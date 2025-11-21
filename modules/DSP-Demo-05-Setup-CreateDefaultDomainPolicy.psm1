@@ -83,10 +83,22 @@ function Invoke-CreateDefaultDomainPolicy {
                 $policySettings.LockoutThreshold = $configPolicy.LockoutThreshold
             }
             if ($configPolicy.ContainsKey('LockoutDuration')) {
-                $policySettings.LockoutDuration = $configPolicy.LockoutDuration
+                # Handle both integer (minutes) and TimeSpan formats
+                $duration = $configPolicy.LockoutDuration
+                if ($duration -is [int]) {
+                    $policySettings.LockoutDuration = [timespan]::FromMinutes($duration)
+                } elseif ($duration -is [timespan]) {
+                    $policySettings.LockoutDuration = $duration
+                }
             }
             if ($configPolicy.ContainsKey('LockoutObservationWindow')) {
-                $policySettings.LockoutObservationWindow = $configPolicy.LockoutObservationWindow
+                # Handle both integer (minutes) and TimeSpan formats
+                $window = $configPolicy.LockoutObservationWindow
+                if ($window -is [int]) {
+                    $policySettings.LockoutObservationWindow = [timespan]::FromMinutes($window)
+                } elseif ($window -is [timespan]) {
+                    $policySettings.LockoutObservationWindow = $window
+                }
             }
             if ($configPolicy.ContainsKey('MinPasswordAge')) {
                 $policySettings.MinPasswordAge = $configPolicy.MinPasswordAge
