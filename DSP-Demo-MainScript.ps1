@@ -227,45 +227,50 @@ function Main {
     
     Write-Header "Active Directory Baseline Configuration Summary"
     
-    # Display what will be created/modified based on config
+    $colWidth = 38
+    $spacing = "  "
+    
+    # Column headers
+    Write-Host "$(("SETUP ACTIVITIES").PadRight($colWidth))$spacing$(("ACTIVITY CREATION").PadRight($colWidth))" -ForegroundColor $Colors.Header
+    Write-Host "$("=" * $colWidth)$spacing$("=" * $colWidth)" -ForegroundColor $Colors.Header
+    Write-Host ""
+    
+    # Build left column (Setup)
+    $leftLines = @()
+    
     if ($config.General) {
-        Write-Host "General Settings:" -ForegroundColor $Colors.Section
-        Write-Host "  DSP Server: $(if ($environment.DspAvailable) { $environment.DspServer } else { 'Not available' })" -ForegroundColor $Colors.Info
-        Write-Host "  Loop Count: $($config.General.LoopCount)" -ForegroundColor $Colors.Info
-        Write-Host "  Generic Test Users: $($config.General.GenericUserCount)" -ForegroundColor $Colors.Info
-        Write-Host "  Company: $($config.General.Company)" -ForegroundColor $Colors.Info
-        Write-Host ""
+        $leftLines += "General Settings:"
+        $leftLines += "  DSP Server: $(if ($environment.DspAvailable) { $environment.DspServer } else { 'Not available' })"
+        $leftLines += "  Loop Count: $($config.General.LoopCount)"
+        $leftLines += "  Generic Users: $($config.General.GenericUserCount)"
+        $leftLines += "  Company: $($config.General.Company)"
+        $leftLines += ""
     }
     
-    # OUs Section
     if ($config.ContainsKey('OUs') -and $config.OUs) {
-        Write-Host "Organizational Units to Create:" -ForegroundColor $Colors.Section
+        $leftLines += "Organizational Units:"
         foreach ($ouKey in $config.OUs.Keys) {
             $ou = $config.OUs[$ouKey]
-            $description = if ($ou.ContainsKey('Description')) { " - $($ou.Description)" } else { "" }
-            Write-Host "  - $($ou.Name)$description" -ForegroundColor $Colors.Info
+            $leftLines += "  - $($ou.Name)"
         }
-        Write-Host ""
+        $leftLines += ""
     }
     
-    # Groups Section
     if ($config.ContainsKey('Groups') -and $config.Groups) {
-        Write-Host "Security Groups to Create:" -ForegroundColor $Colors.Section
         $labUserGroupCount = if ($config.Groups.ContainsKey('LabUserGroups')) { @($config.Groups.LabUserGroups).Count } else { 0 }
         $adminGroupCount = if ($config.Groups.ContainsKey('AdminGroups')) { @($config.Groups.AdminGroups).Count } else { 0 }
         $deleteMeGroupCount = if ($config.Groups.ContainsKey('DeleteMeOUGroups')) { @($config.Groups.DeleteMeOUGroups).Count } else { 0 }
         $totalGroups = $labUserGroupCount + $adminGroupCount + $deleteMeGroupCount
         
-        Write-Host "  Lab User Groups: $labUserGroupCount" -ForegroundColor $Colors.Info
-        Write-Host "  Admin Groups: $adminGroupCount" -ForegroundColor $Colors.Info
-        Write-Host "  DeleteMe OU Groups: $deleteMeGroupCount" -ForegroundColor $Colors.Info
-        Write-Host "  Total Groups: $totalGroups" -ForegroundColor $Colors.Info
-        Write-Host ""
+        $leftLines += "Security Groups:"
+        $leftLines += "  Lab User: $labUserGroupCount"
+        $leftLines += "  Admin: $adminGroupCount"
+        $leftLines += "  DeleteMe OU: $deleteMeGroupCount"
+        $leftLines += "  Total: $totalGroups"
+        $leftLines += ""
     }
     
-    # Users Section
     if ($config.ContainsKey('Users') -and $config.Users) {
-        Write-Host "User Accounts to Create:" -ForegroundColor $Colors.Section
         $tier0Count = if ($config.Users.ContainsKey('Tier0Admins')) { @($config.Users.Tier0Admins).Count } else { 0 }
         $tier1Count = if ($config.Users.ContainsKey('Tier1Admins')) { @($config.Users.Tier1Admins).Count } else { 0 }
         $tier2Count = if ($config.Users.ContainsKey('Tier2Admins')) { @($config.Users.Tier2Admins).Count } else { 0 }
@@ -273,96 +278,99 @@ function Main {
         $genericUserCount = $config.General.GenericUserCount
         $totalUsers = $tier0Count + $tier1Count + $tier2Count + $demoUserCount + $genericUserCount
         
-        Write-Host "  Tier 0 Admins: $tier0Count" -ForegroundColor $Colors.Info
-        Write-Host "  Tier 1 Admins: $tier1Count" -ForegroundColor $Colors.Info
-        Write-Host "  Tier 2 Admins: $tier2Count" -ForegroundColor $Colors.Info
-        Write-Host "  Demo Users: $demoUserCount" -ForegroundColor $Colors.Info
-        Write-Host "  Generic Bulk Users: $genericUserCount" -ForegroundColor $Colors.Info
-        Write-Host "  Total Users: $totalUsers" -ForegroundColor $Colors.Info
-        Write-Host ""
+        $leftLines += "User Accounts:"
+        $leftLines += "  Tier 0: $tier0Count"
+        $leftLines += "  Tier 1: $tier1Count"
+        $leftLines += "  Tier 2: $tier2Count"
+        $leftLines += "  Demo Users: $demoUserCount"
+        $leftLines += "  Generic Bulk: $genericUserCount"
+        $leftLines += "  Total: $totalUsers"
+        $leftLines += ""
     }
     
-    # Computers Section
     if ($config.ContainsKey('Computers') -and $config.Computers) {
-        Write-Host "Computer Objects to Create:" -ForegroundColor $Colors.Section
+        $leftLines += "Computer Objects:"
         foreach ($computer in $config.Computers) {
-            Write-Host "  - $($computer.Name)" -ForegroundColor $Colors.Info
+            $leftLines += "  - $($computer.Name)"
         }
-        Write-Host ""
+        $leftLines += ""
     }
     
-    # Default Domain Policy Section
     if ($config.ContainsKey('DefaultDomainPolicy') -and $config.DefaultDomainPolicy) {
-        Write-Host "Default Domain Policy Settings:" -ForegroundColor $Colors.Section
+        $leftLines += "Domain Policy Settings:"
         $policy = $config.DefaultDomainPolicy
-        Write-Host "  Min Password Length: $($policy.MinPasswordLength) characters" -ForegroundColor $Colors.Info
-        Write-Host "  Password Complexity: $($policy.PasswordComplexity)" -ForegroundColor $Colors.Info
-        Write-Host "  Password History Count: $($policy.PasswordHistoryCount)" -ForegroundColor $Colors.Info
-        Write-Host "  Max Password Age: $($policy.MaxPasswordAge) days" -ForegroundColor $Colors.Info
-        Write-Host "  Min Password Age: $($policy.MinPasswordAge) days" -ForegroundColor $Colors.Info
-        Write-Host "  Lockout Threshold: $($policy.LockoutThreshold) attempts" -ForegroundColor $Colors.Info
-        Write-Host "  Lockout Duration: $($policy.LockoutDuration) minutes" -ForegroundColor $Colors.Info
-        Write-Host "  Lockout Observation Window: $($policy.LockoutObservationWindow) minutes" -ForegroundColor $Colors.Info
-        Write-Host "  Reversible Encryption: $($policy.ReversibleEncryption)" -ForegroundColor $Colors.Info
-        Write-Host ""
+        $leftLines += "  MinLength: $($policy.MinPasswordLength)"
+        $leftLines += "  Complexity: $($policy.PasswordComplexity)"
+        $leftLines += "  History: $($policy.PasswordHistoryCount)"
+        $leftLines += "  MaxAge: $($policy.MaxPasswordAge)d"
+        $leftLines += "  Lockout: $($policy.LockoutThreshold) attempts"
+        $leftLines += ""
     }
     
-    # FGPPs Section
     if ($config.ContainsKey('FGPPs') -and $config.FGPPs) {
-        Write-Host "Fine-Grained Password Policies to Create:" -ForegroundColor $Colors.Section
+        $leftLines += "Fine-Grained Policies:"
         foreach ($fgpp in $config.FGPPs) {
-            Write-Host "  - $($fgpp.Name) (Precedence: $($fgpp.Precedence))" -ForegroundColor $Colors.Info
+            $leftLines += "  - $($fgpp.Name)"
         }
-        Write-Host ""
+        $leftLines += ""
     }
     
-    # AD Sites and Subnets Section
     if ($config.ContainsKey('AdSites') -and $config.AdSites) {
-        Write-Host "Active Directory Sites to Create:" -ForegroundColor $Colors.Section
+        $leftLines += "AD Sites:"
         foreach ($siteName in $config.AdSites.Keys) {
-            $site = $config.AdSites[$siteName]
-            Write-Host "  - ${siteName}: $($site.Description)" -ForegroundColor $Colors.Info
+            $leftLines += "  - $siteName"
         }
-        Write-Host ""
+        $leftLines += ""
     }
     
     if ($config.ContainsKey('AdSubnets') -and $config.AdSubnets) {
-        Write-Host "Network Subnets to Create:" -ForegroundColor $Colors.Section
+        $leftLines += "Subnets:"
         foreach ($subnetName in $config.AdSubnets.Keys) {
-            $subnet = $config.AdSubnets[$subnetName]
-            Write-Host "  - $subnetName ($($subnet.Description))" -ForegroundColor $Colors.Info
+            $leftLines += "  - $subnetName"
         }
-        Write-Host ""
+        $leftLines += ""
     }
     
-    # DNS Zones Section
     if ($config.ContainsKey('DnsForwardZones') -and $config.DnsForwardZones) {
-        Write-Host "DNS Forward Zones to Create:" -ForegroundColor $Colors.Section
+        $leftLines += "DNS Forward Zones:"
         foreach ($zoneName in $config.DnsForwardZones.Keys) {
-            $zone = $config.DnsForwardZones[$zoneName]
-            Write-Host "  - ${zoneName}: $($zone.Description)" -ForegroundColor $Colors.Info
+            $leftLines += "  - $zoneName"
         }
-        Write-Host ""
+        $leftLines += ""
     }
     
     if ($config.ContainsKey('DnsReverseZones') -and $config.DnsReverseZones) {
-        Write-Host "DNS Reverse Zones to Create:" -ForegroundColor $Colors.Section
+        $leftLines += "DNS Reverse Zones:"
         foreach ($zoneName in $config.DnsReverseZones.Keys) {
-            $zone = $config.DnsReverseZones[$zoneName]
-            Write-Host "  - ${zoneName}: $($zone.Description)" -ForegroundColor $Colors.Info
+            $leftLines += "  - $zoneName"
         }
-        Write-Host ""
+        $leftLines += ""
     }
     
-    # GPOs Section
     if ($config.ContainsKey('GPOs') -and $config.GPOs) {
-        Write-Host "Group Policy Objects to Create:" -ForegroundColor $Colors.Section
+        $leftLines += "Group Policy Objects:"
         foreach ($gpoName in $config.GPOs.Keys) {
-            $gpo = $config.GPOs[$gpoName]
-            Write-Host "  - ${gpoName}: $($gpo.Comment)" -ForegroundColor $Colors.Info
+            $leftLines += "  - $gpoName"
         }
-        Write-Host ""
+        $leftLines += ""
     }
+    
+    # Build right column (Activity - currently placeholder)
+    $rightLines = @()
+    $rightLines += "(Activity modules coming soon)"
+    $rightLines += ""
+    
+    # Output two columns side-by-side
+    $maxLines = [Math]::Max($leftLines.Count, $rightLines.Count)
+    
+    for ($i = 0; $i -lt $maxLines; $i++) {
+        $leftLine = if ($i -lt $leftLines.Count) { $leftLines[$i] } else { "" }
+        $rightLine = if ($i -lt $rightLines.Count) { $rightLines[$i] } else { "" }
+        
+        Write-Host "$($leftLine.PadRight($colWidth))$spacing$rightLine" -ForegroundColor $Colors.Info
+    }
+    
+    Write-Host ""
     
     Write-Header "Confirmation Required"
     Write-Host "Running this script will create/update all of the objects listed in the Setup section above," -ForegroundColor $Colors.Info
