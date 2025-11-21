@@ -778,5 +778,22 @@ DnsReverseZones = @{
 }
 
 ################################################################################
+# CONFIGURATION SECTION FOR DSP-Demo-09 (GPOs)
+# 
+################################################################################
+
+GPOs = @{
+    "Questionable GPO" = @{
+        Comment = "Simple test GPO for demonstrations"
+    }
+    "Lab SMB Client Policy GPO" = @{
+        Comment = "SMB client security configuration for lab"
+    }
+    "CIS Benchmark Windows Server Policy GPO" = @{
+        Comment = "CIS Windows Server hardening policy baseline"
+    }
+}
+
+################################################################################
 # END OF CONFIGURATION
 ################################################################################
