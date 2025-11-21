@@ -37,7 +37,7 @@ function Invoke-CreateDefaultDomainPolicy {
         [hashtable]$Config,
         
         [Parameter(Mandatory=$true)]
-        [hashtable]$Environment
+        $Environment
     )
     
     Write-ActivityLog "=== Default Domain Policy Configuration ===" -Level Info
