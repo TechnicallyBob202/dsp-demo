@@ -28,6 +28,29 @@
 #Requires -Modules ActiveDirectory
 
 ################################################################################
+# LOGGING FUNCTIONS
+################################################################################
+
+function Write-ActivityLog {
+    param(
+        [string]$Message,
+        [ValidateSet('Info','Success','Warning','Error')]
+        [string]$Level = 'Info'
+    )
+    
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $colors = @{
+        'Info'    = 'White'
+        'Success' = 'Green'
+        'Warning' = 'Yellow'
+        'Error'   = 'Red'
+    }
+    
+    $color = $colors[$Level]
+    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
+}
+
+################################################################################
 # INTERNAL HELPER FUNCTIONS
 ################################################################################
 
