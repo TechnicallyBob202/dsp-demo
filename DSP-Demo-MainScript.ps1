@@ -369,8 +369,7 @@ function Main {
     Write-Host ""
     
     Write-Header "Confirmation Required"
-    Write-Host "Scroll UP to review preflight results!" -ForegroundColor $Colors.Prompt
-    Write-Host "Do not proceed if errors were encountered!" -ForegroundColor $Colors.Prompt
+    Write-Host "Scroll UP to review preflight results! Do not proceed if errors were encountered!" -ForegroundColor $Colors.Prompt
     Write-Host ""
     Write-Host "Continuing to run this script will create/update all of the objects listed in the" -ForegroundColor $Colors.Info
     Write-Host "Setup Modules above and then generate activity based on the Activity Modules." -ForegroundColor $Colors.Info
