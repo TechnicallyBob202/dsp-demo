@@ -112,9 +112,10 @@ function New-ComputerAccount {
     )
     
     $sam = $ComputerDef.SamAccountName
+    $samWithDollar = "$sam$"
     
     # Check if computer exists anywhere
-    $existing = Get-ADComputer -Filter { SamAccountName -eq $sam } -ErrorAction SilentlyContinue
+    $existing = Get-ADComputer -Filter { SamAccountName -eq $samWithDollar } -ErrorAction SilentlyContinue
     
     if ($existing) {
         # Computer exists - check if it's in the right place
