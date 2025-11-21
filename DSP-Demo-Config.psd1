@@ -600,7 +600,7 @@
         )
     }
     
-    #---------------------------------------------------------------------------
+#---------------------------------------------------------------------------
     # COMPUTERS
     #---------------------------------------------------------------------------
     Computers = @(
@@ -627,7 +627,7 @@
             Name = "PIMPAM"
             DisplayName = "PIMPAM"
             Description = "Privileged access server"
-            OUPath = "Root/Special"
+            OUPath = "Root/zSpecial OU"
             Password = "{PASSWORD}"
             Enabled = $true
         }
@@ -636,7 +636,7 @@
             Name = "VAULT"
             DisplayName = "VAULT"
             Description = "Vault server to store passwords and credentials"
-            OUPath = "Root/Special"
+            OUPath = "Root/zSpecial OU"
             Password = "{PASSWORD}"
             Enabled = $true
         }
@@ -645,12 +645,12 @@
             Name = "BASTION-HOST01"
             DisplayName = "BASTION-HOST01"
             Description = "Bastion host for restricted privileged access"
-            OUPath = "Root/Special"
+            OUPath = "Root/zSpecial OU"
             Password = "{PASSWORD}"
             Enabled = $true
         }
     )
-
+    
     #---------------------------------------------------------------------------
     # FINE-GRAINED PASSWORD POLICIES (FGPP)
     #---------------------------------------------------------------------------
