@@ -7,12 +7,12 @@
 ## Features:
 ## - Calls Preflight module for ALL environment discovery and setup
 ## - Displays configuration summary
-## - 30-second confirmation timeout before execution
+## - 15-second confirmation timeout before execution
 ## - Executes all configured activities
 ## - Comprehensive logging and error handling
 ##
 ## Author: Rob Ingenthron (Original), Bob Lyons (Refactor)
-## Version: 4.5.2-20251120
+## Version: 4.5.2-20251120 (Updated summaries)
 ##
 ################################################################################
 
@@ -199,7 +199,7 @@ function Main {
     # Expand placeholders in config using discovered environment
     $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $environment.DomainInfo
     
-    Write-Header "Loading Activity Modules"
+    Write-Header "Loading Setup Modules"
     
     $modulesToImport = @(
         "DSP-Demo-01-Setup-BuildOUs",
@@ -221,8 +221,13 @@ function Main {
     
     Write-Host ""
     
-    Write-Header "Activity Configuration Summary"
+    Write-Header "Loading Activity Modules"
+    Write-Host "(Placeholder for future activity modules)" -ForegroundColor $Colors.Info
+    Write-Host ""
     
+    Write-Header "Active Directory Baseline Configuration Summary"
+    
+    # Display what will be created/modified based on config
     if ($config.General) {
         Write-Host "General Settings:" -ForegroundColor $Colors.Section
         Write-Host "  DSP Server: $(if ($environment.DspAvailable) { $environment.DspServer } else { 'Not available' })" -ForegroundColor $Colors.Info
@@ -232,21 +237,143 @@ function Main {
         Write-Host ""
     }
     
-    if ($config.OUs) {
+    # OUs Section
+    if ($config.ContainsKey('OUs') -and $config.OUs) {
         Write-Host "Organizational Units to Create:" -ForegroundColor $Colors.Section
-        foreach ($ou in $config.OUs.Keys) {
-            Write-Host "  - $($config.OUs[$ou].Name)" -ForegroundColor $Colors.Info
+        foreach ($ouKey in $config.OUs.Keys) {
+            $ou = $config.OUs[$ouKey]
+            $description = if ($ou.ContainsKey('Description')) { " - $($ou.Description)" } else { "" }
+            Write-Host "  - $($ou.Name)$description" -ForegroundColor $Colors.Info
+        }
+        Write-Host ""
+    }
+    
+    # Groups Section
+    if ($config.ContainsKey('Groups') -and $config.Groups) {
+        Write-Host "Security Groups to Create:" -ForegroundColor $Colors.Section
+        $labUserGroupCount = if ($config.Groups.ContainsKey('LabUserGroups')) { @($config.Groups.LabUserGroups).Count } else { 0 }
+        $adminGroupCount = if ($config.Groups.ContainsKey('AdminGroups')) { @($config.Groups.AdminGroups).Count } else { 0 }
+        $deleteMeGroupCount = if ($config.Groups.ContainsKey('DeleteMeOUGroups')) { @($config.Groups.DeleteMeOUGroups).Count } else { 0 }
+        $totalGroups = $labUserGroupCount + $adminGroupCount + $deleteMeGroupCount
+        
+        Write-Host "  Lab User Groups: $labUserGroupCount" -ForegroundColor $Colors.Info
+        Write-Host "  Admin Groups: $adminGroupCount" -ForegroundColor $Colors.Info
+        Write-Host "  DeleteMe OU Groups: $deleteMeGroupCount" -ForegroundColor $Colors.Info
+        Write-Host "  Total Groups: $totalGroups" -ForegroundColor $Colors.Info
+        Write-Host ""
+    }
+    
+    # Users Section
+    if ($config.ContainsKey('Users') -and $config.Users) {
+        Write-Host "User Accounts to Create:" -ForegroundColor $Colors.Section
+        $tier0Count = if ($config.Users.ContainsKey('Tier0Admins')) { @($config.Users.Tier0Admins).Count } else { 0 }
+        $tier1Count = if ($config.Users.ContainsKey('Tier1Admins')) { @($config.Users.Tier1Admins).Count } else { 0 }
+        $tier2Count = if ($config.Users.ContainsKey('Tier2Admins')) { @($config.Users.Tier2Admins).Count } else { 0 }
+        $demoUserCount = if ($config.Users.ContainsKey('DemoUsers')) { @($config.Users.DemoUsers).Count } else { 0 }
+        $genericUserCount = $config.General.GenericUserCount
+        $totalUsers = $tier0Count + $tier1Count + $tier2Count + $demoUserCount + $genericUserCount
+        
+        Write-Host "  Tier 0 Admins: $tier0Count" -ForegroundColor $Colors.Info
+        Write-Host "  Tier 1 Admins: $tier1Count" -ForegroundColor $Colors.Info
+        Write-Host "  Tier 2 Admins: $tier2Count" -ForegroundColor $Colors.Info
+        Write-Host "  Demo Users: $demoUserCount" -ForegroundColor $Colors.Info
+        Write-Host "  Generic Bulk Users: $genericUserCount" -ForegroundColor $Colors.Info
+        Write-Host "  Total Users: $totalUsers" -ForegroundColor $Colors.Info
+        Write-Host ""
+    }
+    
+    # Computers Section
+    if ($config.ContainsKey('Computers') -and $config.Computers) {
+        Write-Host "Computer Objects to Create:" -ForegroundColor $Colors.Section
+        foreach ($computer in $config.Computers) {
+            Write-Host "  - $($computer.Name)" -ForegroundColor $Colors.Info
+        }
+        Write-Host ""
+    }
+    
+    # Default Domain Policy Section
+    if ($config.ContainsKey('DefaultDomainPolicy') -and $config.DefaultDomainPolicy) {
+        Write-Host "Default Domain Policy Settings:" -ForegroundColor $Colors.Section
+        $policy = $config.DefaultDomainPolicy
+        Write-Host "  Min Password Length: $($policy.MinPasswordLength) characters" -ForegroundColor $Colors.Info
+        Write-Host "  Password Complexity: $($policy.PasswordComplexity)" -ForegroundColor $Colors.Info
+        Write-Host "  Password History Count: $($policy.PasswordHistoryCount)" -ForegroundColor $Colors.Info
+        Write-Host "  Max Password Age: $($policy.MaxPasswordAge) days" -ForegroundColor $Colors.Info
+        Write-Host "  Min Password Age: $($policy.MinPasswordAge) days" -ForegroundColor $Colors.Info
+        Write-Host "  Lockout Threshold: $($policy.LockoutThreshold) attempts" -ForegroundColor $Colors.Info
+        Write-Host "  Lockout Duration: $($policy.LockoutDuration) minutes" -ForegroundColor $Colors.Info
+        Write-Host "  Lockout Observation Window: $($policy.LockoutObservationWindow) minutes" -ForegroundColor $Colors.Info
+        Write-Host "  Reversible Encryption: $($policy.ReversibleEncryption)" -ForegroundColor $Colors.Info
+        Write-Host ""
+    }
+    
+    # FGPPs Section
+    if ($config.ContainsKey('FGPPs') -and $config.FGPPs) {
+        Write-Host "Fine-Grained Password Policies to Create:" -ForegroundColor $Colors.Section
+        foreach ($fgpp in $config.FGPPs) {
+            Write-Host "  - $($fgpp.Name) (Precedence: $($fgpp.Precedence))" -ForegroundColor $Colors.Info
+        }
+        Write-Host ""
+    }
+    
+    # AD Sites and Subnets Section
+    if ($config.ContainsKey('AdSites') -and $config.AdSites) {
+        Write-Host "Active Directory Sites to Create:" -ForegroundColor $Colors.Section
+        foreach ($siteName in $config.AdSites.Keys) {
+            $site = $config.AdSites[$siteName]
+            Write-Host "  - ${siteName}: $($site.Description)" -ForegroundColor $Colors.Info
+        }
+        Write-Host ""
+    }
+    
+    if ($config.ContainsKey('AdSubnets') -and $config.AdSubnets) {
+        Write-Host "Network Subnets to Create:" -ForegroundColor $Colors.Section
+        foreach ($subnetName in $config.AdSubnets.Keys) {
+            $subnet = $config.AdSubnets[$subnetName]
+            Write-Host "  - $subnetName ($($subnet.Description))" -ForegroundColor $Colors.Info
+        }
+        Write-Host ""
+    }
+    
+    # DNS Zones Section
+    if ($config.ContainsKey('DnsForwardZones') -and $config.DnsForwardZones) {
+        Write-Host "DNS Forward Zones to Create:" -ForegroundColor $Colors.Section
+        foreach ($zoneName in $config.DnsForwardZones.Keys) {
+            $zone = $config.DnsForwardZones[$zoneName]
+            Write-Host "  - ${zoneName}: $($zone.Description)" -ForegroundColor $Colors.Info
+        }
+        Write-Host ""
+    }
+    
+    if ($config.ContainsKey('DnsReverseZones') -and $config.DnsReverseZones) {
+        Write-Host "DNS Reverse Zones to Create:" -ForegroundColor $Colors.Section
+        foreach ($zoneName in $config.DnsReverseZones.Keys) {
+            $zone = $config.DnsReverseZones[$zoneName]
+            Write-Host "  - ${zoneName}: $($zone.Description)" -ForegroundColor $Colors.Info
+        }
+        Write-Host ""
+    }
+    
+    # GPOs Section
+    if ($config.ContainsKey('GPOs') -and $config.GPOs) {
+        Write-Host "Group Policy Objects to Create:" -ForegroundColor $Colors.Section
+        foreach ($gpoName in $config.GPOs.Keys) {
+            $gpo = $config.GPOs[$gpoName]
+            Write-Host "  - ${gpoName}: $($gpo.Comment)" -ForegroundColor $Colors.Info
         }
         Write-Host ""
     }
     
     Write-Header "Confirmation Required"
+    Write-Host "Running this script will create/update all of the objects listed in the Setup section above," -ForegroundColor $Colors.Info
+    Write-Host "and then create all of the activity listed in the Activity section." -ForegroundColor $Colors.Info
+    Write-Host ""
     Write-Host "Press " -ForegroundColor $Colors.Prompt -NoNewline
     Write-Host "Y" -ForegroundColor $Colors.MenuHighlight -NoNewline
     Write-Host " to proceed, " -ForegroundColor $Colors.Prompt -NoNewline
     Write-Host "N" -ForegroundColor $Colors.MenuHighlight -NoNewline
     Write-Host " to cancel" -ForegroundColor $Colors.Prompt
-    Write-Host "(Automatically proceeding in 30 seconds...)" -ForegroundColor $Colors.Warning
+    Write-Host "(Automatically proceeding in 15 seconds...)" -ForegroundColor $Colors.Warning
     Write-Host ""
     
     $confirmationTimer = 0
@@ -272,6 +399,7 @@ function Main {
         $confirmationTimer++
     }
     
+    # If timeout was reached, proceed = $true
     if ($null -eq $proceed) {
         $proceed = $true
     }
@@ -299,7 +427,7 @@ function Main {
         if (Get-Command $functionName -ErrorAction SilentlyContinue) {
             Write-Header "Running $moduleName"
             try {
-                [void](& $functionName -Config $config -Environment $environment)
+                & $functionName -Config $config -Environment $environment
                 Write-Status "Module completed: $moduleName" -Level Success
                 $completedModules++
             }
