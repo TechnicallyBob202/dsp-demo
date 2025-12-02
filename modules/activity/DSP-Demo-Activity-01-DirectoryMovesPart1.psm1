@@ -9,46 +9,61 @@
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
 
-function Write-Status {
-    param([string]$Message, [ValidateSet('Info','Success','Warning','Error')][string]$Level = 'Info')
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $colors = @{'Info'='White';'Success'='Green';'Warning'='Yellow';'Error'='Red'}
-    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colors[$Level]
-}
+################################################################################
+# HELPER FUNCTIONS
+################################################################################
 
-function Write-Section {
+function Write-ActivityHeader {
     param([string]$Title)
     Write-Host ""
-    Write-Host ":: $Title" -ForegroundColor DarkRed -BackgroundColor Yellow
+    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
+    Write-Host ("| " + $Title.PadRight(62) + " |") -ForegroundColor Cyan
+    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
     Write-Host ""
 }
 
-function Invoke-Replication {
-    param([int]$WaitSeconds = 1)
-    try {
-        Write-Status "Forcing AD replication (waiting $WaitSeconds seconds)..." -Level Info
-        Start-Sleep $WaitSeconds
-        $result = & C:\Windows\System32\repadmin.exe /syncall /force
-        if ($result -join '-' | Select-String "syncall finished") {
-            Write-Status "Replication completed" -Level Success
-        }
+function Write-Status {
+    param(
+        [string]$Message,
+        [ValidateSet('Info','Success','Warning','Error')]
+        [string]$Level = 'Info'
+    )
+    
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $colors = @{
+        'Info'    = 'White'
+        'Success' = 'Green'
+        'Warning' = 'Yellow'
+        'Error'   = 'Red'
     }
-    catch { Write-Status "Replication warning: $_" -Level Warning }
+    
+    $color = $colors[$Level]
+    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
+
+################################################################################
+# MAIN FUNCTION
+################################################################################
 
 function Invoke-DirectoryMovesPart1 {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][hashtable]$Config,
-        [Parameter(Mandatory=$true)]$Environment
+        [Parameter(Mandatory=$true)]
+        [hashtable]$Config,
+        
+        [Parameter(Mandatory=$true)]
+        [PSCustomObject]$Environment
     )
     
-    Write-Host ""
-    Write-Status "Starting Directory Moves Part 1" -Level Success
-    Write-Host ""
+    Write-ActivityHeader "Directory - Move Users Part 1"
     
-    $DomainInfo = $Environment.DomainInfo
-    $domainDN = $DomainInfo.DN
+    $movedCount = 0
+    $createdCount = 0
+    $skippedCount = 0
+    $errorCount = 0
+    
+    $domainInfo = $Environment.DomainInfo
+    $domainDN = $domainInfo.DN
     
     # Get config values
     $sourceOU = $Config.ActivitySettings.DirectoryActivity.SourceOU
@@ -58,36 +73,38 @@ function Invoke-DirectoryMovesPart1 {
     $sourceDeptDN = "OU=$sourceDept,OU=$sourceOU,$domainDN"
     $targetDeptDN = "OU=$targetDept,OU=$sourceOU,$domainDN"
     
-    $movedCount = 0
-    $createdCount = 0
-    $errorCount = 0
-    
     # ============================================================================
-    # PHASE 1: MOVE USERS FROM DEPT999 TO DEPT101
+    # PHASE 1: MOVE USERS FROM SOURCE TO TARGET DEPT
     # ============================================================================
     
-    Write-Section "PHASE 1: MOVE USERS FROM $sourceDept TO $targetDept"
+    Write-Status "Moving users FROM $sourceDept TO $targetDept" -Level Info
+    Write-Host ""
     
     try {
         $usersToMove = Get-ADUser -Filter "Enabled -eq `$true" -SearchBase $sourceDeptDN -ErrorAction SilentlyContinue
         
-        if ($usersToMove.Count -gt 0) {
-            Write-Status "Moving $($usersToMove.Count) user(s)..." -Level Info
+        if ($usersToMove) {
+            if ($usersToMove -isnot [array]) {
+                $usersToMove = @($usersToMove)
+            }
+            
+            Write-Status "Found $($usersToMove.Count) user(s) to move" -Level Info
             
             foreach ($user in $usersToMove) {
                 try {
-                    Move-ADObject -Identity $user -TargetPath $targetDeptDN -Verbose
+                    Move-ADObject -Identity $user -TargetPath $targetDeptDN -ErrorAction Stop
+                    Write-Status "Moved: $($user.Name)" -Level Success
                     $movedCount++
                     Start-Sleep -Milliseconds 500
                 }
                 catch {
-                    Write-Status "Error moving $($user.Name): $_" -Level Warning
+                    Write-Status "Error moving $($user.Name): $_" -Level Error
                     $errorCount++
                 }
             }
         }
         else {
-            Write-Status "No users found in $sourceDept to move" -Level Info
+            Write-Status "No users found in $sourceDept" -Level Info
         }
     }
     catch {
@@ -95,22 +112,19 @@ function Invoke-DirectoryMovesPart1 {
         $errorCount++
     }
     
-    Invoke-Replication -WaitSeconds 5
+    Write-Host ""
     
     # ============================================================================
-    # PHASE 2: CREATE 15 GENERIC USERS IN DEPT101
+    # PHASE 2: CREATE 15 GENERIC USERS IN TARGET DEPT
     # ============================================================================
     
-    Write-Section "PHASE 2: CREATE 15 GENERIC USERS IN $targetDept"
+    Write-Status "Creating 15 generic users in $targetDept" -Level Info
+    Write-Host ""
     
     try {
-        $userCount = 15
         $prefix = "LabUs3r"
-        $skippedCount = 0
         
-        Write-Status "Creating up to $userCount generic users..." -Level Info
-        
-        for ($i = 0; $i -lt $userCount; $i++) {
+        for ($i = 0; $i -lt 15; $i++) {
             $samAccountName = "$prefix-$i"
             
             $existingUser = Get-ADUser -Filter "SamAccountName -eq '$samAccountName'" -ErrorAction SilentlyContinue
@@ -127,29 +141,21 @@ function Invoke-DirectoryMovesPart1 {
                                -Path $targetDeptDN `
                                -AccountPassword $password `
                                -Enabled $true `
-                               -Verbose
+                               -ErrorAction Stop
                     
+                    Write-Status "Created: $samAccountName" -Level Success
                     $createdCount++
                     Start-Sleep -Milliseconds 100
                 }
                 catch {
-                    Write-Status "Error creating $samAccountName : $_" -Level Warning
+                    Write-Status "Error creating $samAccountName: $_" -Level Error
                     $errorCount++
                 }
             }
             else {
+                Write-Status "Skipped (exists): $samAccountName" -Level Info
                 $skippedCount++
             }
-        }
-        
-        if ($createdCount -gt 0) {
-            Write-Status "Created $createdCount user(s)" -Level Success
-        }
-        if ($skippedCount -gt 0) {
-            Write-Status "Skipped $skippedCount existing user(s)" -Level Info
-        }
-        if ($createdCount -eq 0 -and $skippedCount -eq 0) {
-            Write-Status "No users created or found" -Level Warning
         }
     }
     catch {
@@ -157,14 +163,24 @@ function Invoke-DirectoryMovesPart1 {
         $errorCount++
     }
     
-    Invoke-Replication -WaitSeconds 5
-    
-    # ============================================================================
-    # COMPLETION
-    # ============================================================================
-    
+    # Trigger replication
     Write-Host ""
-    Write-Status "Moved: $movedCount, Created: $createdCount, Errors: $errorCount" -Level Info
+    Write-Status "Triggering replication..." -Level Info
+    try {
+        $dc = $domainInfo.ReplicationPartners[0]
+        if ($dc) {
+            Repadmin /syncall $dc /APe | Out-Null
+            Start-Sleep -Seconds 5
+            Write-Status "Replication triggered" -Level Success
+        }
+    }
+    catch {
+        Write-Status "Warning: Could not trigger replication: $_" -Level Warning
+    }
+    
+    # Summary
+    Write-Host ""
+    Write-Status "Moved: $movedCount, Created: $createdCount, Skipped: $skippedCount, Errors: $errorCount" -Level Info
     
     if ($errorCount -eq 0) {
         Write-Status "Directory Moves Part 1 completed successfully" -Level Success
@@ -172,6 +188,7 @@ function Invoke-DirectoryMovesPart1 {
     else {
         Write-Status "Directory Moves Part 1 completed with $errorCount error(s)" -Level Warning
     }
+    
     Write-Host ""
     return $true
 }

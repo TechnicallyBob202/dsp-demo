@@ -9,69 +9,117 @@
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
 
-function Write-Status {
-    param([string]$Message, [ValidateSet('Info','Success','Warning','Error')][string]$Level = 'Info')
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $colors = @{'Info'='White';'Success'='Green';'Warning'='Yellow';'Error'='Red'}
-    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colors[$Level]
-}
+################################################################################
+# HELPER FUNCTIONS
+################################################################################
 
-function Write-Section {
+function Write-ActivityHeader {
     param([string]$Title)
     Write-Host ""
-    Write-Host ":: $Title" -ForegroundColor DarkRed -BackgroundColor Yellow
+    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
+    Write-Host ("| " + $Title.PadRight(62) + " |") -ForegroundColor Cyan
+    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
     Write-Host ""
 }
+
+function Write-Status {
+    param(
+        [string]$Message,
+        [ValidateSet('Info','Success','Warning','Error')]
+        [string]$Level = 'Info'
+    )
+    
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $colors = @{
+        'Info'    = 'White'
+        'Success' = 'Green'
+        'Warning' = 'Yellow'
+        'Error'   = 'Red'
+    }
+    
+    $color = $colors[$Level]
+    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
+}
+
+################################################################################
+# MAIN FUNCTION
+################################################################################
 
 function Invoke-UserAttributesPart1 {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][hashtable]$Config,
-        [Parameter(Mandatory=$true)]$Environment
+        [Parameter(Mandatory=$true)]
+        [hashtable]$Config,
+        
+        [Parameter(Mandatory=$true)]
+        [PSCustomObject]$Environment
     )
     
-    Write-Host ""
-    Write-Status "Starting User Attributes Part 1" -Level Success
-    Write-Host ""
+    Write-ActivityHeader "User Attributes - Part 1"
     
-    $changedCount = 0
+    $modifiedCount = 0
     $errorCount = 0
     
-    # Target users: DemoUser2, DemoUser3, DemoUser4
     $targetUsers = @("DemoUser2", "DemoUser3", "DemoUser4")
     
     foreach ($userName in $targetUsers) {
-        Write-Section "MODIFYING ATTRIBUTES: $userName"
+        Write-Status "Modifying attributes for $userName" -Level Info
         
         try {
             $user = Get-ADUser -Filter "Name -eq '$userName'" -ErrorAction Stop
             
-            # TODO: Set telephoneNumber
-            # TODO: Set city
-            # TODO: Set division
-            # TODO: Set employeeID
-            # TODO: Set initials
-            # TODO: Set company
-            # TODO: Set FAX
+            # Prepare attribute updates
+            $attrParams = @{
+                Identity = $user.DistinguishedName
+                ErrorAction = 'Stop'
+                TelephoneNumber = "555-0$(Get-Random -Minimum 100 -Maximum 999)"
+                City = "New York"
+                Division = "Engineering"
+                EmployeeID = "EMP$(Get-Random -Minimum 10000 -Maximum 99999)"
+                Initials = "DU"
+                Company = "Semperis"
+                Fax = "555-0$(Get-Random -Minimum 100 -Maximum 999)"
+            }
             
-            Write-Status "Modified attributes for $userName" -Level Success
-            $changedCount++
+            Set-ADUser @attrParams
+            
+            Write-Status "Modified: $userName (telephone, city, division, employeeID, initials, company, FAX)" -Level Success
+            $modifiedCount++
+            Start-Sleep -Milliseconds 500
         }
         catch {
             Write-Status "Error modifying $userName : $_" -Level Error
             $errorCount++
         }
-        
-        Start-Sleep -Seconds 3
     }
     
+    # Trigger replication
     Write-Host ""
+    Write-Status "Triggering replication..." -Level Info
+    try {
+        $domainInfo = $Environment.DomainInfo
+        $dc = $domainInfo.ReplicationPartners[0]
+        if ($dc) {
+            Repadmin /syncall $dc /APe | Out-Null
+            Start-Sleep -Seconds 3
+            Write-Status "Replication triggered" -Level Success
+        }
+    }
+    catch {
+        Write-Status "Warning: Could not trigger replication: $_" -Level Warning
+    }
+    
+    # Summary
+    Write-Host ""
+    Write-Status "Modified: $modifiedCount, Errors: $errorCount" -Level Info
+    
     if ($errorCount -eq 0) {
-        Write-Status "User Attributes Part 1 completed successfully ($changedCount users)" -Level Success
+        Write-Status "User Attributes Part 1 completed successfully" -Level Success
     }
     else {
         Write-Status "User Attributes Part 1 completed with $errorCount error(s)" -Level Warning
     }
+    
     Write-Host ""
     return $true
 }

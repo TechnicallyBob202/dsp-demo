@@ -90,15 +90,6 @@ function Write-Header {
     Write-Host ""
 }
 
-function Write-ActivityHeader {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
-    Write-Host ("| " + $Title.PadRight(62) + " |") -ForegroundColor Cyan
-    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
-    Write-Host ""
-}
-
 function Load-Configuration {
     param([Parameter(Mandatory=$true)][string]$ConfigFile)
     

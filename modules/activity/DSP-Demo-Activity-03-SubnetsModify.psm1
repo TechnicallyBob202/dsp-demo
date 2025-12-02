@@ -2,9 +2,7 @@
 ##
 ## DSP-Demo-Activity-03-SubnetsModify.psm1
 ##
-## Modifies existing AD subnet objects:
-## - Changes Description attribute on configured subnets
-## - Changes Location attribute on configured subnets
+## Change descriptions and locations on AD subnets
 ##
 ################################################################################
 
@@ -14,6 +12,15 @@
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
+
+function Write-ActivityHeader {
+    param([string]$Title)
+    Write-Host ""
+    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
+    Write-Host ("| " + $Title.PadRight(62) + " |") -ForegroundColor Cyan
+    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
+    Write-Host ""
+}
 
 function Write-Status {
     param(
@@ -32,6 +39,15 @@ function Write-Status {
     
     $color = $colors[$Level]
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
+}
+
+function Write-ActivityHeader {
+    param([string]$Title)
+    Write-Host ""
+    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
+    Write-Host ("| " + $Title.PadRight(62) + " |") -ForegroundColor Cyan
+    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
+    Write-Host ""
 }
 
 ################################################################################

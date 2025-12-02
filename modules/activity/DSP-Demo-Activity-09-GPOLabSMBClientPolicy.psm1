@@ -13,6 +13,15 @@
 # HELPER FUNCTIONS
 ################################################################################
 
+function Write-ActivityHeader {
+    param([string]$Title)
+    Write-Host ""
+    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
+    Write-Host ("| " + $Title.PadRight(62) + " |") -ForegroundColor Cyan
+    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
+    Write-Host ""
+}
+
 function Write-Status {
     param(
         [string]$Message,
