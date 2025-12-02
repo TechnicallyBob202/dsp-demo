@@ -65,19 +65,24 @@ function Invoke-DirectoryMovesPart1 {
     $domainInfo = $Environment.DomainInfo
     $domainDN = $domainInfo.DN
     
-    # Get config values
-    $sourceOU = $Config.ActivitySettings.DirectoryActivity.SourceOU
-    $sourceDept = $Config.ActivitySettings.DirectoryActivity.SourceDept
-    $targetDept = $Config.ActivitySettings.DirectoryActivity.TargetDept
+    # Get config values - paths like "Lab Users/Dept999"
+    $sourceOUPath = $Config.Module01_UserMovesP1.SourceOU
+    $targetOUPath = $Config.Module01_UserMovesP1.TargetOU
     
-    $sourceDeptDN = "OU=$sourceDept,OU=$sourceOU,$domainDN"
-    $targetDeptDN = "OU=$targetDept,OU=$sourceOU,$domainDN"
+    # Convert path format "Lab Users/Dept999" to DN format
+    $sourceOUParts = $sourceOUPath -split '/'
+    $sourceDeptDN = ($sourceOUParts | ForEach-Object { "OU=$_" }) -join ','
+    $sourceDeptDN = "$sourceDeptDN,$domainDN"
+    
+    $targetOUParts = $targetOUPath -split '/'
+    $targetDeptDN = ($targetOUParts | ForEach-Object { "OU=$_" }) -join ','
+    $targetDeptDN = "$targetDeptDN,$domainDN"
     
     # ============================================================================
     # PHASE 1: MOVE USERS FROM SOURCE TO TARGET DEPT
     # ============================================================================
     
-    Write-Status "Moving users FROM $sourceDept TO $targetDept" -Level Info
+    Write-Status "Moving users FROM $sourceOUPath TO $targetOUPath" -Level Info
     Write-Host ""
     
     try {
@@ -98,13 +103,13 @@ function Invoke-DirectoryMovesPart1 {
                     Start-Sleep -Milliseconds 500
                 }
                 catch {
-                    Write-Status "Error moving $($user.Name): $_" -Level Error
+                    Write-Status "Error moving $($user.Name) : $_" -Level Error
                     $errorCount++
                 }
             }
         }
         else {
-            Write-Status "No users found in $sourceDept" -Level Info
+            Write-Status "No users found in $sourceOUPath" -Level Warning
         }
     }
     catch {
@@ -112,36 +117,32 @@ function Invoke-DirectoryMovesPart1 {
         $errorCount++
     }
     
-    Write-Host ""
-    
     # ============================================================================
-    # PHASE 2: CREATE 15 GENERIC USERS IN TARGET DEPT
+    # PHASE 2: CREATE GENERIC USERS IN TARGET DEPT
     # ============================================================================
     
-    Write-Status "Creating 15 generic users in $targetDept" -Level Info
     Write-Host ""
+    Write-Status "Creating generic users in $targetOUPath" -Level Info
+    Write-Host ""
+    
+    $userCount = $Config.Module01_UserMovesP1.NewUsersToCreate
     
     try {
-        $prefix = "LabUs3r"
-        
-        for ($i = 0; $i -lt 15; $i++) {
-            $samAccountName = "$prefix-$i"
+        for ($i = 1; $i -le $userCount; $i++) {
+            $samAccountName = "GenericUser$($i.ToString('000'))"
+            $userExists = Get-ADUser -Filter "SamAccountName -eq '$samAccountName'" -ErrorAction SilentlyContinue
             
-            $existingUser = Get-ADUser -Filter "SamAccountName -eq '$samAccountName'" -ErrorAction SilentlyContinue
-            
-            if (-not $existingUser) {
+            if (-not $userExists) {
                 try {
-                    $password = ConvertTo-SecureString "P@ssw0rd$(Get-Random -Minimum 1000 -Maximum 9999)" -AsPlainText -Force
-                    
-                    New-ADUser -SamAccountName $samAccountName `
-                               -Name "Lab User $i" `
-                               -GivenName "Lab" `
-                               -Surname "User $i" `
-                               -DisplayName "Lab User $i" `
-                               -Path $targetDeptDN `
-                               -AccountPassword $password `
-                               -Enabled $true `
-                               -ErrorAction Stop
+                    $newUser = New-ADUser `
+                        -SamAccountName $samAccountName `
+                        -Name "Generic User $i" `
+                        -GivenName "Generic" `
+                        -Surname "User$i" `
+                        -Enabled $true `
+                        -Path $targetDeptDN `
+                        -AccountPassword (ConvertTo-SecureString -AsPlainText $Config.General.DefaultPassword -Force) `
+                        -ErrorAction Stop -PassThru
                     
                     Write-Status "Created: $samAccountName" -Level Success
                     $createdCount++
