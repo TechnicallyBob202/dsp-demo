@@ -167,11 +167,15 @@ function Invoke-DirectoryMovesPart1 {
     Write-Host ""
     Write-Status "Triggering replication..." -Level Info
     try {
-        $dc = $domainInfo.ReplicationPartners[0]
-        if ($dc) {
+        $domainInfo = $Environment.DomainInfo
+        if ($domainInfo.ReplicationPartners -and $domainInfo.ReplicationPartners.Count -gt 0) {
+            $dc = $domainInfo.ReplicationPartners[0]
             Repadmin /syncall $dc /APe | Out-Null
             Start-Sleep -Seconds 5
             Write-Status "Replication triggered" -Level Success
+        }
+        else {
+            Write-Status "No replication partners available" -Level Warning
         }
     }
     catch {

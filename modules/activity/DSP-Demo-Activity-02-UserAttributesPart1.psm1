@@ -66,7 +66,12 @@ function Invoke-UserAttributesPart1 {
         Write-Status "Modifying attributes for $userName" -Level Info
         
         try {
-            $user = Get-ADUser -Filter "Name -eq '$userName'" -ErrorAction Stop
+            $user = Get-ADUser -Filter "SamAccountName -eq '$userName'" -ErrorAction Stop
+            
+            if (-not $user) {
+                Write-Status "User '$userName' not found - skipping" -Level Warning
+                continue
+            }
             
             # Prepare attribute updates
             $attrParams = @{
@@ -98,11 +103,14 @@ function Invoke-UserAttributesPart1 {
     Write-Status "Triggering replication..." -Level Info
     try {
         $domainInfo = $Environment.DomainInfo
-        $dc = $domainInfo.ReplicationPartners[0]
-        if ($dc) {
+        if ($domainInfo.ReplicationPartners -and $domainInfo.ReplicationPartners.Count -gt 0) {
+            $dc = $domainInfo.ReplicationPartners[0]
             Repadmin /syncall $dc /APe | Out-Null
             Start-Sleep -Seconds 3
             Write-Status "Replication triggered" -Level Success
+        }
+        else {
+            Write-Status "No replication partners available" -Level Warning
         }
     }
     catch {

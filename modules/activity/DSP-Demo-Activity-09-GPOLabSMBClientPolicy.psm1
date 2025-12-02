@@ -88,30 +88,10 @@ function Invoke-GPOLabSMBClientPolicy {
         
         # Make modifications to the GPO
         try {
-            # Set SMB-related policy settings
-            $gpoSession = Open-NetGPO -PolicyStore $gpo.Path -ErrorAction Stop
-            
-            Write-Status "GPO session opened for modifications" -Level Info
-            
-            # Example: Disable SMB signing requirement change
-            try {
-                Set-SmbServerConfiguration -RequireSecuritySignature $true -Force -ErrorAction SilentlyContinue
-                Write-Status "Modified SMB security signing requirement" -Level Success
-                $modifiedCount++
-            }
-            catch {
-                Write-Status "Could not modify SMB settings (may require elevation or OS version)" -Level Warning
-            }
-            
             # Update GPO description
-            try {
-                Set-GPO -Name $gpoName -Description "SMB Client security configuration for lab" -ErrorAction Stop
-                Write-Status "Updated GPO description" -Level Success
-                $modifiedCount++
-            }
-            catch {
-                Write-Status "Warning: Could not update GPO description: $_" -Level Warning
-            }
+            Set-GPO -Name $gpoName -Description "SMB Client security configuration for lab" -ErrorAction Stop
+            Write-Status "Updated GPO description" -Level Success
+            $modifiedCount++
             
             Start-Sleep -Milliseconds 500
         }
@@ -124,11 +104,14 @@ function Invoke-GPOLabSMBClientPolicy {
         Write-Status "Triggering replication..." -Level Info
         try {
             $domainInfo = $Environment.DomainInfo
-            $dc = $domainInfo.ReplicationPartners[0]
-            if ($dc) {
+            if ($domainInfo.ReplicationPartners -and $domainInfo.ReplicationPartners.Count -gt 0) {
+                $dc = $domainInfo.ReplicationPartners[0]
                 Repadmin /syncall $dc /APe | Out-Null
                 Start-Sleep -Seconds 3
                 Write-Status "Replication triggered" -Level Success
+            }
+            else {
+                Write-Status "No replication partners available" -Level Warning
             }
         }
         catch {

@@ -88,32 +88,10 @@ function Invoke-GPOQuestionable {
         
         # Make modifications to the GPO
         try {
-            # Set some policy settings via registry
-            $gpoSession = Open-NetGPO -PolicyStore $gpo.Path -ErrorAction Stop
-            
-            Write-Status "GPO session opened for modifications" -Level Info
-            
-            # Example: Set a security policy setting
-            # Using Set-NetIPsecMainModeSALimit as an example of a policy change
-            try {
-                Set-NetIPsecMainModeSALimit -PolicyStore $gpo.Path -SALifeTime 500 -ErrorAction SilentlyContinue
-                Write-Status "Modified IPsec Main Mode SA Limit setting" -Level Success
-                $modifiedCount++
-            }
-            catch {
-                # Setting may not be available on all systems
-                Write-Status "Could not modify IPsec setting (may not be available)" -Level Warning
-            }
-            
-            # Update GPO comment
-            try {
-                Set-GPO -Name $gpoName -Description "Modified during demo activity" -ErrorAction Stop
-                Write-Status "Updated GPO description" -Level Success
-                $modifiedCount++
-            }
-            catch {
-                Write-Status "Warning: Could not update GPO description: $_" -Level Warning
-            }
+            # Update GPO description
+            Set-GPO -Name $gpoName -Description "Modified during demo activity" -ErrorAction Stop
+            Write-Status "Updated GPO description" -Level Success
+            $modifiedCount++
             
             Start-Sleep -Milliseconds 500
         }
@@ -126,11 +104,14 @@ function Invoke-GPOQuestionable {
         Write-Status "Triggering replication..." -Level Info
         try {
             $domainInfo = $Environment.DomainInfo
-            $dc = $domainInfo.ReplicationPartners[0]
-            if ($dc) {
+            if ($domainInfo.ReplicationPartners -and $domainInfo.ReplicationPartners.Count -gt 0) {
+                $dc = $domainInfo.ReplicationPartners[0]
                 Repadmin /syncall $dc /APe | Out-Null
                 Start-Sleep -Seconds 3
                 Write-Status "Replication triggered" -Level Success
+            }
+            else {
+                Write-Status "No replication partners available" -Level Warning
             }
         }
         catch {
