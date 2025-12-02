@@ -211,39 +211,40 @@ function Invoke-DirectoryActivity {
     Invoke-Replication -WaitSeconds 5
     
     # ============================================================================
-    # PHASE 3: ADD USERS TO LAB USERS GROUP
+    # PHASE 3: ADD USERS TO SPECIAL LAB USERS GROUP
     # ============================================================================
     
-    Write-Section "PHASE 3: ADD USERS TO GROUP"
+    Write-Section "PHASE 3: ADD USERS TO SPECIAL LAB USERS GROUP"
     
     try {
-        $labUsersGroupName = "LabUsers"
+        $labUsersGroupName = "Special Lab Users"
         
         try {
-            $labUsersGroup = Get-ADGroup -Identity $labUsersGroupName -ErrorAction Stop
+            $labUsersGroup = Get-ADGroup -Filter "Name -eq '$labUsersGroupName'" -ErrorAction Stop
         }
         catch {
-            Write-Status "Group $labUsersGroupName not found - skipping phase 3" -Level Warning
-            # Continue to next phase
+            Write-Status "Group '$labUsersGroupName' not found - skipping phase 3" -Level Warning
         }
         
         if ($labUsersGroup) {
             $deptUsers = Get-ADUser -Filter "Enabled -eq `$true" -SearchBase $dept101DN -ErrorAction SilentlyContinue
             
             if ($deptUsers.Count -gt 0) {
-                Write-Status "Adding $($deptUsers.Count) users to $labUsersGroupName..." -Level Info
+                Write-Status "Adding $($deptUsers.Count) users to '$labUsersGroupName'..." -Level Info
                 
+                $addedCount = 0
                 foreach ($user in $deptUsers) {
                     try {
                         Add-ADGroupMember -Identity $labUsersGroup -Members $user -ErrorAction SilentlyContinue -Verbose
+                        $addedCount++
                         Start-Sleep -Milliseconds 100
                     }
                     catch {
-                        # Group member may already exist; this is OK
+                        # User may already be a member; this is OK
                     }
                 }
                 
-                Write-Status "Group membership updated" -Level Success
+                Write-Status "Added $addedCount user(s) to group" -Level Success
             }
         }
     }
