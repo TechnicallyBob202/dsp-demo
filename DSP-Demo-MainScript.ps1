@@ -222,15 +222,15 @@ function Main {
     Write-Header "Loading Setup Modules"
     
     $setupModules = @(
-        "DSP-Demo-01-Setup-BuildOUs",
-        "DSP-Demo-02-Setup-CreateGroups",
-        "DSP-Demo-03-Setup-CreateUsers",
-        "DSP-Demo-04-Setup-CreateComputers",
-        "DSP-Demo-05-Setup-CreateDefaultDomainPolicy",
-        "DSP-Demo-06-Setup-CreateFGPP",
-        "DSP-Demo-07-Setup-CreateADSitesAndSubnets",
-        "DSP-Demo-08-Setup-CreateDNSZones",
-        "DSP-Demo-09-Setup-CreateGPOs"
+        "DSP-Demo-Setup-01-BuildOUs",
+        "DSP-Demo-Setup-02-CreateGroups",
+        "DSP-Demo-Setup-03-CreateUsers",
+        "DSP-Demo-Setup-04-CreateComputers",
+        "DSP-Demo-Setup-05-CreateDefaultDomainPolicy",
+        "DSP-Demo-Setup-06-CreateFGPP",
+        "DSP-Demo-Setup-07-CreateADSitesAndSubnets",
+        "DSP-Demo-Setup-08-CreateDNSZones",
+        "DSP-Demo-Setup-09-CreateGPOs"
     )
     
     $loadedModules = 0
@@ -334,7 +334,7 @@ function Main {
     $failedExecution = 0
     
     foreach ($moduleName in $setupModules) {
-        $functionName = "Invoke-" + ($moduleName -replace "^DSP-Demo-\d+-Setup-", "")
+        $functionName = "Invoke-" + ($moduleName -replace "^DSP-Demo-Setup-\d+-", "")
         
         if (Get-Command $functionName -ErrorAction SilentlyContinue) {
             try {
