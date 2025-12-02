@@ -2,8 +2,9 @@
 ##
 ## DSP-Demo-Activity-02-UserAttributesPart1.psm1
 ##
-## Set/change attributes on demo users as specified in config
-## 
+## Set/change attributes on demo users (lskywalker, peter.griffin, pmccartney)
+## Config-driven approach - all values come from Module02_UserAttributesP1
+##
 ################################################################################
 
 #Requires -Version 5.1
@@ -53,7 +54,7 @@ function Invoke-UserAttributesPart1 {
     $notFoundCount = 0
     $errorCount = 0
     
-    # Get users list from config
+    # Get users list from config Module02_UserAttributesP1
     if (-not $Config.Module02_UserAttributesP1 -or -not $Config.Module02_UserAttributesP1.Users) {
         Write-Status "No users found in Module02_UserAttributesP1 config" -Level Warning
         Write-Host ""
@@ -62,6 +63,7 @@ function Invoke-UserAttributesPart1 {
     
     $usersList = $Config.Module02_UserAttributesP1.Users
     
+    # Ensure usersList is an array
     if ($usersList -isnot [array]) {
         $usersList = @($usersList)
     }
@@ -76,24 +78,54 @@ function Invoke-UserAttributesPart1 {
             # Find the user in AD
             $adUser = Get-ADUser -Identity $samAccountName -ErrorAction Stop
             
-            Write-Status "Modifying: $samAccountName" -Level Info
+            Write-Status "Modifying: $samAccountName ($($adUser.Name))" -Level Info
             
             # Apply each attribute from config
             if ($userConfig.Attributes -and $userConfig.Attributes -is [hashtable]) {
+                $attributeCount = 0
+                
                 foreach ($attrName in $userConfig.Attributes.Keys) {
                     $attrValue = $userConfig.Attributes[$attrName]
                     
                     try {
-                        Set-ADUser -Identity $adUser -Replace @{$attrName = $attrValue} -ErrorAction Stop
-                        Write-Status "  Set $attrName = '$attrValue'" -Level Success
+                        # Map attribute names to Set-ADUser parameters
+                        $setParams = @{
+                            Identity = $adUser
+                            ErrorAction = 'Stop'
+                        }
+                        
+                        switch ($attrName) {
+                            'telephoneNumber' { $setParams['OfficePhone'] = $attrValue }
+                            'City' { $setParams['City'] = $attrValue }
+                            'Division' { $setParams['Division'] = $attrValue }
+                            'EmployeeID' { $setParams['EmployeeID'] = $attrValue }
+                            'Office' { $setParams['Office'] = $attrValue }
+                            'Department' { $setParams['Department'] = $attrValue }
+                            'Title' { $setParams['Title'] = $attrValue }
+                            'Company' { $setParams['Company'] = $attrValue }
+                            'Description' { $setParams['Description'] = $attrValue }
+                            'Fax' { $setParams['Fax'] = $attrValue }
+                            default { 
+                                # Generic attributes go through -Replace
+                                $setParams['Replace'] = @{$attrName = $attrValue}
+                            }
+                        }
+                        
+                        Set-ADUser @setParams
+                        Write-Status "  ✓ Set $attrName = '$attrValue'" -Level Success
+                        $attributeCount++
                     }
                     catch {
-                        Write-Status "  Error setting $attrName : $_" -Level Error
+                        Write-Status "  ✗ Error setting $attrName : $_" -Level Error
                         $errorCount++
                     }
                 }
                 
-                $modifiedCount++
+                if ($attributeCount -gt 0) {
+                    $modifiedCount++
+                    Write-Status "  Modified $attributeCount attribute(s)" -Level Info
+                }
+                
                 Start-Sleep -Milliseconds 500
             }
             else {

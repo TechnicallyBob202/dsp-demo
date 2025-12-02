@@ -5,20 +5,15 @@
 ## Activity configuration for DSP Demo script suite
 ## Contains all 30 activity modules mapped from legacy script analysis
 ##
+## Demo users from legacy script:
+## - arose (Axl Rose - DemoUser1)
+## - lskywalker (Luke Skywalker - DemoUser2)
+## - peter.griffin (Peter Griffin - DemoUser3)
+## - pmccartney (Paul McCartney - DemoUser4)
+##
 ## Original Author: Rob Ingenthron (robi@semperis.com)
 ## Refactored By: Bob Lyons
-## Version: 1.1.0-20251202
-##
-## MODULES (30 TOTAL):
-## Directory: 01, 02, 15, 18, 19, 20, 23
-## DNS: 16, 21
-## GPO: 08, 09, 10, 17, 24, 25
-## FGPP: 11, 13
-## Sites: 03, 12, 27
-## ACL: 04, 22, 26
-## Security: 06, 07
-## DSP: 28, 29, 30
-## Group: 05, 14
+## Version: 2.0.0-20251202
 ##
 ################################################################################
 
@@ -41,42 +36,41 @@
         SourceOU = "Lab Users/Dept999"
         TargetOU = "Lab Users/Dept101"
         Description = "Move all users from Dept999 to Dept101"
-        NewUsersToCreate = 15
     }
     
     #---------------------------------------------------------------------------
     # MODULE 02: Directory-UserAttributes-Part1
-    # Set multiple attributes on DemoUser2, DemoUser3, DemoUser4
+    # Set multiple attributes on lskywalker, peter.griffin, pmccartney
     #---------------------------------------------------------------------------
     Module02_UserAttributesP1 = @{
         Users = @(
             @{
-                SamAccountName = "DemoUser2"
+                SamAccountName = "lskywalker"
                 Attributes = @{
-                    telephoneNumber = "555-1234"
-                    City = "Phoenix"
-                    Division = "Engineering"
-                    EmployeeID = "10002"
+                    telephoneNumber = "408-555-5151"
+                    City = "Tatooine"
+                    Division = "Spoon Bending"
+                    EmployeeID = "00314159"
                     Office = "Building A"
                 }
             }
             @{
-                SamAccountName = "DemoUser3"
+                SamAccountName = "peter.griffin"
                 Attributes = @{
-                    telephoneNumber = "555-1235"
-                    City = "Seattle"
-                    Division = "Sales"
-                    EmployeeID = "10003"
+                    telephoneNumber = "408-777-3333"
+                    City = "Quahog"
+                    Division = "Blue Collar"
+                    EmployeeID = "00987654321"
                     Office = "Building B"
                 }
             }
             @{
-                SamAccountName = "DemoUser4"
+                SamAccountName = "pmccartney"
                 Attributes = @{
-                    telephoneNumber = "555-1236"
-                    City = "Denver"
-                    Division = "Marketing"
-                    EmployeeID = "10004"
+                    telephoneNumber = "011 44 20 1234 5678"
+                    City = "Liverpool"
+                    Division = "Legends"
+                    EmployeeID = "000001212"
                     Office = "Building C"
                 }
             }
@@ -87,68 +81,70 @@
     # MODULE 03: Sites-SubnetModifications
     # Change subnet descriptions and locations
     #---------------------------------------------------------------------------
-    Module03_SubnetMods = @{
-        SubnetChanges = @(
+    Module03_SubnetsModify = @{
+        Subnets = @(
             @{
-                Name = "172.16.32.0/20"
-                NewDescription = "Modified demo lab subnet"
-                NewLocation = "Lab-USA-CA-Updated"
+                Name = "10.99.0.0/16"
+                Description = "Modified lab subnet description"
+                Location = "Lab-USA-CA"
             }
             @{
                 Name = "10.222.0.0/16"
-                NewDescription = "Updated Special Devices Network"
-                NewLocation = "Lab-USA-East-Updated"
+                Description = "Modified special infrastructure network"
+                Location = "Lab-USA-East"
+            }
+            @{
+                Name = "192.168.0.0/16"
+                Description = "Modified primary demo lab network"
+                Location = "Lab-USA-TX"
             }
         )
     }
     
     #---------------------------------------------------------------------------
     # MODULE 04: ACL-BadOU-Part1
-    # Modify ACL on Bad OU (placeholder - actual perms in code)
+    # Modify ACL on Bad OU
     #---------------------------------------------------------------------------
-    Module04_ACLBadOUP1 = @{
-        TargetOU = "Lab Users"
+    Module04_ACLBadOUPart1 = @{
+        OU = "Bad OU"
         Modifications = @(
             @{
-                Principal = "Tier2Admins"
-                Permission = "GenericRead"
+                Identity = "Authenticated Users"
+                Action = "Add"
+                Rights = "GenericRead"
             }
         )
     }
     
     #---------------------------------------------------------------------------
     # MODULE 05: Group-MembershipChanges
-    # REMOVE App Admin III from Special Lab Users
+    # Remove App Admin III from Special Lab Users
     #---------------------------------------------------------------------------
     Module05_GroupMembership = @{
         GroupName = "Special Lab Users"
-        MembersToRemove = @("App Admin III")
+        RemoveMembers = @("App Admin III")
     }
     
     #---------------------------------------------------------------------------
     # MODULE 06: Security-AccountLockout
-    # 50 bad password attempts against DemoUser2
+    # 50 bad password attempts against lskywalker
     #---------------------------------------------------------------------------
     Module06_AccountLockout = @{
-        TargetUser = "DemoUser2"
+        TargetUser = "lskywalker"
         BadPasswordAttempts = 50
-        BadPassword = "WrongPassword999"
         DelayBetweenAttempts = 100
     }
     
     #---------------------------------------------------------------------------
     # MODULE 07: Security-PasswordSpray
-    # 5 users, 10 different passwords each (50 total attempts)
+    # Password spray attack against multiple users
     #---------------------------------------------------------------------------
     Module07_PasswordSpray = @{
-        TargetUsers = @(
-            "User001", "User002", "User003", "User004", "User005"
-        )
-        PasswordsPerUser = 10
-        BadPasswords = @(
-            "Password1!", "Password2!", "Password3!", "Welcome123!",
-            "Admin123!", "Test123!", "Demo123!", "Lab123!",
-            "Semperis1!", "Change123!"
+        SourceOU = "Lab Users"
+        UserCount = 5
+        PasswordsToTry = @(
+            "P@ssw0rd", "Password", "Pass123!", "Welcome", "Admin123!",
+            "Test123!", "Demo123!", "Lab123!", "Semperis1!", "Change123!"
         )
         DelayBetweenAttempts = 50
     }
@@ -159,8 +155,8 @@
     #---------------------------------------------------------------------------
     Module08_GPOQuestionable = @{
         GpoName = "Questionable GPO"
-        Description = "Test GPO for demonstrations"
-        Comment = "Modified test GPO"
+        DisplayName = "Questionable GPO"
+        Comment = "Simple test GPO for demonstrations"
     }
     
     #---------------------------------------------------------------------------
@@ -169,8 +165,8 @@
     #---------------------------------------------------------------------------
     Module09_GPOLabSMB = @{
         GpoName = "Lab SMB Client Policy GPO"
-        Description = "SMB client security configuration"
-        Comment = "Modified SMB policy"
+        DisplayName = "Lab SMB Client Policy GPO"
+        Comment = "SMB client security configuration for lab"
     }
     
     #---------------------------------------------------------------------------
@@ -179,8 +175,8 @@
     #---------------------------------------------------------------------------
     Module10_GPOCIS = @{
         GpoName = "CIS Benchmark Windows Server Policy GPO"
-        Description = "CIS hardening baseline"
-        Comment = "Modified CIS Benchmark policy"
+        DisplayName = "CIS Benchmark Windows Server Policy GPO"
+        Comment = "CIS Windows Server hardening policy baseline"
     }
     
     #---------------------------------------------------------------------------
@@ -205,9 +201,10 @@
     # MODULE 12: Sites-SubnetDeletion
     # Delete AD subnets
     #---------------------------------------------------------------------------
-    Module12_SubnetDelete = @{
+    Module12_SubnetDeletion = @{
         SubnetsToDelete = @(
-            "10.50.0.0/24"
+            "10.99.0.0/16"
+            "10.222.0.0/16"
         )
     }
     
@@ -217,76 +214,67 @@
     #---------------------------------------------------------------------------
     Module13_FGPPModify = @{
         PolicyName = "SpecialLabUsers_PSO"
-        Modifications = @(
-            @{
-                Setting = "LockoutThreshold"
-                Value = 5
-            }
-            @{
-                Setting = "LockoutDuration"
-                Value = 60
-            }
+        Modifications = @{
+            LockoutThreshold = 5
+            MaxPasswordAge = 60
+        }
+    }
+    
+    #---------------------------------------------------------------------------
+    # MODULE 14: Group-SpecialLabUsers-Recreation (MAJOR ACTIVITY)
+    # Complex sequence: Delete, Create, Change category, Change scope, Move, Add member
+    #---------------------------------------------------------------------------
+    Module14_GroupRecreation = @{
+        GroupName = "Special Lab Users"
+        Operations = @(
+            @{ Operation = "Delete"; GroupName = "Special Lab Users" }
+            @{ Operation = "Create"; GroupName = "Special Lab Users"; Scope = "Global"; Category = "Security"; Path = "Lab Users" }
+            @{ Operation = "ChangeCategory"; GroupName = "Special Lab Users"; NewCategory = "Distribution" }
+            @{ Operation = "ChangeScope"; GroupName = "Special Lab Users"; NewScope = "Universal" }
+            @{ Operation = "Move"; GroupName = "Special Lab Users"; NewPath = "Lab Admins" }
+            @{ Operation = "AddMember"; GroupName = "Special Lab Users"; Member = "App Admin III" }
         )
     }
     
     #---------------------------------------------------------------------------
-    # MODULE 14: Group-SpecialLabUsersLifecycle
-    # 6-step group lifecycle: DELETE/CREATE/MODIFY/MOVE
-    #---------------------------------------------------------------------------
-    Module14_GroupLifecycle = @{
-        GroupName = "Special Lab Users"
-        DeleteThenRecreate = $true
-        RecreateOU = "Lab Users"
-        RecreateScope = "Global"
-        RecreateCategory = "Security"
-        ChangeToCategory = "Distribution"
-        ChangeScopeTo = "Universal"
-        MoveToOU = "Lab Admins"
-        MembersToAdd = @("App Admin III")
-    }
-    
-    #---------------------------------------------------------------------------
     # MODULE 15: Directory-UserAttributes-AlternateCredentials
-    # DemoUser1 changes using OpsAdmin1 credentials
+    # DemoUser1 (arose) changes using alternate credentials (DemoUser2/lskywalker)
     #---------------------------------------------------------------------------
     Module15_UserAttributesAltCreds = @{
-        TargetUser = "DemoUser1"
-        AlternateAdmin = "OpsAdmin1"
+        TargetUser = "arose"
+        ChangeAsUser = "lskywalker"
         Attributes = @{
-            telephoneNumber = "555-0001"
-            info = "Modified by alternate admin"
+            telephoneNumber = "(000) 867-5309"
+            info = "Changed by alternate user"
         }
     }
     
     #---------------------------------------------------------------------------
     # MODULE 16: DNS-ZoneAndRecordCreation
-    # Create reverse zones, forward zone, A records, PTR records, CNAME
+    # Create reverse zones and DNS records
     #---------------------------------------------------------------------------
-    Module16_DNSCreate = @{
+    Module16_DNSZoneCreate = @{
         ReverseZones = @(
-            "10.in-addr.arpa",
-            "172.in-addr.arpa",
+            "10.in-addr.arpa"
+            "172.in-addr.arpa"
             "168.192.in-addr.arpa"
         )
-        ForwardZone = "specialsite.lab"
+        ForwardZones = @(
+            "specialsite.lab"
+        )
         ARecords = @(
-            @{ Name = "mylabhost01"; IPAddress = "172.16.1.1" }
-            @{ Name = "mylabhost02"; IPAddress = "172.16.1.2" }
-            @{ Name = "mylabhost03"; IPAddress = "172.16.1.3" }
-            @{ Name = "mylabhost04"; IPAddress = "172.16.1.4" }
-            @{ Name = "mylabhost05"; IPAddress = "172.16.1.5" }
-            @{ Name = "mylabhost06"; IPAddress = "172.16.1.6" }
-            @{ Name = "mylabhost07"; IPAddress = "172.16.1.7" }
-            @{ Name = "mylabhost08"; IPAddress = "172.16.1.8" }
+            @{ Name = "mylabhost01"; IPAddress = "192.168.1.100"; Zone = "specialsite.lab" }
+            @{ Name = "mylabhost02"; IPAddress = "192.168.1.101"; Zone = "specialsite.lab" }
+            @{ Name = "mylabhost03"; IPAddress = "192.168.1.102"; Zone = "specialsite.lab" }
+            @{ Name = "mylabhost04"; IPAddress = "192.168.1.103"; Zone = "specialsite.lab" }
+            @{ Name = "mylabhost05"; IPAddress = "192.168.1.104"; Zone = "specialsite.lab" }
+            @{ Name = "mylabhost06"; IPAddress = "192.168.1.105"; Zone = "specialsite.lab" }
+            @{ Name = "mylabhost07"; IPAddress = "192.168.1.106"; Zone = "specialsite.lab" }
+            @{ Name = "mylabhost08"; IPAddress = "192.168.1.107"; Zone = "specialsite.lab" }
         )
-        PTRRecords = @(
-            @{ PTRDomainName = "mylabhost01.specialsite.lab"; IPAddress = "172.16.1.1" }
-            @{ PTRDomainName = "mylabhost02.specialsite.lab"; IPAddress = "172.16.1.2" }
+        CNAMERecords = @(
+            @{ Name = "www"; Target = "mylabhost01"; Zone = "specialsite.lab" }
         )
-        CNAMERecord = @{
-            Name = "alias"
-            CanonicalName = "mylabhost01.specialsite.lab"
-        }
     }
     
     #---------------------------------------------------------------------------
@@ -294,18 +282,19 @@
     # Modify Default Domain Policy settings
     #---------------------------------------------------------------------------
     Module17_GPODefaultDomain = @{
-        Modifications = @(
-            @{ Setting = "MinPasswordLength"; Value = 12 }
-            @{ Setting = "PasswordComplexity"; Value = $true }
-            @{ Setting = "LockoutThreshold"; Value = 5 }
-        )
+        GpoName = "Default Domain Policy"
+        Modifications = @{
+            MinPasswordLength = 14
+            PasswordComplexity = $true
+            AccountLockoutThreshold = 5
+        }
     }
     
     #---------------------------------------------------------------------------
-    # MODULE 18: Directory-UserMoves-Part2
-    # Move ALL users FROM Dept101 TO Dept999 (REVERSE)
+    # MODULE 18: Directory-UserMoves-Part2 (REVERSE MOVE)
+    # Move ALL users FROM Dept101 TO Dept999 (reverses Module 01)
     #---------------------------------------------------------------------------
-    Module18_UserMovesP2 = @{
+    Module18_UserMovesPart2 = @{
         SourceOU = "Lab Users/Dept101"
         TargetOU = "Lab Users/Dept999"
         Description = "Move all users from Dept101 back to Dept999"
@@ -313,41 +302,72 @@
     
     #---------------------------------------------------------------------------
     # MODULE 19: Directory-UserAttributes-Part2
-    # DemoUser1, DemoUser2, DemoUser3: Change FAX
+    # Change FAX on arose, lskywalker, peter.griffin
     #---------------------------------------------------------------------------
-    Module19_UserAttributesP2 = @{
+    Module19_UserAttributesPart2 = @{
         Users = @(
-            @{ SamAccountName = "DemoUser1"; facsimileTelephoneNumber = "(555) 555-0001" }
-            @{ SamAccountName = "DemoUser2"; facsimileTelephoneNumber = "(555) 555-0002" }
-            @{ SamAccountName = "DemoUser3"; facsimileTelephoneNumber = "(555) 555-0003" }
+            @{
+                SamAccountName = "arose"
+                Attributes = @{
+                    Fax = "+501 11-0001"
+                }
+            }
+            @{
+                SamAccountName = "lskywalker"
+                Attributes = @{
+                    Fax = "+41 111-9999"
+                }
+            }
+            @{
+                SamAccountName = "peter.griffin"
+                Attributes = @{
+                    Fax = "+1 216 111-888"
+                }
+            }
         )
     }
     
     #---------------------------------------------------------------------------
     # MODULE 20: Directory-UserAttributes-Part3
-    # DemoUser1, DemoUser2, DemoUser3: Change department
+    # Change department on arose, lskywalker, peter.griffin
     #---------------------------------------------------------------------------
-    Module20_UserAttributesP3 = @{
+    Module20_UserAttributesPart3 = @{
         Users = @(
-            @{ SamAccountName = "DemoUser1"; Department = "Finance" }
-            @{ SamAccountName = "DemoUser2"; Department = "Operations" }
-            @{ SamAccountName = "DemoUser3"; Department = "Development" }
+            @{
+                SamAccountName = "arose"
+                Attributes = @{
+                    Department = "Engineering"
+                }
+            }
+            @{
+                SamAccountName = "lskywalker"
+                Attributes = @{
+                    Department = "Operations"
+                }
+            }
+            @{
+                SamAccountName = "peter.griffin"
+                Attributes = @{
+                    Department = "Management"
+                }
+            }
         )
     }
     
     #---------------------------------------------------------------------------
     # MODULE 21: DNS-RecordModifications
-    # Modify existing DNS records, delete records, change TTL
+    # Modify and delete DNS records
     #---------------------------------------------------------------------------
-    Module21_DNSModify = @{
-        Zone = "specialsite.lab"
+    Module21_DNSRecordModify = @{
         RecordModifications = @(
-            @{ Name = "mylabhost01"; NewIPAddress = "172.16.2.1" }
-            @{ Name = "mylabhost02"; NewIPAddress = "172.16.2.2" }
+            @{ 
+                Name = "mylabhost01"
+                Zone = "specialsite.lab"
+                NewIPAddress = "192.168.1.200"
+            }
         )
-        RecordsToDelete = @("mylabhost08")
-        TTLChanges = @(
-            @{ Name = "mylabhost03"; NewTTL = 7200 }
+        RecordsToDelete = @(
+            @{ Name = "mylabhost08"; Zone = "specialsite.lab" }
         )
     }
     
@@ -356,11 +376,12 @@
     # Additional ACL modifications
     #---------------------------------------------------------------------------
     Module22_ACLAdditional = @{
-        TargetOU = "Lab Computers"
+        OU = "Bad OU"
         Modifications = @(
             @{
-                Principal = "Tier1Admins"
-                Permission = "GenericWrite"
+                Identity = "SYSTEM"
+                Action = "Modify"
+                Rights = "GenericWrite"
             }
         )
     }
@@ -370,9 +391,9 @@
     # Disable protection on DeleteMe OU and delete entire structure
     #---------------------------------------------------------------------------
     Module23_OUDeleteMe = @{
-        TargetOU = "DeleteMe OU"
+        OUPath = "Delete Me OU"
         DisableProtection = $true
-        DeleteEntireStructure = $true
+        DeleteOUStructure = $true
     }
     
     #---------------------------------------------------------------------------
@@ -381,8 +402,8 @@
     #---------------------------------------------------------------------------
     Module24_GPOLinkBadOU = @{
         GpoName = "Questionable GPO"
-        TargetOU = "Lab Users"
-        Enforce = $false
+        TargetOU = "Bad OU"
+        Enabled = $true
     }
     
     #---------------------------------------------------------------------------
@@ -391,49 +412,46 @@
     #---------------------------------------------------------------------------
     Module25_GPOCISPart2 = @{
         GpoName = "CIS Benchmark Windows Server Policy GPO"
-        Modifications = @(
-            @{ Setting = "AuditAccountLogon"; Value = "Success" }
-            @{ Setting = "AuditPrivilegeUse"; Value = "Failure" }
-        )
+        Modifications = @{
+            AuditAccountLogon = "Success"
+            AuditObjectAccess = "Success"
+        }
     }
     
     #---------------------------------------------------------------------------
     # MODULE 26: ACL-BadOU-Part2
     # More ACL changes on Bad OU
     #---------------------------------------------------------------------------
-    Module26_ACLBadOUP2 = @{
-        TargetOU = "Lab Users"
+    Module26_ACLBadOUPart2 = @{
+        OU = "Bad OU"
         Modifications = @(
             @{
-                Principal = "Tier0Admins"
-                Permission = "DeleteChild"
+                Identity = "Domain Users"
+                Action = "Add"
+                Rights = "GenericRead"
             }
         )
     }
     
     #---------------------------------------------------------------------------
     # MODULE 27: Sites-ConfigurationChanges
-    # Modify site configuration, change replication settings
+    # Modify site configuration and change replication settings
     #---------------------------------------------------------------------------
     Module27_SitesConfig = @{
-        SiteModifications = @(
-            @{
-                Site = "LabSite001"
-                NewLocation = "Updated Location"
-                NewDescription = "Updated Description"
-            }
-        )
-        ReplicationFrequencyChanges = @(
-            @{
-                SiteLink = "Default-First-Site-Name -- LabSite001"
-                NewFrequency = 30
-                NewCost = 25
-            }
-        )
+        SiteModifications = @{
+            Site = "LabSite001"
+            NewLocation = "Updated Location"
+            NewDescription = "Updated Description"
+        }
+        ReplicationFrequencyChanges = @{
+            SiteLink = "Default-First-Site-Name -- LabSite001"
+            NewFrequency = 30
+            NewCost = 25
+        }
     }
     
     #---------------------------------------------------------------------------
-    # MODULE 28: DSP-AutomatedUndo
+    # MODULE 28: DSP-AutomatedUndo (DSP-SPECIFIC)
     # Connect to DSP server and use DSP cmdlets to undo change
     #---------------------------------------------------------------------------
     Module28_DSPUndo = @{
@@ -441,23 +459,23 @@
         ConnectToDSP = $true
         ChangeToUndo = @{
             ObjectType = "User"
-            ObjectName = "DemoUser2"
+            ObjectName = "lskywalker"
             Attribute = "facsimileTelephoneNumber"
         }
     }
     
     #---------------------------------------------------------------------------
-    # MODULE 29: DSP-TriggerUndoRule-TitleChange
-    # Change Title on DemoUser3 to trigger DSP undo rule
+    # MODULE 29: DSP-TriggerUndoRule-TitleChange (DSP-SPECIFIC)
+    # Change Title on peter.griffin to trigger DSP undo rule
     #---------------------------------------------------------------------------
     Module29_DSPTriggerTitle = @{
-        TargetUser = "DemoUser3"
+        TargetUser = "peter.griffin"
         Attribute = "Title"
         NewValue = "Senior Manager"
     }
     
     #---------------------------------------------------------------------------
-    # MODULE 30: DSP-TriggerUndoRule-GroupMembership
+    # MODULE 30: DSP-TriggerUndoRule-GroupMembership (DSP-SPECIFIC)
     # Remove ALL users from Special Lab Admins to trigger DSP undo rule
     #---------------------------------------------------------------------------
     Module30_DSPTriggerGroup = @{
