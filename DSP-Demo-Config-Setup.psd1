@@ -29,6 +29,7 @@
         Company = "HaleHapa"
         LogPath = "C:\Logs\DSP-Demo"
         VerboseLogging = $true
+        DefaultPassword = "Password1"
     }
     
     #---------------------------------------------------------------------------
