@@ -7,12 +7,13 @@
 ## Features:
 ## - Calls Preflight module for ALL environment discovery and setup
 ## - Displays configuration summary
-## - 15-second confirmation timeout before execution
-## - Executes all configured activities
+## - 30-second confirmation timeout before execution
+## - Executes Setup Phase (create baseline infrastructure)
+## - Executes Activity Phase (generate changes for DSP to monitor)
 ## - Comprehensive logging and error handling
 ##
 ## Author: Rob Ingenthron (Original), Bob Lyons (Refactor)
-## Version: 4.5.2-20251120 (Updated summaries)
+## Version: 4.6.0-20251202
 ##
 ################################################################################
 
@@ -199,9 +200,13 @@ function Main {
     # Expand placeholders in config using discovered environment
     $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $environment.DomainInfo
     
+    # ========================================================================
+    # LOAD SETUP MODULES
+    # ========================================================================
+    
     Write-Header "Loading Setup Modules"
     
-    $modulesToImport = @(
+    $setupModules = @(
         "DSP-Demo-01-Setup-BuildOUs",
         "DSP-Demo-02-Setup-CreateGroups",
         "DSP-Demo-03-Setup-CreateUsers",
@@ -213,7 +218,7 @@ function Main {
         "DSP-Demo-09-Setup-CreateGPOs"
     )
     
-    foreach ($moduleName in $modulesToImport) {
+    foreach ($moduleName in $setupModules) {
         if (-not (Import-DemoModule $moduleName)) {
             Write-Status "Warning: Failed to import $moduleName" -Level Warning
         }
@@ -221,170 +226,70 @@ function Main {
     
     Write-Host ""
     
-    Write-Header "Script Modules To Be Run"
+    # ========================================================================
+    # LOAD ACTIVITY MODULES
+    # ========================================================================
     
-    $colWidth = 38
-    $spacing = "  "
+    Write-Header "Loading Activity Modules"
     
-    # Column headers
-    Write-Host "$(("SETUP MODULES").PadRight($colWidth))$spacing$(("ACTIVITY MODULES").PadRight($colWidth))" -ForegroundColor $Colors.Header
-    Write-Host "$("=" * $colWidth)$spacing$("=" * $colWidth)" -ForegroundColor $Colors.Header
+    $activityModules = @(
+        "DSP-Demo-Activity-01-DirectoryActivity"
+    )
+    
+    foreach ($moduleName in $activityModules) {
+        if (-not (Import-DemoModule $moduleName)) {
+            Write-Status "Warning: Failed to import $moduleName" -Level Warning
+        }
+    }
+    
     Write-Host ""
     
-    # Build left column (Setup)
-    $leftLines = @()
+    # ========================================================================
+    # DISPLAY CONFIGURATION SUMMARY
+    # ========================================================================
     
+    Write-Header "Activity Configuration Summary"
+    
+    # Display what will be created/modified based on config
     if ($config.General) {
-        $leftLines += "General Settings:"
-        $leftLines += "  DSP Server: $(if ($environment.DspAvailable) { $environment.DspServer } else { 'Not available' })"
-        $leftLines += "  Loop Count: $($config.General.LoopCount)"
-        $leftLines += "  Generic Users: $($config.General.GenericUserCount)"
-        $leftLines += "  Company: $($config.General.Company)"
-        $leftLines += ""
+        Write-Host "General Settings:" -ForegroundColor $Colors.Section
+        Write-Host "  DSP Server: $(if ($environment.DspAvailable) { $environment.DspServer } else { 'Not available' })" -ForegroundColor $Colors.Info
+        Write-Host "  Loop Count: $($config.General.LoopCount)" -ForegroundColor $Colors.Info
+        Write-Host "  Generic Test Users: $($config.General.GenericUserCount)" -ForegroundColor $Colors.Info
+        Write-Host "  Company: $($config.General.Company)" -ForegroundColor $Colors.Info
+        Write-Host ""
     }
     
-    if ($config.ContainsKey('OUs') -and $config.OUs) {
-        $leftLines += "Organizational Units:"
-        foreach ($ouKey in $config.OUs.Keys) {
-            $ou = $config.OUs[$ouKey]
-            $leftLines += "  - $($ou.Name)"
+    if ($config.OUs) {
+        Write-Host "Organizational Units to Create:" -ForegroundColor $Colors.Section
+        foreach ($ou in $config.OUs.Keys) {
+            Write-Host "  - $($config.OUs[$ou].Name)" -ForegroundColor $Colors.Info
         }
-        $leftLines += ""
+        Write-Host ""
     }
     
-    if ($config.ContainsKey('Groups') -and $config.Groups) {
-        $labUserGroupCount = if ($config.Groups.ContainsKey('LabUserGroups')) { @($config.Groups.LabUserGroups).Count } else { 0 }
-        $adminGroupCount = if ($config.Groups.ContainsKey('AdminGroups')) { @($config.Groups.AdminGroups).Count } else { 0 }
-        $deleteMeGroupCount = if ($config.Groups.ContainsKey('DeleteMeOUGroups')) { @($config.Groups.DeleteMeOUGroups).Count } else { 0 }
-        $totalGroups = $labUserGroupCount + $adminGroupCount + $deleteMeGroupCount
-        
-        $leftLines += "Security Groups:"
-        $leftLines += "  Lab User: $labUserGroupCount"
-        $leftLines += "  Admin: $adminGroupCount"
-        $leftLines += "  DeleteMe OU: $deleteMeGroupCount"
-        $leftLines += "  Total: $totalGroups"
-        $leftLines += ""
+    if ($config.DemoUsers) {
+        Write-Host "Demo User Accounts to Create:" -ForegroundColor $Colors.Section
+        $count = @($config.DemoUsers.Keys).Count
+        Write-Host "  - $count named accounts" -ForegroundColor $Colors.Info
+        Write-Host ""
     }
     
-    if ($config.ContainsKey('Users') -and $config.Users) {
-        $tier0Count = if ($config.Users.ContainsKey('Tier0Admins')) { @($config.Users.Tier0Admins).Count } else { 0 }
-        $tier1Count = if ($config.Users.ContainsKey('Tier1Admins')) { @($config.Users.Tier1Admins).Count } else { 0 }
-        $tier2Count = if ($config.Users.ContainsKey('Tier2Admins')) { @($config.Users.Tier2Admins).Count } else { 0 }
-        $demoUserCount = if ($config.Users.ContainsKey('DemoUsers')) { @($config.Users.DemoUsers).Count } else { 0 }
-        $genericUserCount = $config.General.GenericUserCount
-        $totalUsers = $tier0Count + $tier1Count + $tier2Count + $demoUserCount + $genericUserCount
-        
-        $leftLines += "User Accounts:"
-        $leftLines += "  Tier 0: $tier0Count"
-        $leftLines += "  Tier 1: $tier1Count"
-        $leftLines += "  Tier 2: $tier2Count"
-        $leftLines += "  Demo Users: $demoUserCount"
-        $leftLines += "  Generic Bulk: $genericUserCount"
-        $leftLines += "  Total: $totalUsers"
-        $leftLines += ""
-    }
-    
-    if ($config.ContainsKey('Computers') -and $config.Computers) {
-        $leftLines += "Computer Objects:"
-        foreach ($computer in $config.Computers) {
-            $leftLines += "  - $($computer.Name)"
-        }
-        $leftLines += ""
-    }
-    
-    if ($config.ContainsKey('DefaultDomainPolicy') -and $config.DefaultDomainPolicy) {
-        $leftLines += "Domain Policy Settings:"
-        $policy = $config.DefaultDomainPolicy
-        $leftLines += "  MinLength: $($policy.MinPasswordLength)"
-        $leftLines += "  Complexity: $($policy.PasswordComplexity)"
-        $leftLines += "  History: $($policy.PasswordHistoryCount)"
-        $leftLines += "  MaxAge: $($policy.MaxPasswordAge)d"
-        $leftLines += "  Lockout: $($policy.LockoutThreshold) attempts"
-        $leftLines += ""
-    }
-    
-    if ($config.ContainsKey('FGPPs') -and $config.FGPPs) {
-        $leftLines += "Fine-Grained Policies:"
-        foreach ($fgpp in $config.FGPPs) {
-            $leftLines += "  - $($fgpp.Name)"
-        }
-        $leftLines += ""
-    }
-    
-    if ($config.ContainsKey('AdSites') -and $config.AdSites) {
-        $leftLines += "AD Sites:"
-        foreach ($siteName in $config.AdSites.Keys) {
-            $leftLines += "  - $siteName"
-        }
-        $leftLines += ""
-    }
-    
-    if ($config.ContainsKey('AdSubnets') -and $config.AdSubnets) {
-        $leftLines += "Subnets:"
-        foreach ($subnetName in $config.AdSubnets.Keys) {
-            $leftLines += "  - $subnetName"
-        }
-        $leftLines += ""
-    }
-    
-    if ($config.ContainsKey('DnsForwardZones') -and $config.DnsForwardZones) {
-        $leftLines += "DNS Forward Zones:"
-        foreach ($zoneName in $config.DnsForwardZones.Keys) {
-            $leftLines += "  - $zoneName"
-        }
-        $leftLines += ""
-    }
-    
-    if ($config.ContainsKey('DnsReverseZones') -and $config.DnsReverseZones) {
-        $leftLines += "DNS Reverse Zones:"
-        foreach ($zoneName in $config.DnsReverseZones.Keys) {
-            $leftLines += "  - $zoneName"
-        }
-        $leftLines += ""
-    }
-    
-    if ($config.ContainsKey('GPOs') -and $config.GPOs) {
-        $leftLines += "Group Policy Objects:"
-        foreach ($gpoName in $config.GPOs.Keys) {
-            $leftLines += "  - $gpoName"
-        }
-        $leftLines += ""
-    }
-    
-    # Build right column (Activity - currently placeholder)
-    $rightLines = @()
-    $rightLines += "(Activity modules coming soon)"
-    $rightLines += ""
-    
-    # Output two columns side-by-side
-    $maxLines = [Math]::Max($leftLines.Count, $rightLines.Count)
-    
-    for ($i = 0; $i -lt $maxLines; $i++) {
-        $leftLine = if ($i -lt $leftLines.Count) { $leftLines[$i] } else { "" }
-        $rightLine = if ($i -lt $rightLines.Count) { $rightLines[$i] } else { "" }
-        
-        Write-Host "$($leftLine.PadRight($colWidth))$spacing$rightLine" -ForegroundColor $Colors.Info
-    }
+    # ========================================================================
+    # CONFIRMATION PROMPT
+    # ========================================================================
     
     Write-Header "Confirmation Required"
-    Write-Host "Scroll UP to review preflight results! Do not proceed if errors were encountered!" -ForegroundColor $Colors.Prompt
-    Write-Host ""
-    Write-Host "Continuing to run this script will create/update all of the objects listed in the" -ForegroundColor $Colors.Info
-    Write-Host "Setup Modules above and then generate activity based on the Activity Modules." -ForegroundColor $Colors.Info
-    Write-Host ""
-    Write-Host "If you want to modify the objects created by Setup Modules, or change the activity" -ForegroundColor $Colors.Info
-    Write-Host "generation, you can adjust the content of the DSP-Demo-Config.psd1 file." -ForegroundColor $Colors.Info
-    Write-Host ""    
     Write-Host "Press " -ForegroundColor $Colors.Prompt -NoNewline
     Write-Host "Y" -ForegroundColor $Colors.MenuHighlight -NoNewline
     Write-Host " to proceed, " -ForegroundColor $Colors.Prompt -NoNewline
     Write-Host "N" -ForegroundColor $Colors.MenuHighlight -NoNewline
     Write-Host " to cancel" -ForegroundColor $Colors.Prompt
-    Write-Host "(Proceeding automatically in 120 seconds - scroll up to review, or press N to cancel)" -ForegroundColor $Colors.Warning
+    Write-Host "(Automatically proceeding in 30 seconds...)" -ForegroundColor $Colors.Warning
     Write-Host ""
     
     $confirmationTimer = 0
-    $timeoutSeconds = 120
+    $timeoutSeconds = 30
     $proceed = $null
     
     while ($confirmationTimer -lt $timeoutSeconds) {
@@ -400,11 +305,13 @@ function Main {
             }
         }
         
+        $remaining = $timeoutSeconds - $confirmationTimer
+        Write-Host "`rProceeding automatically in $remaining seconds..." -ForegroundColor $Colors.Warning -NoNewline
         Start-Sleep -Seconds 1
         $confirmationTimer++
     }
     
-    # If timeout was reached, proceed = $true
+    # If timeout was reached, proceed = $true (already confirmed by display message)
     if ($null -eq $proceed) {
         $proceed = $true
     }
@@ -418,13 +325,16 @@ function Main {
     Write-Host ""
     Write-Host ""
     
-    Write-Header "Executing Activity Generation"
+    # ========================================================================
+    # EXECUTE SETUP PHASE
+    # ========================================================================
     
-    # Execute all imported modules in sequence
-    $completedModules = 0
-    $failedModules = 0
+    Write-Header "Executing Setup Phase"
     
-    foreach ($moduleName in $modulesToImport) {
+    $setupCompleted = 0
+    $setupFailed = 0
+    
+    foreach ($moduleName in $setupModules) {
         # Convert module name to function name
         # DSP-Demo-01-Setup-BuildOUs -> Invoke-BuildOUs
         $functionName = "Invoke-" + ($moduleName -replace "^DSP-Demo-\d+-Setup-", "")
@@ -434,11 +344,11 @@ function Main {
             try {
                 & $functionName -Config $config -Environment $environment
                 Write-Status "Module completed: $moduleName" -Level Success
-                $completedModules++
+                $setupCompleted++
             }
             catch {
                 Write-Status "Error executing $moduleName : $_" -Level Error
-                $failedModules++
+                $setupFailed++
             }
         }
         else {
@@ -447,12 +357,70 @@ function Main {
     }
     
     Write-Host ""
-    Write-Header "Execution Summary"
-    Write-Host "Modules Completed: $completedModules" -ForegroundColor $Colors.Success
-    if ($failedModules -gt 0) {
-        Write-Host "Modules Failed: $failedModules" -ForegroundColor $Colors.Error
+    Write-Host ""
+    
+    # ========================================================================
+    # EXECUTE ACTIVITY PHASE
+    # ========================================================================
+    
+    Write-Header "Executing Activity Phase"
+    
+    $activityCompleted = 0
+    $activityFailed = 0
+    
+    foreach ($moduleName in $activityModules) {
+        # Convert module name to function name
+        # DSP-Demo-Activity-01-DirectoryActivity -> Invoke-DirectoryActivity
+        $functionName = "Invoke-" + ($moduleName -replace "^DSP-Demo-Activity-\d+-", "")
+        
+        if (Get-Command $functionName -ErrorAction SilentlyContinue) {
+            Write-Header "Running $moduleName"
+            try {
+                & $functionName -Config $config -Environment $environment
+                Write-Status "Module completed: $moduleName" -Level Success
+                $activityCompleted++
+            }
+            catch {
+                Write-Status "Error executing $moduleName : $_" -Level Error
+                $activityFailed++
+            }
+        }
+        else {
+            Write-Status "Function $functionName not found - skipping $moduleName" -Level Warning
+        }
     }
     
+    # ========================================================================
+    # EXECUTION SUMMARY
+    # ========================================================================
+    
+    Write-Host ""
+    Write-Header "Execution Summary"
+    
+    Write-Host "Setup Phase:" -ForegroundColor $Colors.Section
+    Write-Host "  Completed: $setupCompleted" -ForegroundColor $Colors.Success
+    if ($setupFailed -gt 0) {
+        Write-Host "  Failed: $setupFailed" -ForegroundColor $Colors.Error
+    }
+    
+    Write-Host ""
+    Write-Host "Activity Phase:" -ForegroundColor $Colors.Section
+    Write-Host "  Completed: $activityCompleted" -ForegroundColor $Colors.Success
+    if ($activityFailed -gt 0) {
+        Write-Host "  Failed: $activityFailed" -ForegroundColor $Colors.Error
+    }
+    
+    Write-Host ""
+    $totalCompleted = $setupCompleted + $activityCompleted
+    $totalFailed = $setupFailed + $activityFailed
+    
+    Write-Host "Total:" -ForegroundColor $Colors.Section
+    Write-Host "  Modules Completed: $totalCompleted" -ForegroundColor $Colors.Success
+    if ($totalFailed -gt 0) {
+        Write-Host "  Modules Failed: $totalFailed" -ForegroundColor $Colors.Error
+    }
+    
+    Write-Host ""
     Write-Status "Demo activity generation completed" -Level Success
     Write-Host ""
 }
