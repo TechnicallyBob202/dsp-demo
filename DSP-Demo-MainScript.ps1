@@ -300,10 +300,65 @@ function Main {
         Write-Host ""
     }
     
-    if ($config.DemoUsers) {
-        Write-Host "Demo User Accounts to Create:" -ForegroundColor $Colors.Section
-        $count = @($config.DemoUsers.Keys).Count
-        Write-Host "  - $count named accounts" -ForegroundColor $Colors.Info
+    if ($config.Groups) {
+        Write-Host "Groups to Create:" -ForegroundColor $Colors.Section
+        $groupCount = 0
+        foreach ($section in $config.Groups.Keys) {
+            if ($config.Groups[$section] -is [array]) {
+                $groupCount += @($config.Groups[$section]).Count
+            }
+            elseif ($config.Groups[$section] -is [hashtable]) {
+                $groupCount += 1
+            }
+        }
+        Write-Host "  - $groupCount total groups" -ForegroundColor $Colors.Info
+        Write-Host ""
+    }
+    
+    if ($config.Users) {
+        Write-Host "User Accounts to Create:" -ForegroundColor $Colors.Section
+        $totalUsers = 0
+        
+        if ($config.Users.ContainsKey('Tier0Admins')) {
+            $tier0Count = @($config.Users.Tier0Admins).Count
+            Write-Host "  - $tier0Count Tier 0 Admin accounts" -ForegroundColor $Colors.Info
+            $totalUsers += $tier0Count
+        }
+        
+        if ($config.Users.ContainsKey('Tier1Admins')) {
+            $tier1Count = @($config.Users.Tier1Admins).Count
+            Write-Host "  - $tier1Count Tier 1 Admin accounts" -ForegroundColor $Colors.Info
+            $totalUsers += $tier1Count
+        }
+        
+        if ($config.Users.ContainsKey('Tier2Admins')) {
+            $tier2Count = @($config.Users.Tier2Admins).Count
+            Write-Host "  - $tier2Count Tier 2 Admin accounts" -ForegroundColor $Colors.Info
+            $totalUsers += $tier2Count
+        }
+        
+        if ($config.Users.ContainsKey('DemoUsers')) {
+            $demoCount = @($config.Users.DemoUsers).Count
+            Write-Host "  - $demoCount named Demo accounts" -ForegroundColor $Colors.Info
+            $totalUsers += $demoCount
+        }
+        
+        if ($config.Users.ContainsKey('ServiceAccounts')) {
+            $svcCount = @($config.Users.ServiceAccounts).Count
+            Write-Host "  - $svcCount Service accounts" -ForegroundColor $Colors.Info
+            $totalUsers += $svcCount
+        }
+        
+        if ($config.Users.ContainsKey('GenericUsers')) {
+            foreach ($bulkConfig in $config.Users.GenericUsers) {
+                $bulkCount = if ($bulkConfig.ContainsKey('Count')) { $bulkConfig.Count } else { 0 }
+                $prefix = if ($bulkConfig.ContainsKey('SamAccountNamePrefix')) { $bulkConfig.SamAccountNamePrefix } else { "GdAct0r" }
+                Write-Host "  - $bulkCount generic $prefix accounts" -ForegroundColor $Colors.Info
+                $totalUsers += $bulkCount
+            }
+        }
+        
+        Write-Host "  Total: $totalUsers user accounts" -ForegroundColor $Colors.Section
         Write-Host ""
     }
     
