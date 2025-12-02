@@ -309,14 +309,6 @@ function Main {
             Write-Host ""
         }
         else {
-            # Display what's about to run
-            Write-Header "Setup Modules Ready to Execute"
-            
-            foreach ($moduleName in $loadedSetupModules) {
-                $displayName = Get-ModuleDisplayName $moduleName
-                Write-Host "  • $displayName" -ForegroundColor $Colors.Section
-            }
-            
             # Pause before setup execution
             if (-not (Wait-ForConfirmation -TimeoutSeconds 30 -Prompt "Execute setup modules?")) {
                 Write-Status "User cancelled setup phase" -Level Warning
@@ -406,14 +398,6 @@ function Main {
             Write-Host ""
         }
         else {
-            # Display what's about to run
-            Write-Header "Activity Modules Ready to Execute"
-            
-            foreach ($moduleName in $loadedActivityModules) {
-                $displayName = Get-ModuleDisplayName $moduleName
-                Write-Host "  • $displayName" -ForegroundColor $Colors.Section
-            }
-            
             # Pause before activity execution
             if (-not (Wait-ForConfirmation -TimeoutSeconds 30 -Prompt "Execute activity modules?")) {
                 Write-Status "User cancelled activity phase" -Level Warning
