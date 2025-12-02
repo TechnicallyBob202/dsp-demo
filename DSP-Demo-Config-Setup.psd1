@@ -134,6 +134,7 @@
                 Description = "Tier 0 admin group for enterprise administrators"
                 GroupScope = "Global"
                 GroupCategory = "Security"
+                OUPath = "Lab Admins"
             }
             @{
                 SamAccountName = "Tier1Admins"
@@ -142,6 +143,7 @@
                 Description = "Tier 1 admin group for domain administrators"
                 GroupScope = "Global"
                 GroupCategory = "Security"
+                OUPath = "Lab Admins"
             }
             @{
                 SamAccountName = "Tier2Admins"
@@ -150,6 +152,7 @@
                 Description = "Tier 2 admin group for application administrators"
                 GroupScope = "Global"
                 GroupCategory = "Security"
+                OUPath = "Lab Admins"
             }
         )
         UserGroups = @(
@@ -160,6 +163,7 @@
                 Description = "Group for demo user accounts"
                 GroupScope = "Global"
                 GroupCategory = "Security"
+                OUPath = "Lab Users"
             }
         )
     }
