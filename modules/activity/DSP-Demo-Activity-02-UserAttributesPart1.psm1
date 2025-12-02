@@ -106,24 +106,22 @@ function Invoke-UserAttributesPart1 {
                             'Description' { $setParams['Description'] = $attrValue }
                             'Fax' { $setParams['Fax'] = $attrValue }
                             default { 
-                                # Generic attributes go through -Replace
                                 $setParams['Replace'] = @{$attrName = $attrValue}
                             }
                         }
                         
                         Set-ADUser @setParams
-                        Write-Status "  ✓ Set $attrName = '$attrValue'" -Level Success
+                        Write-Status "  Set $attrName = '$attrValue'" -Level Success
                         $attributeCount++
                     }
                     catch {
-                        Write-Status "  ✗ Error setting $attrName : $_" -Level Error
+                        Write-Status "  Error setting $attrName : $_" -Level Error
                         $errorCount++
                     }
                 }
                 
                 if ($attributeCount -gt 0) {
                     $modifiedCount++
-                    Write-Status "  Modified $attributeCount attribute(s)" -Level Info
                 }
                 
                 Start-Sleep -Milliseconds 500
