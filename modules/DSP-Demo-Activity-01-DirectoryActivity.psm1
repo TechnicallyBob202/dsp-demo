@@ -90,14 +90,9 @@ function Invoke-DirectoryActivity {
     $DomainInfo = $Environment.DomainInfo
     $domainDN = $DomainInfo.DN
     
-    # Get OU references from config or defaults
-    $labUsersOU = $Config.OUs.LabUsers.DN
-    $labAdminsOU = $Config.OUs.LabAdmins.DN
-    
-    if (-not $labUsersOU -or -not $labAdminsOU) {
-        Write-Status "Required OUs not found in config" -Level Error
-        return $false
-    }
+    # Build OU DNs from known structure created in setup-01
+    $labUsersOUName = "Lab Users"
+    $labUsersOU = "OU=$labUsersOUName,$domainDN"
     
     $dept101Name = "Dept101"
     $dept999Name = "Dept999"
@@ -111,7 +106,7 @@ function Invoke-DirectoryActivity {
         $ou999 = Get-ADOrganizationalUnit -Identity $dept999DN -ErrorAction Stop
     }
     catch {
-        Write-Status "Required OUs (Dept101/Dept999) not found" -Level Error
+        Write-Status "Required OUs not found: $dept101DN or $dept999DN" -Level Error
         return $false
     }
     
@@ -153,6 +148,9 @@ function Invoke-DirectoryActivity {
         $errorCount++
     }
     
+    # Force replication
+    Invoke-Replication -WaitSeconds 5
+    
     # ============================================================================
     # PHASE 2: CREATE GENERIC LAB USERS IN DEPT101
     # ============================================================================
@@ -189,71 +187,64 @@ function Invoke-DirectoryActivity {
                                -Path $dept101DN `
                                -AccountPassword $password `
                                -Enabled $true `
-                               -PasswordNeverExpires $false `
                                -Verbose
                     
                     $created++
-                    Start-Sleep -Milliseconds 200
+                    Write-Status "Created user: $samAccountName" -Level Success
+                    Start-Sleep -Milliseconds 100
                 }
                 catch {
                     Write-Status "Error creating user $samAccountName : $_" -Level Warning
                     $errorCount++
                 }
             }
-            
-            # Progress indicator
-            if (($i + 1) % 5 -eq 0) {
-                Write-Status "Progress: $($i + 1)/$userCount users processed..." -Level Info
-            }
         }
         
-        Write-Status "User creation complete: $created created, $skipped skipped" -Level Success
+        Write-Status "User creation complete - Created: $created, Skipped: $skipped" -Level Success
     }
     catch {
         Write-Status "Error in Phase 2: $_" -Level Error
         $errorCount++
     }
     
+    # Force replication
+    Invoke-Replication -WaitSeconds 5
+    
     # ============================================================================
-    # PHASE 3: SET UP GROUP MEMBERSHIPS
+    # PHASE 3: ADD USERS TO LAB USERS GROUP
     # ============================================================================
     
-    Write-Section "PHASE 3: CONFIGURE GROUP MEMBERSHIPS"
+    Write-Section "PHASE 3: ADD USERS TO GROUP"
     
     try {
-        # Get or create Lab Users group
-        $labUsersGroupName = "Lab Users"
-        $labUsersGroup = Get-ADGroup -Filter "Name -eq '$labUsersGroupName'" -ErrorAction SilentlyContinue
+        $labUsersGroupName = "LabUsers"
         
-        if (-not $labUsersGroup) {
-            Write-Status "Creating group: $labUsersGroupName..." -Level Info
-            $labUsersGroup = New-ADGroup -Name $labUsersGroupName `
-                                         -SamAccountName "LabUsers" `
-                                         -GroupScope Global `
-                                         -GroupCategory Security `
-                                         -Path $labAdminsOU `
-                                         -Description "Lab Users group for demo" `
-                                         -Verbose
-            Start-Sleep -Seconds 3
+        try {
+            $labUsersGroup = Get-ADGroup -Identity $labUsersGroupName -ErrorAction Stop
+        }
+        catch {
+            Write-Status "Group $labUsersGroupName not found - skipping phase 3" -Level Warning
+            # Continue to next phase
         }
         
-        # Add Lab User OU members to the group
-        $deptUsers = Get-ADUser -Filter "Enabled -eq `$true" -SearchBase $dept101DN -ErrorAction SilentlyContinue
-        
-        if ($deptUsers.Count -gt 0) {
-            Write-Status "Adding $($deptUsers.Count) users to $labUsersGroupName..." -Level Info
+        if ($labUsersGroup) {
+            $deptUsers = Get-ADUser -Filter "Enabled -eq `$true" -SearchBase $dept101DN -ErrorAction SilentlyContinue
             
-            foreach ($user in $deptUsers) {
-                try {
-                    Add-ADGroupMember -Identity $labUsersGroup -Members $user -ErrorAction SilentlyContinue -Verbose
-                    Start-Sleep -Milliseconds 100
+            if ($deptUsers.Count -gt 0) {
+                Write-Status "Adding $($deptUsers.Count) users to $labUsersGroupName..." -Level Info
+                
+                foreach ($user in $deptUsers) {
+                    try {
+                        Add-ADGroupMember -Identity $labUsersGroup -Members $user -ErrorAction SilentlyContinue -Verbose
+                        Start-Sleep -Milliseconds 100
+                    }
+                    catch {
+                        # Group member may already exist; this is OK
+                    }
                 }
-                catch {
-                    # Group member may already exist; this is OK
-                }
+                
+                Write-Status "Group membership updated" -Level Success
             }
-            
-            Write-Status "Group membership updated" -Level Success
         }
     }
     catch {
