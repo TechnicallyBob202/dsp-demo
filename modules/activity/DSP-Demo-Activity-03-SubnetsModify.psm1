@@ -44,8 +44,8 @@ function Invoke-SubnetsModify {
         $modConfig = $subnetMods[$subnet]
         
         try {
-            # Check if subnet exists
-            $subnetObj = Get-ADReplicationSubnet -Filter "Name -eq '$subnet'" -ErrorAction Stop
+            # Check if subnet exists (will throw error if not, which we catch below)
+            Get-ADReplicationSubnet -Filter "Name -eq '$subnet'" -ErrorAction Stop | Out-Null
             
             # Build Set-ADReplicationSubnet parameters
             $setParams = @{
