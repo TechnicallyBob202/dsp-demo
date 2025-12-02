@@ -600,7 +600,7 @@
         )
     }
     
-#---------------------------------------------------------------------------
+    #---------------------------------------------------------------------------
     # COMPUTERS
     #---------------------------------------------------------------------------
     Computers = @(
@@ -787,7 +787,40 @@
             Comment = "CIS Windows Server hardening policy baseline"
         }
     }
-    
+
+    ################################################################################
+    # ACTIVITY SETTINGS
+    # Configuration for activity generation modules
+    ################################################################################
+
+    ActivitySettings = @{
+        # Directory Activity (Activity-01)
+        DirectoryActivity = @{
+            SourceOU = "Lab Users"      # Parent OU containing departments
+            SourceDept = "Dept999"      # Department to move users FROM
+            TargetDept = "Dept101"      # Department to move users TO
+        }
+        
+        # DNS Activity (Activity-02)
+        DnsActivity = @{
+            # Add DNS activity settings when module is developed
+        }
+        
+        # GPO Activity (Activity-03)
+        GpoActivity = @{
+            # Add GPO activity settings when module is developed
+        }
+        
+        # Sites Activity (Activity-04)
+        SitesActivity = @{
+            # Add Sites activity settings when module is developed
+        }
+        
+        # Security Events Activity (Activity-05)
+        SecurityActivity = @{
+            # Add Security activity settings when module is developed
+        }
+    }
     
 }
 
