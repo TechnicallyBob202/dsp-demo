@@ -817,8 +817,7 @@
     }
 
     ################################################################################
-    # ACTIVITY SETTINGS
-    # Configuration for activity generation modules
+    # ActivitySettings - Configuration for activity generation modules
     ################################################################################
 
     ActivitySettings = @{
@@ -829,27 +828,22 @@
             TargetDept = "Dept101"      # Department to move users TO
         }
         
-        # DNS Activity (Activity-02)
-        DnsActivity = @{
-            # Add DNS activity settings when module is developed
-        }
-        
-        # GPO Activity (Activity-03)
-        GpoActivity = @{
-            # Add GPO activity settings when module is developed
-        }
-        
-        # Sites Activity (Activity-04)
-        SitesActivity = @{
-            # Add Sites activity settings when module is developed
-        }
-        
-        # Security Events Activity (Activity-05)
-        SecurityActivity = @{
-            # Add Security activity settings when module is developed
+        # Subnets Activity (Activity-03)
+        SubnetsActivity = @{
+            "10.0.0.0/8" = @{
+                Description = "MODIFIED: Primary Lab Infrastructure Network - activity demo"
+                Location = "Lab-USA-Updated"
+            }
+            "172.16.32.0/20" = @{
+                Description = "MODIFIED: Special demo lab subnet - changed during activity"
+                Location = "Lab-USA-CA-Updated"
+            }
+            "192.168.0.0/16" = @{
+                Description = "MODIFIED: Primary Demo Lab Infrastructure Network - activity change"
+                Location = "Lab-USA-TX-Updated"
+            }
         }
     }
-    
 }
 
 ################################################################################
