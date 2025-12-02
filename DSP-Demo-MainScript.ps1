@@ -245,6 +245,38 @@ function Main {
     Write-Host ""
     
     # ========================================================================
+    # DISPLAY SCRIPT MODULES TO BE RUN (TWO-COLUMN LAYOUT)
+    # ========================================================================
+    
+    Write-Header "Script Modules To Be Run"
+    
+    Write-Host "SETUP MODULES" -ForegroundColor $Colors.Section -NoNewline
+    Write-Host (" " * 26) -NoNewline
+    Write-Host "ACTIVITY MODULES" -ForegroundColor $Colors.Section
+    Write-Host ("=" * 38) -NoNewline
+    Write-Host "  " -NoNewline
+    Write-Host ("=" * 38) -ForegroundColor $Colors.Section
+    
+    # Display modules in two columns
+    $maxSetupModules = $setupModules.Count
+    $maxActivityModules = $activityModules.Count
+    $maxRows = [math]::Max($maxSetupModules, $maxActivityModules)
+    
+    for ($i = 0; $i -lt $maxRows; $i++) {
+        $setupModule = if ($i -lt $maxSetupModules) { $setupModules[$i] -replace "^DSP-Demo-\d+-Setup-", "" } else { "" }
+        $activityModule = if ($i -lt $maxActivityModules) { $activityModules[$i] -replace "^DSP-Demo-Activity-\d+-", "" } else { "" }
+        
+        $setupPadding = 38 - $setupModule.Length
+        if ($setupPadding -lt 0) { $setupPadding = 0 }
+        
+        Write-Host "  $setupModule" -ForegroundColor $Colors.Info -NoNewline
+        Write-Host (" " * $setupPadding) -NoNewline
+        Write-Host "  $activityModule" -ForegroundColor $Colors.Info
+    }
+    
+    Write-Host ""
+    
+    # ========================================================================
     # DISPLAY CONFIGURATION SUMMARY
     # ========================================================================
     
