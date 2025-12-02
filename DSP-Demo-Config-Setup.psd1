@@ -303,17 +303,37 @@
     )
     
     #---------------------------------------------------------------------------
-    # PASSWORD POLICY SETTINGS
+    # FINE-GRAINED PASSWORD POLICIES (FGPP)
     #---------------------------------------------------------------------------
-    PasswordPolicy = @{
+    FGPPs = @(
+        @{
+            Name = "SpecialLabUsers_PSO"
+            Description = "Account Lockout policy for Special Lab Users members"
+            DisplayName = "SpecialLabUsers_PSO"
+            Precedence = 2
+            MinPasswordLength = 8
+            ComplexityEnabled = $true
+            LockoutThreshold = 20
+            MaxPasswordAge = 42
+            MinPasswordAge = 1
+            PasswordHistoryCount = 24
+            ReversibleEncryptionEnabled = $false
+            ApplyToGroup = "SpecialLabUsers"
+        }
+    )
+    
+    #---------------------------------------------------------------------------
+    # DEFAULT DOMAIN PASSWORD POLICY SETTINGS
+    #---------------------------------------------------------------------------
+    DefaultDomainPolicy = @{
         MinPasswordLength = 8
         PasswordComplexity = $true
         PasswordHistoryCount = 24
         MaxPasswordAge = 42
-        MinPasswordAge = 1
-        LockoutThreshold = 5
-        LockoutDuration = 30
-        LockoutObservationWindow = 30
+        MinPasswordAge = 0
+        LockoutThreshold = 11
+        LockoutDuration = 3
+        LockoutObservationWindow = 3
         ReversibleEncryption = $false
     }
     
