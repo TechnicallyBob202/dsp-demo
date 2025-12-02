@@ -30,7 +30,7 @@ function Invoke-SubnetsModify {
     }
     
     # If no config, return gracefully
-    if (-not $subnetMods -or $subnetMods.Count -eq 0) {
+    if (-not $subnetMods -or $subnetMods.Keys.Count -eq 0) {
         Write-Host "[$timestamp] [Warning] No subnets configured in config file" -ForegroundColor Yellow
         Write-Host ""
         return $true
