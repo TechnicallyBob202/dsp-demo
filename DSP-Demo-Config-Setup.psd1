@@ -270,31 +270,25 @@
     # COMPUTERS
     #---------------------------------------------------------------------------
     Computers = @{
-        DeleteMe_Servers = @{
-            "srv-iis-us01" = @{
-                Description = "Special application server for lab"
-                Path = "DeleteMe OU/Servers"
-            }
+        "srv-iis-us01" = @{
+            Description = "Special application server for lab"
+            Path = "DeleteMe OU/Servers"
         }
-        DeleteMe_Resources = @{
-            "ops-app-us05" = @{
-                Description = "Special application server for lab"
-                Path = "DeleteMe OU/Resources"
-            }
+        "ops-app-us05" = @{
+            Description = "Special application server for lab"
+            Path = "DeleteMe OU/Resources"
         }
-        SpecialOU_Assets = @{
-            "PIMPAM" = @{
-                Description = "Privileged access server"
-                Path = "Special Restricted OU"
-            }
-            "VAULT" = @{
-                Description = "Vault server to store passwords and credentials"
-                Path = "Special Restricted OU"
-            }
-            "BASTION-HOST01" = @{
-                Description = "Bastion host for restricted privileged access"
-                Path = "Special Restricted OU"
-            }
+        "PIMPAM" = @{
+            Description = "Privileged access server"
+            Path = "Special Restricted OU"
+        }
+        "VAULT" = @{
+            Description = "Vault server to store passwords and credentials"
+            Path = "Special Restricted OU"
+        }
+        "BASTION-HOST01" = @{
+            Description = "Bastion host for restricted privileged access"
+            Path = "Special Restricted OU"
         }
     }
     
