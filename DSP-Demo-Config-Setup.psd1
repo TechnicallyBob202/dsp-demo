@@ -180,7 +180,7 @@
                 UserPrincipalName = "t0-admin-enterprise@{DOMAIN}"
                 SamAccountName = "t0-admin-ent"
                 Description = "Tier 0 Enterprise Admin account"
-                Path = "Lab Admins/Tier 0"
+                OUPath = "Lab Admins/Tier 0"
                 Enabled = $true
                 PasswordNeverExpires = $false
             }
@@ -193,7 +193,7 @@
                 UserPrincipalName = "t1-admin-domain@{DOMAIN}"
                 SamAccountName = "t1-admin-dom"
                 Description = "Tier 1 Domain Admin account"
-                Path = "Lab Admins/Tier 1"
+                OUPath = "Lab Admins/Tier 1"
                 Enabled = $true
                 PasswordNeverExpires = $false
             }
@@ -204,7 +204,7 @@
                 UserPrincipalName = "t1-admin-infrastructure@{DOMAIN}"
                 SamAccountName = "t1-admin-inf"
                 Description = "Tier 1 Infrastructure Admin account"
-                Path = "Lab Admins/Tier 1"
+                OUPath = "Lab Admins/Tier 1"
                 Enabled = $true
                 PasswordNeverExpires = $false
             }
@@ -217,7 +217,7 @@
                 UserPrincipalName = "t2-admin-application@{DOMAIN}"
                 SamAccountName = "t2-admin-app"
                 Description = "Tier 2 Application Admin account"
-                Path = "Lab Admins/Tier 2"
+                OUPath = "Lab Admins/Tier 2"
                 Enabled = $true
                 PasswordNeverExpires = $false
             }
@@ -228,7 +228,7 @@
                 UserPrincipalName = "t2-admin-service@{DOMAIN}"
                 SamAccountName = "t2-admin-svc"
                 Description = "Tier 2 Service Admin account"
-                Path = "Lab Admins/Tier 2"
+                OUPath = "Lab Admins/Tier 2"
                 Enabled = $true
                 PasswordNeverExpires = $false
             }
@@ -241,7 +241,7 @@
                 UserPrincipalName = "demo-user-01@{DOMAIN}"
                 SamAccountName = "demo-user-01"
                 Description = "Demo user account for demonstrations"
-                Path = "Lab Users/Dept101"
+                OUPath = "Lab Users/Dept101"
                 Enabled = $true
                 PasswordNeverExpires = $false
             }
@@ -252,7 +252,7 @@
                 UserPrincipalName = "demo-user-02@{DOMAIN}"
                 SamAccountName = "demo-user-02"
                 Description = "Demo user account for demonstrations"
-                Path = "Lab Users/Dept101"
+                OUPath = "Lab Users/Dept101"
                 Enabled = $true
                 PasswordNeverExpires = $false
             }
@@ -263,7 +263,7 @@
                 UserPrincipalName = "demo-user-03@{DOMAIN}"
                 SamAccountName = "demo-user-03"
                 Description = "Demo user account for demonstrations"
-                Path = "Lab Users/Dept101"
+                OUPath = "Lab Users/Dept101"
                 Enabled = $true
                 PasswordNeverExpires = $false
             }
@@ -276,7 +276,7 @@
                 UserPrincipalName = "svc-dsp@{DOMAIN}"
                 SamAccountName = "svc-dsp"
                 Description = "Service account for DSP integration"
-                Path = "Lab Admins/Tier 1"
+                OUPath = "Lab Admins/Tier 1"
                 Enabled = $true
                 PasswordNeverExpires = $false
             }
@@ -287,7 +287,7 @@
                 UserPrincipalName = "svc-dns@{DOMAIN}"
                 SamAccountName = "svc-dns"
                 Description = "Service account for DNS operations"
-                Path = "Lab Admins/Tier 1"
+                OUPath = "Lab Admins/Tier 1"
                 Enabled = $true
                 PasswordNeverExpires = $false
             }
@@ -296,7 +296,7 @@
             @{
                 Count = 250
                 SamAccountNamePrefix = "User"
-                Path = "Lab Users/Dept101"
+                OUPath = "Lab Users/Dept101"
                 Description = "Generic lab user account"
             }
         )
