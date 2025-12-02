@@ -11,7 +11,7 @@
 ##
 ## Original Author: Rob Ingenthron (robi@semperis.com)
 ## Refactored By: Bob Lyons
-## Version: 7.0.0-20251202
+## Version: 7.1.0-20251202
 ##
 ## This is a complete refactor of Rob's original monolithic script
 ## (Invoke-CreateDspChangeDataForDemos-20251002_0012.ps1) into a modular,
@@ -87,6 +87,15 @@ function Write-Header {
     Write-Host ("=" * 80) -ForegroundColor $Colors.Header
     Write-Host $Title -ForegroundColor $Colors.Header
     Write-Host ("=" * 80) -ForegroundColor $Colors.Header
+    Write-Host ""
+}
+
+function Write-ActivityHeader {
+    param([string]$Title)
+    Write-Host ""
+    Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+    Write-Host "║ $($Title.PadRight(62)) ║" -ForegroundColor Cyan
+    Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
 }
 
