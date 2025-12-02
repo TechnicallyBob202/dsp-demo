@@ -3,10 +3,21 @@
 ## DSP-Demo-Preflight.psm1
 ##
 ## Preflight module for DSP demo activity generation
-## Handles ALL environment discovery, validation, and setup
+## Handles environment validation, discovery, and setup
 ##
-## Author: Rob Ingenthron (Original), Bob Lyons (Refactor)
-## Version: 1.1.0-20251120
+## Critical Checks (throw on failure):
+## - Administrator privileges
+## - PowerShell 5.1+
+## - Active Directory module availability
+##
+## Environment Discovery (warning on failure, continue):
+## - Domain information
+## - Domain controllers
+## - Forest information
+## - DSP server discovery
+##
+## Author: Bob Lyons
+## Version: 2.0.0-20251202
 ##
 ################################################################################
 
@@ -27,7 +38,7 @@ $Script:Colors = @{
 }
 
 ################################################################################
-# LOGGING & OUTPUT FUNCTIONS
+# OUTPUT FUNCTIONS
 ################################################################################
 
 function Write-Status {
@@ -53,7 +64,7 @@ function Write-Header {
 }
 
 ################################################################################
-# ADMIN & VERSION CHECKS
+# CRITICAL CHECKS (MUST PASS)
 ################################################################################
 
 function Test-AdminRights {
@@ -62,8 +73,9 @@ function Test-AdminRights {
     $isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     
     if (-not $isAdmin) {
-        Write-Status "Script requires Administrator privileges" -Level Error
-        exit 1
+        $message = "This script requires Administrator privileges"
+        Write-Status $message -Level Error
+        throw $message
     }
     
     Write-Status "Administrator rights verified" -Level Success
@@ -71,8 +83,9 @@ function Test-AdminRights {
 
 function Test-PowerShellVersion {
     if ($PSVersionTable.PSVersion.Major -lt 5) {
-        Write-Status "PowerShell 5.1 or higher required" -Level Error
-        exit 1
+        $message = "PowerShell 5.1 or higher required (current: $($PSVersionTable.PSVersion))"
+        Write-Status $message -Level Error
+        throw $message
     }
     
     Write-Status "PowerShell version: $($PSVersionTable.PSVersion)" -Level Success
@@ -80,8 +93,9 @@ function Test-PowerShellVersion {
 
 function Test-ActiveDirectoryModule {
     if (-not (Get-Module -ListAvailable ActiveDirectory)) {
-        Write-Status "ActiveDirectory module is required" -Level Error
-        exit 1
+        $message = "ActiveDirectory module is required and not available"
+        Write-Status $message -Level Error
+        throw $message
     }
     
     try {
@@ -89,25 +103,31 @@ function Test-ActiveDirectoryModule {
         Write-Status "ActiveDirectory module imported" -Level Success
     }
     catch {
-        Write-Status "Failed to import ActiveDirectory module: $_" -Level Error
-        exit 1
+        $message = "Failed to import ActiveDirectory module: $_"
+        Write-Status $message -Level Error
+        throw $message
     }
 }
 
 ################################################################################
-# ACTIVE DIRECTORY DISCOVERY
+# ENVIRONMENT DISCOVERY (WARNINGS ALLOWED, CONTINUES ON FAILURE)
 ################################################################################
 
 function Get-DomainInfo {
     try {
         $domain = Get-ADDomain -ErrorAction Stop
         
-        return [PSCustomObject]@{
+        $result = [PSCustomObject]@{
             FQDN = $domain.Name
             DN = $domain.DistinguishedName
             NetBIOSName = $domain.NetBIOSName
             Forest = $domain.Forest
         }
+        
+        Write-Status "Domain: $($result.FQDN)" -Level Success
+        Write-Status "Domain DN: $($result.DN)" -Level Info
+        
+        return $result
     }
     catch {
         Write-Status "Failed to get domain info: $_" -Level Error
@@ -118,7 +138,25 @@ function Get-DomainInfo {
 function Get-ADDomainControllers {
     try {
         $dcs = Get-ADDomainController -Filter * -ErrorAction Stop
-        return $dcs
+        
+        if ($dcs -is [array]) {
+            $primaryDC = $dcs[0].HostName
+            $secondaryDC = if ($dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
+        }
+        else {
+            $primaryDC = $dcs.HostName
+            $secondaryDC = $null
+        }
+        
+        Write-Status "Primary DC: $primaryDC" -Level Success
+        if ($secondaryDC) {
+            Write-Status "Secondary DC: $secondaryDC" -Level Info
+        }
+        
+        return @{
+            Primary = $primaryDC
+            Secondary = $secondaryDC
+        }
     }
     catch {
         Write-Status "Failed to get domain controllers: $_" -Level Error
@@ -130,11 +168,15 @@ function Get-ForestInfo {
     try {
         $forest = Get-ADForest -ErrorAction Stop
         
-        return [PSCustomObject]@{
+        $result = [PSCustomObject]@{
             Name = $forest.Name
             RootDomain = $forest.RootDomain
             Domains = $forest.Domains
         }
+        
+        Write-Status "Forest: $($result.Name)" -Level Success
+        
+        return $result
     }
     catch {
         Write-Status "Failed to get forest info: $_" -Level Error
@@ -143,7 +185,7 @@ function Get-ForestInfo {
 }
 
 ################################################################################
-# DSP DISCOVERY
+# DSP DISCOVERY (OPTIONAL - WARNINGS OK)
 ################################################################################
 
 function Find-DspServer {
@@ -157,15 +199,14 @@ function Find-DspServer {
     
     # If config specifies a DSP server, try it first
     if ($ConfigServer -and $ConfigServer -ne "") {
-        Write-Status "Attempting to contact configured DSP server: $ConfigServer" -Level Info
+        Write-Status "Testing configured DSP server: $ConfigServer" -Level Info
         try {
-            # Simple connectivity check
             if (Test-Connection -ComputerName $ConfigServer -Count 1 -ErrorAction SilentlyContinue) {
                 Write-Status "DSP server is reachable: $ConfigServer" -Level Success
                 return $ConfigServer
             }
             else {
-                Write-Status "DSP server is not reachable: $ConfigServer" -Level Warning
+                Write-Status "DSP server not reachable: $ConfigServer" -Level Warning
             }
         }
         catch {
@@ -201,13 +242,20 @@ function Find-DspServer {
 function Initialize-PreflightEnvironment {
     <#
     .SYNOPSIS
-        Runs all preflight checks and returns environment information
+        Runs preflight checks and environment discovery
+    
+    .DESCRIPTION
+        Critical checks (admin rights, PowerShell version, AD module) must pass.
+        Environment discovery warnings are allowed - continues on failure.
     
     .PARAMETER Config
         Configuration hashtable (optional, for DSP server config)
     
     .OUTPUTS
-        PSCustomObject with all environment information
+        PSCustomObject with environment information
+    
+    .THROWS
+        On any critical preflight check failure
     #>
     param(
         [Parameter(Mandatory=$false)]
@@ -216,7 +264,7 @@ function Initialize-PreflightEnvironment {
     
     Write-Header "PREFLIGHT CHECKS"
     
-    # Run checks
+    # Run critical checks - any failure throws
     Test-AdminRights
     Test-PowerShellVersion
     Test-ActiveDirectoryModule
@@ -224,34 +272,14 @@ function Initialize-PreflightEnvironment {
     Write-Host ""
     Write-Header "ENVIRONMENT DISCOVERY"
     
-    # Get domain/forest info
+    # Get domain/forest info - throws on failure
     $domainInfo = Get-DomainInfo
-    Write-Status "Domain: $($domainInfo.FQDN)" -Level Success
-    Write-Status "Domain DN: $($domainInfo.DN)" -Level Info
-    
-    # Get DCs
-    $dcs = Get-ADDomainControllers
-    if ($dcs -is [array]) {
-        $primaryDC = $dcs[0].HostName
-        $secondaryDC = if ($dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
-    }
-    else {
-        $primaryDC = $dcs.HostName
-        $secondaryDC = $null
-    }
-    
-    Write-Status "Primary DC: $primaryDC" -Level Success
-    if ($secondaryDC) {
-        Write-Status "Secondary DC: $secondaryDC" -Level Info
-    }
-    
-    # Get forest info
+    $dcInfo = Get-ADDomainControllers
     $forestInfo = Get-ForestInfo
-    Write-Status "Forest: $($forestInfo.Name)" -Level Success
     
-    # DSP discovery
+    # DSP discovery - continues on warning/failure
     Write-Host ""
-    Write-Header "DSP DISCOVERY"
+    Write-Header "DSP SERVER DISCOVERY"
     
     $dspServerFromConfig = if ($Config.General -and $Config.General.DspServer) { 
         $Config.General.DspServer 
@@ -264,11 +292,11 @@ function Initialize-PreflightEnvironment {
     
     Write-Host ""
     
-    # Return environment object
+    # Return complete environment object
     return [PSCustomObject]@{
         DomainInfo = $domainInfo
-        PrimaryDC = $primaryDC
-        SecondaryDC = $secondaryDC
+        PrimaryDC = $dcInfo.Primary
+        SecondaryDC = $dcInfo.Secondary
         ForestInfo = $forestInfo
         DspAvailable = $dspAvailable
         DspServer = $dspServer

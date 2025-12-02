@@ -5,15 +5,14 @@
 ## Main orchestration script for DSP demo activity generation
 ## 
 ## Features:
-## - Calls Preflight module for ALL environment discovery and setup
-## - Displays configuration summary
-## - 30-second confirmation timeout before execution
-## - Executes Setup Phase (create baseline infrastructure)
-## - Executes Activity Phase (generate changes for DSP to monitor)
-## - Comprehensive logging and error handling
+## - Calls Preflight module for environment validation
+## - Any preflight check failure = hard stop
+## - Pause after preflight passes for operator confirmation
+## - Loads and executes setup modules
+## - Non-critical failures (module import, etc) = warnings, continues
 ##
-## Author: Rob Ingenthron (Original), Bob Lyons (Refactor)
-## Version: 4.6.0-20251202
+## Author: Bob Lyons
+## Version: 5.0.0-20251202
 ##
 ################################################################################
 
@@ -48,7 +47,7 @@ else {
 }
 
 ################################################################################
-# COLORS AND FORMATTING
+# COLORS
 ################################################################################
 
 $Colors = @{
@@ -58,8 +57,6 @@ $Colors = @{
     Warning = 'Yellow'
     Error = 'Red'
     Info = 'White'
-    Menu = 'Cyan'
-    MenuHighlight = 'Yellow'
     Prompt = 'Magenta'
 }
 
@@ -90,61 +87,33 @@ function Write-Header {
 }
 
 function Load-Configuration {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$ConfigFile
-    )
+    param([Parameter(Mandatory=$true)][string]$ConfigFile)
     
     if (-not (Test-Path $ConfigFile)) {
         Write-Status "Configuration file not found: $ConfigFile" -Level Error
-        throw "Missing configuration file"
-    }
-    
-    $config = Import-PowerShellDataFile -Path $ConfigFile
-    return $config
-}
-
-function Import-DemoModule {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$ModuleName
-    )
-    
-    $modulePath = Join-Path $Script:ModulesPath "$ModuleName.psm1"
-    
-    if (-not (Test-Path $modulePath)) {
-        Write-Status "Module not found: $modulePath" -Level Error
-        return $false
+        throw "Configuration file not found: $ConfigFile"
     }
     
     try {
-        Import-Module -Name $modulePath -Force -ErrorAction Stop | Out-Null
-        Write-Status "Imported: $ModuleName" -Level Success
-        return $true
+        $config = Import-PowerShellDataFile $ConfigFile -ErrorAction Stop
+        return $config
     }
     catch {
-        Write-Status "Failed to import $ModuleName : $_" -Level Error
-        return $false
+        Write-Status "Failed to load configuration: $_" -Level Error
+        throw $_
     }
 }
 
 function Expand-ConfigPlaceholders {
-    [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
-        [hashtable]$Config,
-        
-        [Parameter(Mandatory=$true)]
-        [PSCustomObject]$DomainInfo
+        [Parameter(Mandatory=$true)][hashtable]$Config,
+        [Parameter(Mandatory=$true)][PSCustomObject]$DomainInfo
     )
     
     $placeholders = @{
         '{DOMAIN_DN}' = $DomainInfo.DN
-        '{DOMAIN}' = $DomainInfo.FQDN
-        '{PASSWORD}' = if ($Config.General.DefaultPassword) { $Config.General.DefaultPassword } else { "P@ssw0rd123!" }
-        '{COMPANY}' = if ($Config.General.Company) { $Config.General.Company } else { "Semperis" }
+        '{DOMAIN_FQDN}' = $DomainInfo.FQDN
+        '{DOMAIN_NETBIOS}' = $DomainInfo.NetBIOSName
     }
     
     foreach ($key in $placeholders.Keys) {
@@ -162,16 +131,39 @@ function Expand-ConfigPlaceholders {
     return $Config
 }
 
+function Import-DemoModule {
+    param([Parameter(Mandatory=$true)][string]$ModuleName)
+    
+    $modulePath = Join-Path $Script:ModulesPath "$ModuleName.psm1"
+    
+    if (-not (Test-Path $modulePath)) {
+        Write-Status "Module not found: $modulePath" -Level Error
+        return $false
+    }
+    
+    try {
+        Import-Module $modulePath -Force -ErrorAction Stop | Out-Null
+        Write-Status "Loaded module: $ModuleName" -Level Success
+        return $true
+    }
+    catch {
+        Write-Status "Failed to load module $ModuleName : $_" -Level Error
+        return $false
+    }
+}
+
 ################################################################################
 # MAIN FUNCTION
 ################################################################################
 
 function Main {
-    Write-Header "DSP Demo Activity Generation Suite"
+    Write-Header "DSP Demo Activity Generation"
     
     Write-Status "Script path: $Script:ScriptPath" -Level Info
     Write-Status "Config file: $Script:ConfigFile" -Level Info
+    Write-Host ""
     
+    # Create modules directory if needed
     if (-not (Test-Path $Script:ModulesPath)) {
         Write-Status "Creating modules directory..." -Level Info
         New-Item -ItemType Directory -Path $Script:ModulesPath -Force | Out-Null
@@ -179,202 +171,125 @@ function Main {
     
     # Load configuration
     Write-Status "Loading configuration..." -Level Info
-    $config = Load-Configuration -ConfigFile $Script:ConfigFile
-    Write-Status "Configuration loaded" -Level Success
-    
-    Write-Host ""
-    
-    # Import Preflight module
-    if (-not (Import-DemoModule "DSP-Demo-Preflight")) {
-        Write-Status "FATAL: Failed to import Preflight module" -Level Error
+    try {
+        $config = Load-Configuration -ConfigFile $Script:ConfigFile
+        Write-Status "Configuration loaded successfully" -Level Success
+    }
+    catch {
+        Write-Status "FATAL: Cannot proceed without configuration" -Level Error
         exit 1
     }
     
     Write-Host ""
     
-    # RUN ALL PREFLIGHT CHECKS AND ENVIRONMENT DISCOVERY IN ONE CALL
-    $environment = Initialize-PreflightEnvironment -Config $config
+    # Import Preflight module - failure to import is fatal
+    Write-Status "Importing Preflight module..." -Level Info
+    if (-not (Import-DemoModule "DSP-Demo-Preflight")) {
+        Write-Status "FATAL: Cannot import Preflight module" -Level Error
+        exit 1
+    }
     
     Write-Host ""
     
-    # Expand placeholders in config using discovered environment
-    $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $environment.DomainInfo
+    # Run preflight checks - ANY FAILURE IS FATAL
+    Write-Status "Running preflight checks..." -Level Info
+    try {
+        $environment = Initialize-PreflightEnvironment -Config $config
+    }
+    catch {
+        Write-Status "FATAL: Preflight checks failed - cannot proceed" -Level Error
+        Write-Host ""
+        exit 1
+    }
     
-    # ========================================================================
-    # LOAD SETUP MODULES
-    # ========================================================================
+    Write-Host ""
+    Write-Status "All preflight checks passed" -Level Success
+    Write-Host ""
+    Write-Host "Environment is ready. Review the information above." -ForegroundColor $Colors.Info
+    Write-Host "Press Enter to continue..." -ForegroundColor $Colors.Prompt
+    Read-Host | Out-Null
+    Write-Host ""
     
+    # Expand configuration placeholders
+    try {
+        $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $environment.DomainInfo
+    }
+    catch {
+        Write-Status "Failed to expand configuration placeholders: $_" -Level Error
+    }
+    
+    # Load setup modules - non-fatal failures
     Write-Header "Loading Setup Modules"
     
     $setupModules = @(
-        "DSP-Demo-Setup-01-BuildOUs",
-        "DSP-Demo-Setup-02-CreateGroups",
-        "DSP-Demo-Setup-03-CreateUsers",
-        "DSP-Demo-Setup-04-CreateComputers",
-        "DSP-Demo-Setup-05-CreateDefaultDomainPolicy",
-        "DSP-Demo-Setup-06-CreateFGPP",
-        "DSP-Demo-Setup-07-CreateADSitesAndSubnets",
-        "DSP-Demo-Setup-08-CreateDNSZones",
-        "DSP-Demo-Setup-09-CreateGPOs"
+        "DSP-Demo-01-Setup-BuildOUs",
+        "DSP-Demo-02-Setup-CreateGroups",
+        "DSP-Demo-03-Setup-CreateUsers",
+        "DSP-Demo-04-Setup-CreateComputers",
+        "DSP-Demo-05-Setup-CreateDefaultDomainPolicy",
+        "DSP-Demo-06-Setup-CreateFGPP",
+        "DSP-Demo-07-Setup-CreateADSitesAndSubnets",
+        "DSP-Demo-08-Setup-CreateDNSZones",
+        "DSP-Demo-09-Setup-CreateGPOs"
     )
+    
+    $loadedModules = 0
+    $failedModules = 0
     
     foreach ($moduleName in $setupModules) {
-        if (-not (Import-DemoModule $moduleName)) {
-            Write-Status "Warning: Failed to import $moduleName" -Level Warning
+        if (Import-DemoModule $moduleName) {
+            $loadedModules++
+        }
+        else {
+            Write-Status "Warning: Failed to load $moduleName - will be skipped" -Level Warning
+            $failedModules++
         }
     }
     
     Write-Host ""
-    
-    # ========================================================================
-    # LOAD ACTIVITY MODULES
-    # ========================================================================
-    
-    Write-Header "Loading Activity Modules"
-    
-    $activityModules = @(
-        "DSP-Demo-Activity-01-DirectoryActivity"
-    )
-    
-    foreach ($moduleName in $activityModules) {
-        if (-not (Import-DemoModule $moduleName)) {
-            Write-Status "Warning: Failed to import $moduleName" -Level Warning
-        }
-    }
-    
+    Write-Status "Module loading complete: $loadedModules loaded, $failedModules failed" -Level Info
     Write-Host ""
     
-    # ========================================================================
-    # DISPLAY SCRIPT MODULES TO BE RUN (TWO-COLUMN LAYOUT)
-    # ========================================================================
+    # Display setup configuration summary
+    Write-Header "Setup Configuration Summary"
     
-    Write-Header "Script Modules To Be Run"
-    
-    Write-Host "SETUP MODULES" -ForegroundColor $Colors.Section -NoNewline
-    Write-Host (" " * 26) -NoNewline
-    Write-Host "ACTIVITY MODULES" -ForegroundColor $Colors.Section
-    Write-Host ("=" * 38) -NoNewline
-    Write-Host "  " -NoNewline
-    Write-Host ("=" * 38) -ForegroundColor $Colors.Section
-    
-    # Display modules in two columns
-    $maxSetupModules = $setupModules.Count
-    $maxActivityModules = $activityModules.Count
-    $maxRows = [math]::Max($maxSetupModules, $maxActivityModules)
-    
-    for ($i = 0; $i -lt $maxRows; $i++) {
-        $setupModule = if ($i -lt $maxSetupModules) { $setupModules[$i] -replace "^DSP-Demo-\d+-Setup-", "" } else { "" }
-        $activityModule = if ($i -lt $maxActivityModules) { $activityModules[$i] -replace "^DSP-Demo-Activity-\d+-", "" } else { "" }
-        
-        $setupPadding = 38 - $setupModule.Length
-        if ($setupPadding -lt 0) { $setupPadding = 0 }
-        
-        Write-Host "  $setupModule" -ForegroundColor $Colors.Info -NoNewline
-        Write-Host (" " * $setupPadding) -NoNewline
-        Write-Host "  $activityModule" -ForegroundColor $Colors.Info
-    }
-    
-    Write-Host ""
-    
-    # ========================================================================
-    # DISPLAY CONFIGURATION SUMMARY
-    # ========================================================================
-    
-    Write-Header "Activity Configuration Summary"
-    
-    # Display what will be created/modified based on config
     if ($config.General) {
         Write-Host "General Settings:" -ForegroundColor $Colors.Section
-        Write-Host "  DSP Server: $(if ($environment.DspAvailable) { $environment.DspServer } else { 'Not available' })" -ForegroundColor $Colors.Info
-        Write-Host "  Loop Count: $($config.General.LoopCount)" -ForegroundColor $Colors.Info
-        Write-Host "  Generic Test Users: $($config.General.GenericUserCount)" -ForegroundColor $Colors.Info
-        Write-Host "  Company: $($config.General.Company)" -ForegroundColor $Colors.Info
+        if ($config.General.LoopCount) {
+            Write-Host "  Loop Count: $($config.General.LoopCount)" -ForegroundColor $Colors.Info
+        }
+        if ($config.General.GenericUserCount) {
+            Write-Host "  Generic Test Users: $($config.General.GenericUserCount)" -ForegroundColor $Colors.Info
+        }
+        if ($config.General.Company) {
+            Write-Host "  Company: $($config.General.Company)" -ForegroundColor $Colors.Info
+        }
         Write-Host ""
     }
     
     if ($config.OUs) {
-        Write-Host "Organizational Units to Create:" -ForegroundColor $Colors.Section
-        foreach ($ou in $config.OUs.Keys) {
-            Write-Host "  - $($config.OUs[$ou].Name)" -ForegroundColor $Colors.Info
-        }
+        Write-Host "Organizational Units: $(@($config.OUs.Keys).Count) to create" -ForegroundColor $Colors.Section
+        Write-Host ""
+    }
+    
+    if ($config.DemoUsers) {
+        Write-Host "Demo User Accounts: $(@($config.DemoUsers.Keys).Count) to create" -ForegroundColor $Colors.Section
         Write-Host ""
     }
     
     if ($config.Groups) {
-        Write-Host "Groups to Create:" -ForegroundColor $Colors.Section
-        $groupCount = 0
-        foreach ($section in $config.Groups.Keys) {
-            if ($config.Groups[$section] -is [array]) {
-                $groupCount += @($config.Groups[$section]).Count
-            }
-            elseif ($config.Groups[$section] -is [hashtable]) {
-                $groupCount += 1
-            }
-        }
-        Write-Host "  - $groupCount total groups" -ForegroundColor $Colors.Info
+        Write-Host "Security Groups: $(@($config.Groups.Keys).Count) to create" -ForegroundColor $Colors.Section
         Write-Host ""
     }
     
-    if ($config.Users) {
-        Write-Host "User Accounts to Create:" -ForegroundColor $Colors.Section
-        $totalUsers = 0
-        
-        if ($config.Users.ContainsKey('Tier0Admins')) {
-            $tier0Count = @($config.Users.Tier0Admins).Count
-            Write-Host "  - $tier0Count Tier 0 Admin accounts" -ForegroundColor $Colors.Info
-            $totalUsers += $tier0Count
-        }
-        
-        if ($config.Users.ContainsKey('Tier1Admins')) {
-            $tier1Count = @($config.Users.Tier1Admins).Count
-            Write-Host "  - $tier1Count Tier 1 Admin accounts" -ForegroundColor $Colors.Info
-            $totalUsers += $tier1Count
-        }
-        
-        if ($config.Users.ContainsKey('Tier2Admins')) {
-            $tier2Count = @($config.Users.Tier2Admins).Count
-            Write-Host "  - $tier2Count Tier 2 Admin accounts" -ForegroundColor $Colors.Info
-            $totalUsers += $tier2Count
-        }
-        
-        if ($config.Users.ContainsKey('DemoUsers')) {
-            $demoCount = @($config.Users.DemoUsers).Count
-            Write-Host "  - $demoCount named Demo accounts" -ForegroundColor $Colors.Info
-            $totalUsers += $demoCount
-        }
-        
-        if ($config.Users.ContainsKey('ServiceAccounts')) {
-            $svcCount = @($config.Users.ServiceAccounts).Count
-            Write-Host "  - $svcCount Service accounts" -ForegroundColor $Colors.Info
-            $totalUsers += $svcCount
-        }
-        
-        if ($config.Users.ContainsKey('GenericUsers')) {
-            foreach ($bulkConfig in $config.Users.GenericUsers) {
-                $bulkCount = if ($bulkConfig.ContainsKey('Count')) { $bulkConfig.Count } else { 0 }
-                $prefix = if ($bulkConfig.ContainsKey('SamAccountNamePrefix')) { $bulkConfig.SamAccountNamePrefix } else { "GdAct0r" }
-                Write-Host "  - $bulkCount generic $prefix accounts" -ForegroundColor $Colors.Info
-                $totalUsers += $bulkCount
-            }
-        }
-        
-        Write-Host "  Total: $totalUsers user accounts" -ForegroundColor $Colors.Section
-        Write-Host ""
-    }
-    
-    # ========================================================================
-    # CONFIRMATION PROMPT
-    # ========================================================================
-    
-    Write-Header "Confirmation Required"
-    Write-Host "Press " -ForegroundColor $Colors.Prompt -NoNewline
-    Write-Host "Y" -ForegroundColor $Colors.MenuHighlight -NoNewline
-    Write-Host " to proceed, " -ForegroundColor $Colors.Prompt -NoNewline
-    Write-Host "N" -ForegroundColor $Colors.MenuHighlight -NoNewline
-    Write-Host " to cancel" -ForegroundColor $Colors.Prompt
-    Write-Host "(Automatically proceeding in 30 seconds...)" -ForegroundColor $Colors.Warning
+    # Confirmation prompt
+    Write-Header "Ready to Execute Setup"
+    Write-Host "This will create the initial AD objects required for DSP demonstration." -ForegroundColor $Colors.Info
+    Write-Host ""
+    Write-Host "Continue with setup?" -ForegroundColor $Colors.Prompt
     Write-Host ""
     
+    # Yes/No prompt with timeout
     $confirmationTimer = 0
     $timeoutSeconds = 30
     $proceed = $null
@@ -393,124 +308,66 @@ function Main {
         }
         
         $remaining = $timeoutSeconds - $confirmationTimer
-        Write-Host "`rProceeding automatically in $remaining seconds..." -ForegroundColor $Colors.Warning -NoNewline
+        Write-Host "`rPress Y/N (auto-proceeding in $remaining seconds)..." -ForegroundColor $Colors.Warning -NoNewline
         Start-Sleep -Seconds 1
         $confirmationTimer++
     }
     
-    # If timeout was reached, proceed = $true (already confirmed by display message)
+    # If timeout reached, default to proceed
     if ($null -eq $proceed) {
         $proceed = $true
     }
     
+    Write-Host ""
+    
     if (-not $proceed) {
+        Write-Status "Setup cancelled by user" -Level Warning
         Write-Host ""
-        Write-Status "Execution cancelled by user" -Level Warning
         exit 0
     }
     
-    Write-Host ""
-    Write-Host ""
+    # Execute setup modules
+    Write-Header "Executing Setup"
     
-    # ========================================================================
-    # EXECUTE SETUP PHASE
-    # ========================================================================
-    
-    Write-Header "Executing Setup Phase"
-    
-    $setupCompleted = 0
-    $setupFailed = 0
+    $completedModules = 0
+    $skippedModules = 0
+    $failedExecution = 0
     
     foreach ($moduleName in $setupModules) {
-        # Convert module name to function name
-        # DSP-Demo-Setup-01-BuildOUs -> Invoke-BuildOUs
-        $functionName = "Invoke-" + ($moduleName -replace "^DSP-Demo-Setup-\d+-", "")
+        $functionName = "Invoke-" + ($moduleName -replace "^DSP-Demo-\d+-Setup-", "")
         
         if (Get-Command $functionName -ErrorAction SilentlyContinue) {
-            Write-Header "Running $moduleName"
             try {
+                Write-Status "Executing $moduleName..." -Level Info
                 & $functionName -Config $config -Environment $environment
-                Write-Status "Module completed: $moduleName" -Level Success
-                $setupCompleted++
+                Write-Status "$moduleName completed successfully" -Level Success
+                $completedModules++
             }
             catch {
                 Write-Status "Error executing $moduleName : $_" -Level Error
-                $setupFailed++
+                $failedExecution++
             }
         }
         else {
             Write-Status "Function $functionName not found - skipping $moduleName" -Level Warning
+            $skippedModules++
         }
     }
     
+    # Execution summary
     Write-Host ""
-    Write-Host ""
-    
-    # ========================================================================
-    # EXECUTE ACTIVITY PHASE
-    # ========================================================================
-    
-    Write-Header "Executing Activity Phase"
-    
-    $activityCompleted = 0
-    $activityFailed = 0
-    
-    foreach ($moduleName in $activityModules) {
-        # Convert module name to function name
-        # DSP-Demo-Activity-01-DirectoryActivity -> Invoke-DirectoryActivity
-        $functionName = "Invoke-" + ($moduleName -replace "^DSP-Demo-Activity-\d+-", "")
-        
-        if (Get-Command $functionName -ErrorAction SilentlyContinue) {
-            Write-Header "Running $moduleName"
-            try {
-                & $functionName -Config $config -Environment $environment
-                Write-Status "Module completed: $moduleName" -Level Success
-                $activityCompleted++
-            }
-            catch {
-                Write-Status "Error executing $moduleName : $_" -Level Error
-                $activityFailed++
-            }
-        }
-        else {
-            Write-Status "Function $functionName not found - skipping $moduleName" -Level Warning
-        }
+    Write-Header "Setup Execution Summary"
+    Write-Host "Modules Completed: $completedModules" -ForegroundColor $Colors.Success
+    if ($skippedModules -gt 0) {
+        Write-Host "Modules Skipped: $skippedModules" -ForegroundColor $Colors.Warning
+    }
+    if ($failedExecution -gt 0) {
+        Write-Host "Modules Failed: $failedExecution" -ForegroundColor $Colors.Error
     }
     
-    # ========================================================================
-    # EXECUTION SUMMARY
-    # ========================================================================
-    
-    Write-Host ""
-    Write-Header "Execution Summary"
-    
-    Write-Host "Setup Phase:" -ForegroundColor $Colors.Section
-    Write-Host "  Completed: $setupCompleted" -ForegroundColor $Colors.Success
-    if ($setupFailed -gt 0) {
-        Write-Host "  Failed: $setupFailed" -ForegroundColor $Colors.Error
-    }
-    
-    Write-Host ""
-    Write-Host "Activity Phase:" -ForegroundColor $Colors.Section
-    Write-Host "  Completed: $activityCompleted" -ForegroundColor $Colors.Success
-    if ($activityFailed -gt 0) {
-        Write-Host "  Failed: $activityFailed" -ForegroundColor $Colors.Error
-    }
-    
-    Write-Host ""
-    $totalCompleted = $setupCompleted + $activityCompleted
-    $totalFailed = $setupFailed + $activityFailed
-    
-    Write-Host "Total:" -ForegroundColor $Colors.Section
-    Write-Host "  Modules Completed: $totalCompleted" -ForegroundColor $Colors.Success
-    if ($totalFailed -gt 0) {
-        Write-Host "  Modules Failed: $totalFailed" -ForegroundColor $Colors.Error
-    }
-    
-    Write-Host ""
-    Write-Status "Demo activity generation completed" -Level Success
+    Write-Status "Setup generation completed" -Level Success
     Write-Host ""
 }
 
-# Execute main function
+# Execute
 Main
