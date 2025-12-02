@@ -125,145 +125,173 @@
     #---------------------------------------------------------------------------
     # GROUPS
     #---------------------------------------------------------------------------
-    Groups = @{
-        Tier0Admins = @{
+    Groups = @(
+        @{
+            SamAccountName = "Tier0Admins"
             Name = "Tier0Admins"
+            DisplayName = "Tier 0 Admins"
             Description = "Tier 0 admin group for enterprise administrators"
-            Scope = "Global"
-            Category = "Security"
+            GroupScope = "Global"
+            GroupCategory = "Security"
         }
-        Tier1Admins = @{
+        @{
+            SamAccountName = "Tier1Admins"
             Name = "Tier1Admins"
+            DisplayName = "Tier 1 Admins"
             Description = "Tier 1 admin group for domain administrators"
-            Scope = "Global"
-            Category = "Security"
+            GroupScope = "Global"
+            GroupCategory = "Security"
         }
-        Tier2Admins = @{
+        @{
+            SamAccountName = "Tier2Admins"
             Name = "Tier2Admins"
+            DisplayName = "Tier 2 Admins"
             Description = "Tier 2 admin group for application administrators"
-            Scope = "Global"
-            Category = "Security"
+            GroupScope = "Global"
+            GroupCategory = "Security"
         }
-        DemoUsers = @{
+        @{
+            SamAccountName = "DemoUsers"
             Name = "DemoUsers"
+            DisplayName = "Demo Users"
             Description = "Group for demo user accounts"
-            Scope = "Global"
-            Category = "Security"
+            GroupScope = "Global"
+            GroupCategory = "Security"
         }
-    }
+    )
     
     #---------------------------------------------------------------------------
     # TIER ADMIN ACCOUNTS
     #---------------------------------------------------------------------------
-    Tier0Admins = @{
-        "t0-admin-enterprise" = @{
-            GivenName = "Enterprise"
-            Surname = "Admin"
-            UserPrincipalName = "t0-admin-enterprise@{DOMAIN}"
-            SamAccountName = "t0-admin-ent"
-            Description = "Tier 0 Enterprise Admin account"
-            Path = "Lab Admins/Tier 0"
-        }
-    }
-    
-    Tier1Admins = @{
-        "t1-admin-domain" = @{
-            GivenName = "Domain"
-            Surname = "Admin"
-            UserPrincipalName = "t1-admin-domain@{DOMAIN}"
-            SamAccountName = "t1-admin-dom"
-            Description = "Tier 1 Domain Admin account"
-            Path = "Lab Admins/Tier 1"
-        }
-        "t1-admin-infrastructure" = @{
-            GivenName = "Infrastructure"
-            Surname = "Admin"
-            UserPrincipalName = "t1-admin-infrastructure@{DOMAIN}"
-            SamAccountName = "t1-admin-inf"
-            Description = "Tier 1 Infrastructure Admin account"
-            Path = "Lab Admins/Tier 1"
-        }
-    }
-    
-    Tier2Admins = @{
-        "t2-admin-application" = @{
-            GivenName = "Application"
-            Surname = "Admin"
-            UserPrincipalName = "t2-admin-application@{DOMAIN}"
-            SamAccountName = "t2-admin-app"
-            Description = "Tier 2 Application Admin account"
-            Path = "Lab Admins/Tier 2"
-        }
-        "t2-admin-service" = @{
-            GivenName = "Service"
-            Surname = "Admin"
-            UserPrincipalName = "t2-admin-service@{DOMAIN}"
-            SamAccountName = "t2-admin-svc"
-            Description = "Tier 2 Service Admin account"
-            Path = "Lab Admins/Tier 2"
-        }
-    }
-    
-    #---------------------------------------------------------------------------
-    # DEMO USERS
-    #---------------------------------------------------------------------------
-    DemoUsers = @{
-        "demo-user-01" = @{
-            GivenName = "Demo"
-            Surname = "User01"
-            UserPrincipalName = "demo-user-01@{DOMAIN}"
-            SamAccountName = "demo-user-01"
-            Description = "Demo user account for demonstrations"
-            Path = "Lab Users/Dept101"
-        }
-        "demo-user-02" = @{
-            GivenName = "Demo"
-            Surname = "User02"
-            UserPrincipalName = "demo-user-02@{DOMAIN}"
-            SamAccountName = "demo-user-02"
-            Description = "Demo user account for demonstrations"
-            Path = "Lab Users/Dept101"
-        }
-        "demo-user-03" = @{
-            GivenName = "Demo"
-            Surname = "User03"
-            UserPrincipalName = "demo-user-03@{DOMAIN}"
-            SamAccountName = "demo-user-03"
-            Description = "Demo user account for demonstrations"
-            Path = "Lab Users/Dept101"
-        }
-    }
-    
-    #---------------------------------------------------------------------------
-    # SERVICE ACCOUNTS
-    #---------------------------------------------------------------------------
-    ServiceAccounts = @{
-        "svc-dsp" = @{
-            GivenName = "DSP"
-            Surname = "Service"
-            UserPrincipalName = "svc-dsp@{DOMAIN}"
-            SamAccountName = "svc-dsp"
-            Description = "Service account for DSP integration"
-            Path = "Lab Admins/Tier 1"
-        }
-        "svc-dns" = @{
-            GivenName = "DNS"
-            Surname = "Service"
-            UserPrincipalName = "svc-dns@{DOMAIN}"
-            SamAccountName = "svc-dns"
-            Description = "Service account for DNS operations"
-            Path = "Lab Admins/Tier 1"
-        }
-    }
-    
-    #---------------------------------------------------------------------------
-    # GENERIC USERS (BULK)
-    #---------------------------------------------------------------------------
-    GenericUsers = @{
-        Count = 250
-        NamePrefix = "User"
-        Path = "Lab Users/Dept101"
-        Description = "Generic lab user account"
+    Users = @{
+        Tier0Admins = @(
+            @{
+                Name = "t0-admin-enterprise"
+                GivenName = "Enterprise"
+                Surname = "Admin"
+                UserPrincipalName = "t0-admin-enterprise@{DOMAIN}"
+                SamAccountName = "t0-admin-ent"
+                Description = "Tier 0 Enterprise Admin account"
+                Path = "Lab Admins/Tier 0"
+                Enabled = $true
+                PasswordNeverExpires = $false
+            }
+        )
+        Tier1Admins = @(
+            @{
+                Name = "t1-admin-domain"
+                GivenName = "Domain"
+                Surname = "Admin"
+                UserPrincipalName = "t1-admin-domain@{DOMAIN}"
+                SamAccountName = "t1-admin-dom"
+                Description = "Tier 1 Domain Admin account"
+                Path = "Lab Admins/Tier 1"
+                Enabled = $true
+                PasswordNeverExpires = $false
+            }
+            @{
+                Name = "t1-admin-infrastructure"
+                GivenName = "Infrastructure"
+                Surname = "Admin"
+                UserPrincipalName = "t1-admin-infrastructure@{DOMAIN}"
+                SamAccountName = "t1-admin-inf"
+                Description = "Tier 1 Infrastructure Admin account"
+                Path = "Lab Admins/Tier 1"
+                Enabled = $true
+                PasswordNeverExpires = $false
+            }
+        )
+        Tier2Admins = @(
+            @{
+                Name = "t2-admin-application"
+                GivenName = "Application"
+                Surname = "Admin"
+                UserPrincipalName = "t2-admin-application@{DOMAIN}"
+                SamAccountName = "t2-admin-app"
+                Description = "Tier 2 Application Admin account"
+                Path = "Lab Admins/Tier 2"
+                Enabled = $true
+                PasswordNeverExpires = $false
+            }
+            @{
+                Name = "t2-admin-service"
+                GivenName = "Service"
+                Surname = "Admin"
+                UserPrincipalName = "t2-admin-service@{DOMAIN}"
+                SamAccountName = "t2-admin-svc"
+                Description = "Tier 2 Service Admin account"
+                Path = "Lab Admins/Tier 2"
+                Enabled = $true
+                PasswordNeverExpires = $false
+            }
+        )
+        DemoUsers = @(
+            @{
+                Name = "demo-user-01"
+                GivenName = "Demo"
+                Surname = "User01"
+                UserPrincipalName = "demo-user-01@{DOMAIN}"
+                SamAccountName = "demo-user-01"
+                Description = "Demo user account for demonstrations"
+                Path = "Lab Users/Dept101"
+                Enabled = $true
+                PasswordNeverExpires = $false
+            }
+            @{
+                Name = "demo-user-02"
+                GivenName = "Demo"
+                Surname = "User02"
+                UserPrincipalName = "demo-user-02@{DOMAIN}"
+                SamAccountName = "demo-user-02"
+                Description = "Demo user account for demonstrations"
+                Path = "Lab Users/Dept101"
+                Enabled = $true
+                PasswordNeverExpires = $false
+            }
+            @{
+                Name = "demo-user-03"
+                GivenName = "Demo"
+                Surname = "User03"
+                UserPrincipalName = "demo-user-03@{DOMAIN}"
+                SamAccountName = "demo-user-03"
+                Description = "Demo user account for demonstrations"
+                Path = "Lab Users/Dept101"
+                Enabled = $true
+                PasswordNeverExpires = $false
+            }
+        )
+        ServiceAccounts = @(
+            @{
+                Name = "svc-dsp"
+                GivenName = "DSP"
+                Surname = "Service"
+                UserPrincipalName = "svc-dsp@{DOMAIN}"
+                SamAccountName = "svc-dsp"
+                Description = "Service account for DSP integration"
+                Path = "Lab Admins/Tier 1"
+                Enabled = $true
+                PasswordNeverExpires = $false
+            }
+            @{
+                Name = "svc-dns"
+                GivenName = "DNS"
+                Surname = "Service"
+                UserPrincipalName = "svc-dns@{DOMAIN}"
+                SamAccountName = "svc-dns"
+                Description = "Service account for DNS operations"
+                Path = "Lab Admins/Tier 1"
+                Enabled = $true
+                PasswordNeverExpires = $false
+            }
+        )
+        GenericUsers = @(
+            @{
+                Count = 250
+                SamAccountNamePrefix = "User"
+                Path = "Lab Users/Dept101"
+                Description = "Generic lab user account"
+            }
+        )
     }
     
     #---------------------------------------------------------------------------
