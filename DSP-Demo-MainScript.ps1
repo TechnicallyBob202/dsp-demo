@@ -480,7 +480,7 @@ try {
 }
 catch {
     Write-Host ""
-    Write-Host "FATAL ERROR: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host ('FATAL ERROR: ' + $_.Exception.Message) -ForegroundColor Red
     Write-Host $_.ScriptStackTrace -ForegroundColor Red
     Write-Host ""
     exit 1
