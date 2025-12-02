@@ -843,6 +843,19 @@
                 Location = "Lab-USA-TX-Updated"
             }
         }
+
+        # ACL Activity (Activity-04 & Activity-26)
+        AclActivity = @{
+            BadOUName = "Bad OU"
+        }
+
+        # FGPP Activity (Activity-05)
+        FGPPActivity = @{
+            TargetPSO = "SpecialLabUsers_PSO"
+            NewMinPasswordLength = 16
+            NewLockoutThreshold = 2
+        }
+
     }
 }
 
