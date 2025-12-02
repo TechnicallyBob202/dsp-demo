@@ -125,40 +125,44 @@
     #---------------------------------------------------------------------------
     # GROUPS
     #---------------------------------------------------------------------------
-    Groups = @(
-        @{
-            SamAccountName = "Tier0Admins"
-            Name = "Tier0Admins"
-            DisplayName = "Tier 0 Admins"
-            Description = "Tier 0 admin group for enterprise administrators"
-            GroupScope = "Global"
-            GroupCategory = "Security"
-        }
-        @{
-            SamAccountName = "Tier1Admins"
-            Name = "Tier1Admins"
-            DisplayName = "Tier 1 Admins"
-            Description = "Tier 1 admin group for domain administrators"
-            GroupScope = "Global"
-            GroupCategory = "Security"
-        }
-        @{
-            SamAccountName = "Tier2Admins"
-            Name = "Tier2Admins"
-            DisplayName = "Tier 2 Admins"
-            Description = "Tier 2 admin group for application administrators"
-            GroupScope = "Global"
-            GroupCategory = "Security"
-        }
-        @{
-            SamAccountName = "DemoUsers"
-            Name = "DemoUsers"
-            DisplayName = "Demo Users"
-            Description = "Group for demo user accounts"
-            GroupScope = "Global"
-            GroupCategory = "Security"
-        }
-    )
+    Groups = @{
+        AdminGroups = @(
+            @{
+                SamAccountName = "Tier0Admins"
+                Name = "Tier0Admins"
+                DisplayName = "Tier 0 Admins"
+                Description = "Tier 0 admin group for enterprise administrators"
+                GroupScope = "Global"
+                GroupCategory = "Security"
+            }
+            @{
+                SamAccountName = "Tier1Admins"
+                Name = "Tier1Admins"
+                DisplayName = "Tier 1 Admins"
+                Description = "Tier 1 admin group for domain administrators"
+                GroupScope = "Global"
+                GroupCategory = "Security"
+            }
+            @{
+                SamAccountName = "Tier2Admins"
+                Name = "Tier2Admins"
+                DisplayName = "Tier 2 Admins"
+                Description = "Tier 2 admin group for application administrators"
+                GroupScope = "Global"
+                GroupCategory = "Security"
+            }
+        )
+        UserGroups = @(
+            @{
+                SamAccountName = "DemoUsers"
+                Name = "DemoUsers"
+                DisplayName = "Demo Users"
+                Description = "Group for demo user accounts"
+                GroupScope = "Global"
+                GroupCategory = "Security"
+            }
+        )
+    }
     
     #---------------------------------------------------------------------------
     # TIER ADMIN ACCOUNTS
