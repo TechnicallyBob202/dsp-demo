@@ -6,8 +6,8 @@
 ## 
 ## Linear flow:
 ## 1. Preflight checks (report results, 10 sec pause)
-## 2. Setup phase (load modules from setup folder, 30 sec pause, execute)
-## 3. Activity phase (load modules from activity folder, 30 sec pause, execute)
+## 2. Setup phase (load setup config, load modules from setup folder, execute)
+## 3. Activity phase (load activity config, load modules from activity folder, execute)
 ##
 ## Original Author: Rob Ingenthron (robi@semperis.com)
 ## Refactored By: Bob Lyons
@@ -27,7 +27,10 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$false)]
-    [string]$ConfigPath,
+    [string]$SetupConfigPath,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$ActivityConfigPath,
     
     [Parameter(Mandatory=$false)]
     [string]$LogPath
@@ -41,13 +44,25 @@ $ErrorActionPreference = "Continue"
 
 $Script:ScriptPath = $PSScriptRoot
 $Script:ModulesPath = Join-Path $ScriptPath "modules"
-$Script:ConfigFile = if ($ConfigPath) { 
-    $ConfigPath 
+
+# Setup config
+$Script:SetupConfigFile = if ($SetupConfigPath) { 
+    $SetupConfigPath 
 } 
 else { 
-    $defaultPath = Join-Path $ScriptPath "DSP-Demo-Config.psd1"
+    $defaultPath = Join-Path $ScriptPath "DSP-Demo-Config-Setup.psd1"
     if (Test-Path $defaultPath) { $defaultPath }
-    else { Join-Path $ScriptPath "DSP-Demo-Config.psd1" }
+    else { Join-Path $ScriptPath "DSP-Demo-Config-Setup.psd1" }
+}
+
+# Activity config
+$Script:ActivityConfigFile = if ($ActivityConfigPath) { 
+    $ActivityConfigPath 
+} 
+else { 
+    $defaultPath = Join-Path $ScriptPath "DSP-Demo-Config-Activity.psd1"
+    if (Test-Path $defaultPath) { $defaultPath }
+    else { Join-Path $ScriptPath "DSP-Demo-Config-Activity.psd1" }
 }
 
 ################################################################################
@@ -61,28 +76,30 @@ $Colors = @{
     Warning = 'Yellow'
     Error = 'Red'
     Info = 'White'
-    Prompt = 'Magenta'
+    Prompt = 'Yellow'
 }
 
 ################################################################################
-# HELPER FUNCTIONS
+# OUTPUT FUNCTIONS
 ################################################################################
 
 function Write-Status {
     param(
+        [Parameter(Mandatory=$true)]
         [string]$Message,
+        
+        [Parameter(Mandatory=$false)]
         [ValidateSet('Info','Success','Warning','Error')]
         [string]$Level = 'Info'
     )
     
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $color = $Colors[$Level]
-    
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
 
 function Write-Header {
-    param([string]$Title)
+    param([Parameter(Mandatory=$true)][string]$Title)
     Write-Host ""
     Write-Host ("=" * 80) -ForegroundColor $Colors.Header
     Write-Host $Title -ForegroundColor $Colors.Header
@@ -90,55 +107,62 @@ function Write-Header {
     Write-Host ""
 }
 
+################################################################################
+# CONFIGURATION FUNCTIONS
+################################################################################
+
 function Load-Configuration {
-    param([Parameter(Mandatory=$true)][string]$ConfigFile)
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$ConfigFile
+    )
     
     if (-not (Test-Path $ConfigFile)) {
-        Write-Status "Configuration file not found: $ConfigFile" -Level Error
         throw "Configuration file not found: $ConfigFile"
     }
     
-    try {
-        $config = Import-PowerShellDataFile $ConfigFile -ErrorAction Stop
-        return $config
-    }
-    catch {
-        Write-Status "Failed to load configuration: $_" -Level Error
-        throw $_
-    }
+    $config = & ([scriptblock]::Create([io.file]::ReadAllText($ConfigFile)))
+    return $config
 }
 
 function Expand-ConfigPlaceholders {
     param(
-        [Parameter(Mandatory=$true)][hashtable]$Config,
-        [Parameter(Mandatory=$true)][PSCustomObject]$DomainInfo
+        [Parameter(Mandatory=$true)]
+        [hashtable]$Config,
+        
+        [Parameter(Mandatory=$true)]
+        $DomainInfo
     )
     
-    $placeholders = @{
-        '{DOMAIN_DN}' = $DomainInfo.DN
-        '{DOMAIN_FQDN}' = $DomainInfo.FQDN
-        '{DOMAIN_NETBIOS}' = $DomainInfo.NetBIOSName
-    }
+    $domainName = $DomainInfo.FQDN
+    $domainDN = $DomainInfo.DN
     
-    foreach ($key in $placeholders.Keys) {
-        foreach ($section in @($Config.Keys)) {
-            if ($Config[$section] -is [hashtable]) {
-                foreach ($prop in @($Config[$section].Keys)) {
-                    if ($Config[$section][$prop] -is [string]) {
-                        $Config[$section][$prop] = $Config[$section][$prop] -replace [regex]::Escape($key), $placeholders[$key]
-                    }
-                }
-            }
+    $expandedConfig = @{}
+    
+    foreach ($key in $Config.Keys) {
+        $value = $Config[$key]
+        
+        if ($value -is [string]) {
+            $value = $value -replace '\{DOMAIN\}', $domainName
+            $value = $value -replace '\{DOMAIN_DN\}', $domainDN
         }
+        elseif ($value -is [hashtable]) {
+            $value = Expand-ConfigPlaceholders -Config $value -DomainInfo $DomainInfo
+        }
+        
+        $expandedConfig[$key] = $value
     }
     
-    return $Config
+    return $expandedConfig
 }
 
 function Wait-ForConfirmation {
     param(
-        [Parameter(Mandatory=$true)][int]$TimeoutSeconds,
-        [Parameter(Mandatory=$false)][string]$Prompt = "Continue?"
+        [Parameter(Mandatory=$true)]
+        [int]$TimeoutSeconds,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$Prompt
     )
     
     Write-Host ""
@@ -162,7 +186,7 @@ function Wait-ForConfirmation {
         }
         
         $remaining = $TimeoutSeconds - $confirmationTimer
-        Write-Host ("`rPress Y/N (auto-proceeding in $remaining seconds)...") -ForegroundColor $Colors.Warning -NoNewline
+        Write-Host "`rPress Y/N (auto-proceeding in $remaining seconds)..." -ForegroundColor $Colors.Warning -NoNewline
         Start-Sleep -Seconds 1
         $confirmationTimer++
     }
@@ -194,7 +218,8 @@ function Main {
     Write-Header "DSP Demo Activity Generation"
     
     Write-Status "Script path: $Script:ScriptPath" -Level Info
-    Write-Status "Config file: $Script:ConfigFile" -Level Info
+    Write-Status "Setup config: $Script:SetupConfigFile" -Level Info
+    Write-Status "Activity config: $Script:ActivityConfigFile" -Level Info
     Write-Host ""
     
     # Create modules directory if needed
@@ -202,19 +227,6 @@ function Main {
         Write-Status "Creating modules directory..." -Level Info
         New-Item -ItemType Directory -Path $Script:ModulesPath -Force | Out-Null
     }
-    
-    # Load configuration
-    Write-Status "Loading configuration..." -Level Info
-    try {
-        $config = Load-Configuration -ConfigFile $Script:ConfigFile
-        Write-Status "Configuration loaded" -Level Success
-    }
-    catch {
-        Write-Status "FATAL: Cannot proceed without configuration" -Level Error
-        exit 1
-    }
-    
-    Write-Host ""
     
     # Import Preflight module (stays at root level)
     Write-Status "Importing Preflight module..." -Level Info
@@ -241,8 +253,21 @@ function Main {
     # ========================================================================
     
     Write-Status "Running preflight checks..." -Level Info
+    
+    # Load setup config for preflight (to access General.DspServer if needed)
     try {
-        $environment = Initialize-PreflightEnvironment -Config $config
+        $setupConfig = Load-Configuration -ConfigFile $Script:SetupConfigFile
+        Write-Status "Setup configuration loaded" -Level Success
+    }
+    catch {
+        Write-Status "FATAL: Cannot load setup configuration" -Level Error
+        exit 1
+    }
+    
+    Write-Host ""
+    
+    try {
+        $environment = Initialize-PreflightEnvironment -Config $setupConfig
     }
     catch {
         Write-Status "FATAL: Preflight checks failed" -Level Error
@@ -259,12 +284,12 @@ function Main {
         exit 0
     }
     
-    # Expand placeholders
+    # Expand placeholders in setup config
     try {
-        $config = Expand-ConfigPlaceholders -Config $config -DomainInfo $environment.DomainInfo
+        $setupConfig = Expand-ConfigPlaceholders -Config $setupConfig -DomainInfo $environment.DomainInfo
     }
     catch {
-        Write-Status "Failed to expand configuration placeholders: $_" -Level Error
+        Write-Status "Failed to expand setup configuration placeholders: $_" -Level Error
     }
     
     Write-Host ""
@@ -314,7 +339,7 @@ function Main {
         else {
             # Pause before setup execution
             if (-not (Wait-ForConfirmation -TimeoutSeconds 30 -Prompt "Execute setup modules?")) {
-                Write-Status "User cancelled setup phase" -Level Warning
+                Write-Status "User cancelled after preflight" -Level Warning
                 Write-Host ""
                 exit 0
             }
@@ -331,7 +356,7 @@ function Main {
                 if (Get-Command $functionName -ErrorAction SilentlyContinue) {
                     try {
                         Write-Status "Running: $functionName" -Level Info
-                        & $functionName -Config $config -Environment $environment
+                        & $functionName -Config $setupConfig -Environment $environment
                         Write-Status "$functionName completed" -Level Success
                         $setupCompleted++
                     }
@@ -354,12 +379,6 @@ function Main {
                 Write-Host "Failed: $setupFailed" -ForegroundColor $Colors.Error
             }
             Write-Host ""
-            
-            # Pause after setup
-            if (-not (Wait-ForConfirmation -TimeoutSeconds 10 -Prompt "Setup complete. Continue with activity phase?")) {
-                Write-Status "User cancelled after setup" -Level Warning
-                exit 0
-            }
         }
     }
     
@@ -370,6 +389,27 @@ function Main {
     # ========================================================================
     
     Write-Header "Activity Phase"
+    
+    # Load activity config
+    try {
+        $activityConfig = Load-Configuration -ConfigFile $Script:ActivityConfigFile
+        Write-Status "Activity configuration loaded" -Level Success
+    }
+    catch {
+        Write-Status "WARNING: Cannot load activity configuration - skipping activity phase" -Level Warning
+        Write-Host ""
+        exit 0
+    }
+    
+    # Expand placeholders in activity config
+    try {
+        $activityConfig = Expand-ConfigPlaceholders -Config $activityConfig -DomainInfo $environment.DomainInfo
+    }
+    catch {
+        Write-Status "Failed to expand activity configuration placeholders: $_" -Level Error
+    }
+    
+    Write-Host ""
     
     # Discover activity modules from activity folder
     $activityPath = Join-Path $Script:ModulesPath "activity"
@@ -427,7 +467,7 @@ function Main {
                 if (Get-Command $functionName -ErrorAction SilentlyContinue) {
                     try {
                         Write-Status "Running: $functionName" -Level Info
-                        & $functionName -Config $config -Environment $environment
+                        & $functionName -Config $activityConfig -Environment $environment
                         Write-Status "$functionName completed" -Level Success
                         $activityCompleted++
                     }
@@ -471,7 +511,7 @@ try {
 }
 catch {
     Write-Host ""
-    Write-Host ('FATAL ERROR: ' + $_.Exception.Message) -ForegroundColor Red
+    Write-Host "FATAL ERROR: $_" -ForegroundColor Red
     Write-Host $_.ScriptStackTrace -ForegroundColor Red
     Write-Host ""
     exit 1
