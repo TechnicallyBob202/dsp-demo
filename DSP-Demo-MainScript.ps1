@@ -6,11 +6,17 @@
 ## 
 ## Linear flow:
 ## 1. Preflight checks (report results, 10 sec pause)
-## 2. Setup phase (load modules, list them, 30 sec pause, execute)
-## 3. Activity phase (load modules, list them, 30 sec pause, execute)
+## 2. Setup phase (load modules from setup folder, 30 sec pause, execute)
+## 3. Activity phase (load modules from activity folder, 30 sec pause, execute)
 ##
-## Author: Bob Lyons
-## Version: 6.0.0-20251202
+## Original Author: Rob Ingenthron (robi@semperis.com)
+## Refactored By: Bob Lyons
+## Version: 7.0.0-20251202
+##
+## This is a complete refactor of Rob's original monolithic script
+## (Invoke-CreateDspChangeDataForDemos-20251002_0012.ps1) into a modular,
+## configuration-driven architecture for improved maintainability and
+## operator control.
 ##
 ################################################################################
 
@@ -129,27 +135,6 @@ function Expand-ConfigPlaceholders {
     return $Config
 }
 
-function Import-DemoModule {
-    param([Parameter(Mandatory=$true)][string]$ModuleName)
-    
-    $modulePath = Join-Path $Script:ModulesPath "$ModuleName.psm1"
-    
-    if (-not (Test-Path $modulePath)) {
-        Write-Status "Module not found: $modulePath" -Level Error
-        return $false
-    }
-    
-    try {
-        Import-Module $modulePath -Force -ErrorAction Stop | Out-Null
-        Write-Status "Loaded: $ModuleName" -Level Success
-        return $true
-    }
-    catch {
-        Write-Status "Failed to load $ModuleName : $_" -Level Error
-        return $false
-    }
-}
-
 function Wait-ForConfirmation {
     param(
         [Parameter(Mandatory=$true)][int]$TimeoutSeconds,
@@ -231,10 +216,21 @@ function Main {
     
     Write-Host ""
     
-    # Import Preflight module
+    # Import Preflight module (stays at root level)
     Write-Status "Importing Preflight module..." -Level Info
-    if (-not (Import-DemoModule "DSP-Demo-Preflight")) {
-        Write-Status "FATAL: Cannot import Preflight module" -Level Error
+    $preflightPath = Join-Path $Script:ModulesPath "DSP-Demo-Preflight.psm1"
+    
+    if (-not (Test-Path $preflightPath)) {
+        Write-Status "FATAL: Preflight module not found at $preflightPath" -Level Error
+        exit 1
+    }
+    
+    try {
+        Import-Module $preflightPath -Force -ErrorAction Stop | Out-Null
+        Write-Status "Loaded: DSP-Demo-Preflight" -Level Success
+    }
+    catch {
+        Write-Status "FATAL: Cannot import Preflight module: $_" -Level Error
         exit 1
     }
     
@@ -279,26 +275,33 @@ function Main {
     
     Write-Header "Setup Phase"
     
-    # Discover setup modules
+    # Discover setup modules from setup folder
+    $setupPath = Join-Path $Script:ModulesPath "setup"
     $setupModules = @()
-    if (Test-Path $Script:ModulesPath) {
-        $setupModuleFiles = Get-ChildItem -Path $Script:ModulesPath -Filter "DSP-Demo-Setup-*.psm1" -ErrorAction SilentlyContinue | Sort-Object Name
-        $setupModules = $setupModuleFiles | ForEach-Object { $_.BaseName }
+    
+    if (Test-Path $setupPath) {
+        $setupModuleFiles = Get-ChildItem -Path $setupPath -Filter "*.psm1" -ErrorAction SilentlyContinue | Sort-Object Name
+        $setupModules = $setupModuleFiles
     }
     
     if ($setupModules.Count -eq 0) {
-        Write-Status "No setup modules found - skipping setup phase" -Level Warning
+        Write-Status "No setup modules found in $setupPath - skipping setup phase" -Level Warning
         Write-Host ""
     }
     else {
-        Write-Status "Found $($setupModules.Count) setup module(s):" -Level Info
+        Write-Status "Found $($setupModules.Count) setup module(s) in $setupPath" -Level Info
         Write-Host ""
         
         # Load setup modules
         $loadedSetupModules = @()
-        foreach ($moduleName in $setupModules) {
-            if (Import-DemoModule $moduleName) {
-                $loadedSetupModules += $moduleName
+        foreach ($moduleFile in $setupModules) {
+            try {
+                Import-Module $moduleFile.FullName -Force -ErrorAction Stop | Out-Null
+                Write-Status "Loaded: $($moduleFile.BaseName)" -Level Success
+                $loadedSetupModules += $moduleFile.BaseName
+            }
+            catch {
+                Write-Status "Failed to load $($moduleFile.BaseName): $_" -Level Error
             }
         }
         
@@ -368,26 +371,33 @@ function Main {
     
     Write-Header "Activity Phase"
     
-    # Discover activity modules
+    # Discover activity modules from activity folder
+    $activityPath = Join-Path $Script:ModulesPath "activity"
     $activityModules = @()
-    if (Test-Path $Script:ModulesPath) {
-        $activityModuleFiles = Get-ChildItem -Path $Script:ModulesPath -Filter "DSP-Demo-Activity-*.psm1" -ErrorAction SilentlyContinue | Sort-Object Name
-        $activityModules = $activityModuleFiles | ForEach-Object { $_.BaseName }
+    
+    if (Test-Path $activityPath) {
+        $activityModuleFiles = Get-ChildItem -Path $activityPath -Filter "*.psm1" -ErrorAction SilentlyContinue | Sort-Object Name
+        $activityModules = $activityModuleFiles
     }
     
     if ($activityModules.Count -eq 0) {
-        Write-Status "No activity modules found - skipping activity phase" -Level Info
+        Write-Status "No activity modules found in $activityPath - skipping activity phase" -Level Info
         Write-Host ""
     }
     else {
-        Write-Status "Found $($activityModules.Count) activity module(s):" -Level Info
+        Write-Status "Found $($activityModules.Count) activity module(s) in $activityPath" -Level Info
         Write-Host ""
         
         # Load activity modules
         $loadedActivityModules = @()
-        foreach ($moduleName in $activityModules) {
-            if (Import-DemoModule $moduleName) {
-                $loadedActivityModules += $moduleName
+        foreach ($moduleFile in $activityModules) {
+            try {
+                Import-Module $moduleFile.FullName -Force -ErrorAction Stop | Out-Null
+                Write-Status "Loaded: $($moduleFile.BaseName)" -Level Success
+                $loadedActivityModules += $moduleFile.BaseName
+            }
+            catch {
+                Write-Status "Failed to load $($moduleFile.BaseName): $_" -Level Error
             }
         }
         
@@ -443,10 +453,30 @@ function Main {
         }
     }
     
-    Write-Header "Execution Complete"
-    Write-Status "All phases completed" -Level Success
+    # ========================================================================
+    # COMPLETION
+    # ========================================================================
+    
+    Write-Header "DSP Demo Activity Generation Complete"
+    Write-Host "All phases completed successfully" -ForegroundColor $Colors.Success
     Write-Host ""
 }
 
-# Execute
-Main
+################################################################################
+# SCRIPT ENTRY POINT
+################################################################################
+
+try {
+    Main
+}
+catch {
+    Write-Host ""
+    Write-Host "FATAL ERROR: $_" -ForegroundColor Red
+    Write-Host $_.ScriptStackTrace -ForegroundColor Red
+    Write-Host ""
+    exit 1
+}
+
+################################################################################
+# END OF SCRIPT
+################################################################################
