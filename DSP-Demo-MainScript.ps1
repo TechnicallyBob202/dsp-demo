@@ -171,7 +171,7 @@ function Wait-ForConfirmation {
         }
         
         $remaining = $TimeoutSeconds - $confirmationTimer
-        Write-Host "`rPress Y/N (auto-proceeding in $remaining seconds)..." -ForegroundColor $Colors.Warning -NoNewline
+        Write-Host ("`rPress Y/N (auto-proceeding in $remaining seconds)...") -ForegroundColor $Colors.Warning -NoNewline
         Start-Sleep -Seconds 1
         $confirmationTimer++
     }
