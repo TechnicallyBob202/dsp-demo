@@ -5,6 +5,9 @@
 ## Test harness for individual activity modules
 ## Usage: .\Test-ActivityModule.ps1 -ModuleNumber 01
 ##
+## With custom activity config:
+## .\Test-ActivityModule.ps1 -ModuleNumber 01 -ActivityConfigPath ".\DSP-Demo-Config-Activity.psd1"
+##
 ################################################################################
 
 #Requires -Version 5.1
@@ -16,7 +19,7 @@ param(
     [string]$ModuleNumber,
     
     [Parameter(Mandatory=$false)]
-    [string]$ConfigPath
+    [string]$ActivityConfigPath
 )
 
 $ErrorActionPreference = "Continue"
@@ -27,11 +30,19 @@ $ErrorActionPreference = "Continue"
 
 $Script:ScriptPath = $PSScriptRoot
 $Script:ModulesPath = Join-Path $ScriptPath "modules"
-$Script:ConfigFile = if ($ConfigPath) { 
-    $ConfigPath 
+
+# Activity config (required for testing activity modules)
+$Script:ActivityConfigFile = if ($ActivityConfigPath) { 
+    $ActivityConfigPath 
 } 
 else { 
-    Join-Path $ScriptPath "DSP-Demo-Config.psd1"
+    $defaultPath = Join-Path $ScriptPath "DSP-Demo-Config-Activity.psd1"
+    if (Test-Path $defaultPath) { 
+        $defaultPath 
+    } 
+    else { 
+        Join-Path $ScriptPath "DSP-Demo-Config-Activity.psd1" 
+    }
 }
 
 ################################################################################
@@ -52,7 +63,7 @@ if ($moduleFiles.Count -eq 0) {
     Write-Host "ERROR: No activity module found with number $ModuleNumber" -ForegroundColor Red
     Write-Host ""
     Write-Host "Available activity modules:" -ForegroundColor Yellow
-    Get-ChildItem -Path $activityPath -Filter "*.psm1" | ForEach-Object { Write-Host "  $_" }
+    Get-ChildItem -Path $activityPath -Filter "*.psm1" | ForEach-Object { Write-Host "  $($_.Name)" }
     exit 1
 }
 
@@ -65,19 +76,19 @@ $functionName = "Invoke-" + ($moduleName -replace "^DSP-Demo-Activity-\d+-", "")
 ################################################################################
 
 Write-Host ""
-Write-Host "Loading configuration..." -ForegroundColor Cyan
+Write-Host "Loading activity configuration..." -ForegroundColor Cyan
 
-if (-not (Test-Path $Script:ConfigFile)) {
-    Write-Host "ERROR: Config file not found: $Script:ConfigFile" -ForegroundColor Red
+if (-not (Test-Path $Script:ActivityConfigFile)) {
+    Write-Host "ERROR: Activity config file not found: $Script:ActivityConfigFile" -ForegroundColor Red
     exit 1
 }
 
 try {
-    $config = Import-PowerShellDataFile -Path $Script:ConfigFile
-    Write-Host "Config loaded successfully" -ForegroundColor Green
+    $config = Import-PowerShellDataFile -Path $Script:ActivityConfigFile
+    Write-Host "Activity config loaded successfully" -ForegroundColor Green
 }
 catch {
-    Write-Host "ERROR: Failed to load config: $_" -ForegroundColor Red
+    Write-Host "ERROR: Failed to load activity config: $_" -ForegroundColor Red
     exit 1
 }
 
@@ -86,6 +97,8 @@ $environment = @{
     DomainInfo = @{
         Name = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
         DN = ([ADSI]"LDAP://RootDSE").defaultNamingContext.Value
+        FQDN = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
+        DNSRoot = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
     }
 }
 
@@ -104,7 +117,7 @@ Write-Host ""
 
 try {
     Remove-Module $moduleName -Force -ErrorAction SilentlyContinue
-    Import-Module $moduleFile.FullName -Force -ErrorAction Stop
+    Import-Module $moduleFile.FullName -Force -ErrorAction Stop | Out-Null
     Write-Host "Module loaded successfully" -ForegroundColor Green
 }
 catch {
