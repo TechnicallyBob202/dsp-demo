@@ -60,7 +60,21 @@ function Invoke-UserAttributesPart1 {
         return $false
     }
     
-    $demoUsers = $Config.Users.DemoUsers
+    # Convert from .psd1 format (array of Name/Value pairs) to hashtables if needed
+    $demoUsers = @()
+    foreach ($user in $Config.Users.DemoUsers) {
+        if ($user -is [hashtable]) {
+            $demoUsers += $user
+        } else {
+            # Convert Name/Value pairs to hashtable
+            $ht = @{}
+            foreach ($item in $user) {
+                $ht[$item.Name] = $item.Value
+            }
+            $demoUsers += $ht
+        }
+    }
+    
     if ($demoUsers.Count -lt 4) {
         Write-Status "Expected 4 DemoUsers, found $($demoUsers.Count)" -Level Warning
     }
