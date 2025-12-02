@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## DSP-Demo-05-Setup-CreateDefaultDomainPolicy.psm1
+## DSP-Demo-Setup-05-CreateDefaultDomainPolicy.psm1
 ##
 ## Configures the Default Domain Policy with baseline password and lockout settings.
 ##
@@ -25,6 +25,29 @@
 
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
+
+################################################################################
+# LOGGING FUNCTION
+################################################################################
+
+function Write-Status {
+    param(
+        [string]$Message,
+        [ValidateSet('Info','Success','Warning','Error')]
+        [string]$Level = 'Info'
+    )
+    
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $colors = @{
+        'Info'    = 'White'
+        'Success' = 'Green'
+        'Warning' = 'Yellow'
+        'Error'   = 'Red'
+    }
+    
+    $color = $colors[$Level]
+    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
+}
 
 ################################################################################
 # MAIN FUNCTION
@@ -117,48 +140,20 @@ function Invoke-CreateDefaultDomainPolicy {
             }
         }
         
-        # Apply lockout settings
-        Write-Status "Setting LockoutThreshold to $($policySettings.LockoutThreshold)..." -Level Info
+        # Apply all policy settings in a SINGLE call (not multiple calls)
+        Write-Status "Applying password policy settings..." -Level Info
         Set-ADDefaultDomainPasswordPolicy -Identity $domainDNSRoot `
             -LockoutThreshold $policySettings.LockoutThreshold `
-            -ErrorAction Stop
-        
-        Write-Status "Setting LockoutDuration to $($policySettings.LockoutDuration.TotalMinutes) minutes..." -Level Info
-        Set-ADDefaultDomainPasswordPolicy -Identity $domainDNSRoot `
             -LockoutDuration $policySettings.LockoutDuration `
-            -ErrorAction Stop
-        
-        Write-Status "Setting LockoutObservationWindow to $($policySettings.LockoutObservationWindow.TotalMinutes) minutes..." -Level Info
-        Set-ADDefaultDomainPasswordPolicy -Identity $domainDNSRoot `
             -LockoutObservationWindow $policySettings.LockoutObservationWindow `
-            -ErrorAction Stop
-        
-        # Apply password age settings
-        Write-Status "Setting MinPasswordAge to $($policySettings.MinPasswordAge) days..." -Level Info
-        Set-ADDefaultDomainPasswordPolicy -Identity $domainDNSRoot `
             -MinPasswordAge $policySettings.MinPasswordAge `
-            -ErrorAction Stop
-        
-        Write-Status "Setting MinPasswordLength to $($policySettings.MinPasswordLength) characters..." -Level Info
-        Set-ADDefaultDomainPasswordPolicy -Identity $domainDNSRoot `
             -MinPasswordLength $policySettings.MinPasswordLength `
-            -ErrorAction Stop
-        
-        Write-Status "Setting PasswordComplexity to $($policySettings.ComplexityEnabled)..." -Level Info
-        Set-ADDefaultDomainPasswordPolicy -Identity $domainDNSRoot `
             -ComplexityEnabled $policySettings.ComplexityEnabled `
-            -ErrorAction Stop
-        
-        Write-Status "Setting PasswordHistoryCount to $($policySettings.PasswordHistoryCount)..." -Level Info
-        Set-ADDefaultDomainPasswordPolicy -Identity $domainDNSRoot `
             -PasswordHistoryCount $policySettings.PasswordHistoryCount `
-            -ErrorAction Stop
-        
-        Write-Status "Setting MaxPasswordAge to $($policySettings.MaxPasswordAge) days..." -Level Info
-        Set-ADDefaultDomainPasswordPolicy -Identity $domainDNSRoot `
             -MaxPasswordAge $policySettings.MaxPasswordAge `
             -ErrorAction Stop
         
+        Write-Status "Policy settings applied successfully" -Level Success
         Write-Host ""
         
         # Retrieve and display updated policy
