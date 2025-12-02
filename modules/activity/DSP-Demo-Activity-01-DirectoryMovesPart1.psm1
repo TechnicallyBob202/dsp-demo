@@ -69,14 +69,21 @@ function Invoke-DirectoryMovesPart1 {
     $sourceOUPath = $Config.Module01_UserMovesP1.SourceOU
     $targetOUPath = $Config.Module01_UserMovesP1.TargetOU
     
-    # Convert path format "Lab Users/Dept999" to DN format
-    $sourceOUParts = $sourceOUPath -split '/'
-    $sourceDeptDN = ($sourceOUParts | ForEach-Object { "OU=$_" }) -join ','
-    $sourceDeptDN = "$sourceDeptDN,$domainDN"
+    # Convert path format "Lab Users/Dept999" to DN format (reverse order for DN)
+    # "Lab Users/Dept999" becomes "OU=Dept999,OU=Lab Users,DC=..."
+    $sourceOUParts = $sourceOUPath -split '/' | Where-Object { $_ }
+    $sourceDNParts = @()
+    for ($i = $sourceOUParts.Count - 1; $i -ge 0; $i--) {
+        $sourceDNParts += "OU=$($sourceOUParts[$i])"
+    }
+    $sourceDeptDN = ($sourceDNParts -join ',') + ",$domainDN"
     
-    $targetOUParts = $targetOUPath -split '/'
-    $targetDeptDN = ($targetOUParts | ForEach-Object { "OU=$_" }) -join ','
-    $targetDeptDN = "$targetDeptDN,$domainDN"
+    $targetOUParts = $targetOUPath -split '/' | Where-Object { $_ }
+    $targetDNParts = @()
+    for ($i = $targetOUParts.Count - 1; $i -ge 0; $i--) {
+        $targetDNParts += "OU=$($targetOUParts[$i])"
+    }
+    $targetDeptDN = ($targetDNParts -join ',') + ",$domainDN"
     
     # ============================================================================
     # PHASE 1: MOVE USERS FROM SOURCE TO TARGET DEPT
