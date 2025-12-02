@@ -106,6 +106,7 @@ function Invoke-DirectoryMovesPart1 {
     try {
         $userCount = 15
         $prefix = "LabUs3r"
+        $skippedCount = 0
         
         Write-Status "Creating up to $userCount generic users..." -Level Info
         
@@ -136,9 +137,20 @@ function Invoke-DirectoryMovesPart1 {
                     $errorCount++
                 }
             }
+            else {
+                $skippedCount++
+            }
         }
         
-        Write-Status "Created $createdCount user(s)" -Level Success
+        if ($createdCount -gt 0) {
+            Write-Status "Created $createdCount user(s)" -Level Success
+        }
+        if ($skippedCount -gt 0) {
+            Write-Status "Skipped $skippedCount existing user(s)" -Level Info
+        }
+        if ($createdCount -eq 0 -and $skippedCount -eq 0) {
+            Write-Status "No users created or found" -Level Warning
+        }
     }
     catch {
         Write-Status "Error in Phase 2: $_" -Level Error
