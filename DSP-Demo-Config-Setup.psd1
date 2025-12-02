@@ -269,28 +269,38 @@
     #---------------------------------------------------------------------------
     # COMPUTERS
     #---------------------------------------------------------------------------
-    Computers = @{
-        "srv-iis-us01" = @{
+    Computers = @(
+        @{
+            Name = "srv-iis-us01"
+            SamAccountName = "srv-iis-us01"
             Description = "Special application server for lab"
-            Path = "DeleteMe OU/Servers"
+            OUPath = "DeleteMe OU/Servers"
         }
-        "ops-app-us05" = @{
+        @{
+            Name = "ops-app-us05"
+            SamAccountName = "ops-app-us05"
             Description = "Special application server for lab"
-            Path = "DeleteMe OU/Resources"
+            OUPath = "DeleteMe OU/Resources"
         }
-        "PIMPAM" = @{
+        @{
+            Name = "PIMPAM"
+            SamAccountName = "PIMPAM"
             Description = "Privileged access server"
-            Path = "Special Restricted OU"
+            OUPath = "Special Restricted OU"
         }
-        "VAULT" = @{
+        @{
+            Name = "VAULT"
+            SamAccountName = "VAULT"
             Description = "Vault server to store passwords and credentials"
-            Path = "Special Restricted OU"
+            OUPath = "Special Restricted OU"
         }
-        "BASTION-HOST01" = @{
+        @{
+            Name = "BASTION-HOST01"
+            SamAccountName = "BASTION-HOST01"
             Description = "Bastion host for restricted privileged access"
-            Path = "Special Restricted OU"
+            OUPath = "Special Restricted OU"
         }
-    }
+    )
     
     #---------------------------------------------------------------------------
     # PASSWORD POLICY SETTINGS
