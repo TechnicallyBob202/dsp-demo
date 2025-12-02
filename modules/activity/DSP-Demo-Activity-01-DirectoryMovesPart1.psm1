@@ -148,7 +148,7 @@ function Invoke-DirectoryMovesPart1 {
                     Start-Sleep -Milliseconds 100
                 }
                 catch {
-                    Write-Status "Error creating $samAccountName: $_" -Level Error
+                    Write-Status "Error creating $samAccountName : $_" -Level Error
                     $errorCount++
                 }
             }
