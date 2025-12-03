@@ -44,10 +44,10 @@ function Invoke-SubnetsModify {
     Write-Host "+------------------------------------------------------------------+" -ForegroundColor White
     
     # Get subnet modifications - REQUIRED
-    $subnetChanges = $Config.Module03_SubnetMods.SubnetChanges
+    $subnetChanges = $Config.Module03_SubnetsModify.Subnets
     if (-not $subnetChanges -or $subnetChanges.Count -eq 0) {
-        Write-Status "ERROR: SubnetChanges not configured in Module03_SubnetMods" -Level Error
-        Write-Status "Config section found: $($null -ne $Config.Module03_SubnetMods)" -Level Info
+        Write-Status "ERROR: Subnets not configured in Module03_SubnetsModify" -Level Error
+        Write-Status "Config section found: $($null -ne $Config.Module03_SubnetsModify)" -Level Info
         Write-Host ""
         return $false
     }
@@ -80,14 +80,14 @@ function Invoke-SubnetsModify {
                 ErrorAction = 'Stop'
             }
             
-            if ($change.NewDescription) {
-                $setParams['Description'] = $change.NewDescription
-                Write-Status "  Setting Description: $($change.NewDescription)" -Level Info
+            if ($change.Description) {
+                $setParams['Description'] = $change.Description
+                Write-Status "  Setting Description: $($change.Description)" -Level Info
             }
             
-            if ($change.NewLocation) {
-                $setParams['Location'] = $change.NewLocation
-                Write-Status "  Setting Location: $($change.NewLocation)" -Level Info
+            if ($change.Location) {
+                $setParams['Location'] = $change.Location
+                Write-Status "  Setting Location: $($change.Location)" -Level Info
             }
             
             # Apply the changes
