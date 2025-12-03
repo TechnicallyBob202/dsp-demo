@@ -87,21 +87,35 @@ function Invoke-GPOQuestionable {
             Write-Status "GPO already exists: $gpoName" -Level Info
         }
         
-        # Make modifications to the GPO
+        # ====================================================================
+        # PHASE 1: Set CreateEncryptedOnlyTickets to 1
+        # ====================================================================
+        
+        Write-Status "Getting current setting for CreateEncryptedOnlyTickets..." -Level Info
         try {
-            Write-Status "Updating GPO description..." -Level Info
-            Set-GPO -Name $gpoName -Description "Modified during demo activity" -ErrorAction Stop
-            Write-Status "Updated GPO description" -Level Success
-            $modifiedCount++
-            
-            Start-Sleep -Milliseconds 500
+            Get-GPRegistryValue -Name $gpoName -Key "HKLM\Software\policies\Microsoft\Windows NT\Terminal Services" `
+                -ValueName CreateEncryptedOnlyTickets -ErrorAction SilentlyContinue | Out-Null
         }
         catch {
-            Write-Status "Error modifying GPO: $_" -Level Error
+            Write-Status "CreateEncryptedOnlyTickets not currently set (first run)" -Level Info
+        }
+        
+        Write-Status "Setting CreateEncryptedOnlyTickets to 1..." -Level Info
+        try {
+            Set-GPRegistryValue -Name $gpoName -Key "HKLM\Software\policies\Microsoft\Windows NT\Terminal Services" `
+                -ValueName CreateEncryptedOnlyTickets -Value 1 -Type DWord -ErrorAction Stop
+            Write-Status "Set CreateEncryptedOnlyTickets = 1" -Level Success
+            $modifiedCount++
+        }
+        catch {
+            Write-Status "Error setting CreateEncryptedOnlyTickets to 1: $_" -Level Error
             $errorCount++
         }
         
-        # Trigger replication
+        # Force replication
+        Write-Status "Waiting 20 seconds before replication..." -Level Info
+        Start-Sleep -Seconds 20
+        
         Write-Status "Triggering replication..." -Level Info
         try {
             $dc = (Get-ADDomainController -Discover -ErrorAction SilentlyContinue).HostName
@@ -116,6 +130,34 @@ function Invoke-GPOQuestionable {
         }
         catch {
             Write-Status "Warning: Could not trigger replication: $_" -Level Warning
+        }
+        
+        # ====================================================================
+        # PHASE 2: Set CreateEncryptedOnlyTickets to 0
+        # ====================================================================
+        
+        Write-Status "Waiting 20 seconds before second change..." -Level Info
+        Start-Sleep -Seconds 20
+        
+        Write-Status "Getting current setting for CreateEncryptedOnlyTickets..." -Level Info
+        try {
+            Get-GPRegistryValue -Name $gpoName -Key "HKLM\Software\policies\Microsoft\Windows NT\Terminal Services" `
+                -ValueName CreateEncryptedOnlyTickets -ErrorAction SilentlyContinue | Out-Null
+        }
+        catch {
+            Write-Status "Could not read current setting" -Level Warning
+        }
+        
+        Write-Status "Setting CreateEncryptedOnlyTickets to 0..." -Level Info
+        try {
+            Set-GPRegistryValue -Name $gpoName -Key "HKLM\Software\policies\Microsoft\Windows NT\Terminal Services" `
+                -ValueName CreateEncryptedOnlyTickets -Value 0 -Type DWord -ErrorAction Stop
+            Write-Status "Set CreateEncryptedOnlyTickets = 0" -Level Success
+            $modifiedCount++
+        }
+        catch {
+            Write-Status "Error setting CreateEncryptedOnlyTickets to 0: $_" -Level Error
+            $errorCount++
         }
     }
     catch {
