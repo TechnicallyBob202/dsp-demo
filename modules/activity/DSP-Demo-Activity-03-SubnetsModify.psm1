@@ -47,6 +47,7 @@ function Invoke-SubnetsModify {
     $subnetChanges = $Config.Module03_SubnetMods.SubnetChanges
     if (-not $subnetChanges -or $subnetChanges.Count -eq 0) {
         Write-Status "ERROR: SubnetChanges not configured in Module03_SubnetMods" -Level Error
+        Write-Status "Config section found: $($null -ne $Config.Module03_SubnetMods)" -Level Info
         Write-Host ""
         return $false
     }
