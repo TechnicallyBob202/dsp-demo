@@ -55,11 +55,11 @@ function Invoke-ACLBadOUPart1 {
     Write-Section "PHASE 1: Deny Everyone DeleteChild and DeleteTree on Bad OU"
     
     try {
-        # Bad OU name - default to "Bad" if not configured
+        # Bad OU name - default to "Bad OU" if not configured
         $badOUName = $Config.Module04_ACLBadOUP1.BadOUName
         
         if (-not $badOUName) {
-            $badOUName = "Bad"
+            $badOUName = "Bad OU"
             Write-Status "BadOUName not in config, using default: $badOUName" -Level Info
         }
         
