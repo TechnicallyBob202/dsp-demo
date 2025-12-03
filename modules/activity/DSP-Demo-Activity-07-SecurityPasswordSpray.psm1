@@ -145,9 +145,20 @@ function Invoke-SecurityPasswordSpray {
         try {
             $dc = $Environment.PrimaryDC
             if ($dc) {
-                Repadmin /syncall $dc /APe | Out-Null
+                $repOutput = & C:\Windows\System32\repadmin.exe /syncall /force $dc
+                if ($repOutput -join '-' -match 'syncall finished') {
+                    Write-Status "Replication completed successfully" -Level Success
+                }
+                else {
+                    Write-Status "Replication command executed (status unknown)" -Level Info
+                }
+                
+                # Also replicate secondary DC if available
+                if ($Environment.SecondaryDC) {
+                    & C:\Windows\System32\repadmin.exe /syncall /force $Environment.SecondaryDC | Out-Null
+                }
+                
                 Start-Sleep -Seconds 3
-                Write-Status "Replication triggered" -Level Success
             }
             else {
                 Write-Status "No primary DC available for replication" -Level Warning
