@@ -1,8 +1,11 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-22-ACLMoreChanges.psm1
+## DSP-Demo-Activity-22-ACLAdditional.psm1
 ##
-## Additional ACL modifications
+## Additional ACL modifications on Bad OU
+##
+## Original Author: Rob Ingenthron (robi@semperis.com)
+## Refactored By: Bob Lyons
 ##
 ################################################################################
 
@@ -23,7 +26,7 @@ function Write-Section {
     Write-Host ""
 }
 
-function Invoke-ACLMoreChanges {
+function Invoke-ACLAdditional {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -31,35 +34,116 @@ function Invoke-ACLMoreChanges {
     )
     
     Write-Host ""
-    Write-Status "Starting ACLMoreChanges" -Level Success
+    Write-Status "Starting Additional ACL Modifications" -Level Success
     Write-Host ""
     
     $DomainInfo = $Environment.DomainInfo
-    $domainDN = $DomainInfo.DN
+    $ModuleConfig = $Config.Module22_ACLAdditional
     
     $errorCount = 0
     
-    # ============================================================================
-    # IMPLEMENTATION
-    # ============================================================================
+    Write-Section "ACL Modifications on $($ModuleConfig.OU)"
     
-    Write-Section "PHASE 1: Additional ACL modifications"
-    
-    # TODO: Modify ACLs on various objects
-    
-    # ============================================================================
-    # COMPLETION
-    # ============================================================================
+    try {
+        $OU = Get-ADOrganizationalUnit -LDAPFilter "(&(objectClass=OrganizationalUnit)(OU=$($ModuleConfig.OU)))" -ErrorAction Stop
+        Write-Status "Found OU: $($OU.DistinguishedName)" -Level Info
+        
+        $EveryoneSID = [System.Security.Principal.SecurityIdentifier]'S-1-1-0'
+        
+        # Add Deny ACE for DeleteChild and DeleteTree
+        Write-Host "  Adding Deny ACE for DeleteChild,DeleteTree..." -ForegroundColor Cyan
+        $objACL = Get-ACL "AD:\$($OU.DistinguishedName)"
+        $objACE = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
+            $EveryoneSID,
+            "DeleteChild,DeleteTree",
+            "Deny",
+            'None',
+            [guid]'00000000-0000-0000-0000-000000000000'
+        )
+        $objACL.AddAccessRule($objACE)
+        Set-Acl -AclObject $objACL "AD:\$($OU.DistinguishedName)"
+        Start-Sleep -Seconds 5
+        Write-Status "Added Deny ACE" -Level Success
+        
+        # Remove the Deny ACE
+        Write-Host "  Removing Deny ACE for DeleteChild,DeleteTree..." -ForegroundColor Cyan
+        $objACL = Get-ACL "AD:\$($OU.DistinguishedName)"
+        $objACE = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
+            $EveryoneSID,
+            "DeleteChild,DeleteTree",
+            "Deny",
+            'None',
+            [guid]'00000000-0000-0000-0000-000000000000'
+        )
+        $objACL.RemoveAccessRule($objACE)
+        Set-Acl -AclObject $objACL "AD:\$($OU.DistinguishedName)"
+        Start-Sleep -Seconds 5
+        Write-Status "Removed Deny ACE" -Level Success
+        
+        # Add Allow ACE for DeleteChild and DeleteTree
+        Write-Host "  Adding Allow ACE for DeleteChild,DeleteTree..." -ForegroundColor Cyan
+        $objACL = Get-ACL "AD:\$($OU.DistinguishedName)"
+        $objACE = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
+            $EveryoneSID,
+            "DeleteChild,DeleteTree",
+            "Allow",
+            'None',
+            [guid]'00000000-0000-0000-0000-000000000000'
+        )
+        $objACL.AddAccessRule($objACE)
+        Set-Acl -AclObject $objACL "AD:\$($OU.DistinguishedName)"
+        Start-Sleep -Seconds 5
+        Write-Status "Added Allow ACE" -Level Success
+        
+        # Force replication
+        Write-Host "  Forcing replication..." -ForegroundColor Yellow
+        repadmin.exe /syncall /force $DomainInfo.DomainController | Out-Null
+        Start-Sleep -Seconds 1
+        
+        # Remove Allow DeleteTree
+        Write-Host "  Removing Allow ACE for DeleteTree..." -ForegroundColor Cyan
+        $objACL = Get-ACL "AD:\$($OU.DistinguishedName)"
+        $objACE = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
+            $EveryoneSID,
+            "DeleteTree",
+            "Allow",
+            'None',
+            [guid]'00000000-0000-0000-0000-000000000000'
+        )
+        $objACL.RemoveAccessRule($objACE)
+        Set-Acl -AclObject $objACL "AD:\$($OU.DistinguishedName)"
+        Start-Sleep -Seconds 5
+        Write-Status "Removed Allow DeleteTree" -Level Success
+        
+        # Remove Allow DeleteChild
+        Write-Host "  Removing Allow ACE for DeleteChild..." -ForegroundColor Cyan
+        $objACL = Get-ACL "AD:\$($OU.DistinguishedName)"
+        $objACE = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
+            $EveryoneSID,
+            "DeleteChild",
+            "Allow",
+            'None',
+            [guid]'00000000-0000-0000-0000-000000000000'
+        )
+        $objACL.RemoveAccessRule($objACE)
+        Set-Acl -AclObject $objACL "AD:\$($OU.DistinguishedName)"
+        Start-Sleep -Seconds 2
+        Write-Status "Removed Allow DeleteChild" -Level Success
+    }
+    catch {
+        Write-Status "Error: $_" -Level Error
+        $errorCount++
+    }
     
     Write-Host ""
     if ($errorCount -eq 0) {
-        Write-Status "ACLMoreChanges completed successfully" -Level Success
+        Write-Status "Additional ACL Modifications completed successfully" -Level Success
     }
     else {
-        Write-Status "ACLMoreChanges completed with $errorCount error(s)" -Level Warning
+        Write-Status "Additional ACL Modifications completed with $errorCount error(s)" -Level Warning
     }
     Write-Host ""
     return $true
 }
 
-Export-ModuleMember -Function Invoke-ACLMoreChanges
+Export-ModuleMember -Function Invoke-ACLAdditional

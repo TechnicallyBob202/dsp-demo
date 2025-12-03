@@ -4,10 +4,13 @@
 ##
 ## Link GPO to Bad OU
 ##
+## Original Author: Rob Ingenthron (robi@semperis.com)
+## Refactored By: Bob Lyons
+##
 ################################################################################
 
 #Requires -Version 5.1
-#Requires -Modules ActiveDirectory
+#Requires -Modules GroupPolicy, ActiveDirectory
 
 function Write-Status {
     param([string]$Message, [ValidateSet('Info','Success','Warning','Error')][string]$Level = 'Info')
@@ -31,34 +34,53 @@ function Invoke-GPOLinkBadOU {
     )
     
     Write-Host ""
-    Write-Status "Starting GPOLinkBadOU" -Level Success
+    Write-Status "Starting GPO Link to Bad OU" -Level Success
     Write-Host ""
     
     $DomainInfo = $Environment.DomainInfo
-    $domainDN = $DomainInfo.DN
+    $DomainDNSRoot = $DomainInfo.DNSRoot
+    $ModuleConfig = $Config.Module24_GPOLinkBadOU
     
     $errorCount = 0
     
-    # ============================================================================
-    # IMPLEMENTATION
-    # ============================================================================
+    Write-Section "Link $($ModuleConfig.GpoName) to $($ModuleConfig.TargetOU)"
     
-    Write-Section "PHASE 1: Link GPO to Bad OU"
-    
-    # TODO: Get GPO
-# TODO: Get Bad OU
-# TODO: Create link
-    
-    # ============================================================================
-    # COMPLETION
-    # ============================================================================
+    try {
+        $OU = Get-ADOrganizationalUnit -LDAPFilter "(&(objectClass=OrganizationalUnit)(OU=$($ModuleConfig.TargetOU)))" -ErrorAction Stop
+        Write-Status "Found OU: $($OU.DistinguishedName)" -Level Info
+        
+        $GPO = Get-GPO -Name $ModuleConfig.GpoName -Domain $DomainDNSRoot -ErrorAction SilentlyContinue
+        
+        if ($GPO) {
+            Write-Host "  Found GPO: $($GPO.DisplayName)" -ForegroundColor Cyan
+            
+            # Remove existing link if present
+            Write-Host "  Removing existing GPLink if present..." -ForegroundColor Yellow
+            Remove-GPLink -Name $ModuleConfig.GpoName -Target $OU.DistinguishedName -Domain $DomainDNSRoot -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 7
+            
+            # Add new link
+            Write-Host "  Adding GPLink..." -ForegroundColor Cyan
+            New-GPLink -Name $ModuleConfig.GpoName -Target $OU.DistinguishedName -LinkEnabled Yes -Domain $DomainDNSRoot
+            Start-Sleep -Seconds 5
+            Write-Status "GPLink created" -Level Success
+        }
+        else {
+            Write-Status "GPO not found: $($ModuleConfig.GpoName)" -Level Warning
+            $errorCount++
+        }
+    }
+    catch {
+        Write-Status "Error: $_" -Level Error
+        $errorCount++
+    }
     
     Write-Host ""
     if ($errorCount -eq 0) {
-        Write-Status "GPOLinkBadOU completed successfully" -Level Success
+        Write-Status "GPO Link to Bad OU completed successfully" -Level Success
     }
     else {
-        Write-Status "GPOLinkBadOU completed with $errorCount error(s)" -Level Warning
+        Write-Status "GPO Link to Bad OU completed with $errorCount error(s)" -Level Warning
     }
     Write-Host ""
     return $true

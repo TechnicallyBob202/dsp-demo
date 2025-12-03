@@ -2,7 +2,10 @@
 ##
 ## DSP-Demo-Activity-23-OUDeleteMe.psm1
 ##
-## Delete DeleteMe OU structure
+## Disable protection and delete the DeleteMe OU structure
+##
+## Original Author: Rob Ingenthron (robi@semperis.com)
+## Refactored By: Bob Lyons
 ##
 ################################################################################
 
@@ -31,33 +34,50 @@ function Invoke-OUDeleteMe {
     )
     
     Write-Host ""
-    Write-Status "Starting OUDeleteMe" -Level Success
+    Write-Status "Starting DeleteMe OU Deletion" -Level Success
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo
-    $domainDN = $DomainInfo.DN
+    $ModuleConfig = $Config.Module23_OUDeleteMe
     
     $errorCount = 0
     
-    # ============================================================================
-    # IMPLEMENTATION
-    # ============================================================================
+    Write-Section "Delete OU Structure"
     
-    Write-Section "PHASE 1: Delete DeleteMe OU structure"
-    
-    # TODO: Disable protection on DeleteMe OU
-# TODO: Delete OU structure
-    
-    # ============================================================================
-    # COMPLETION
-    # ============================================================================
+    try {
+        $OU = Get-ADOrganizationalUnit -LDAPFilter "(&(objectClass=OrganizationalUnit)(OU=$($ModuleConfig.OUPath)))" -ErrorAction SilentlyContinue
+        
+        if ($OU) {
+            Write-Host "  Found OU: $($OU.DistinguishedName)" -ForegroundColor Cyan
+            
+            if ($ModuleConfig.DisableProtection) {
+                Write-Host "  Disabling accidental deletion protection..." -ForegroundColor Yellow
+                Set-ADOrganizationalUnit -Identity $OU.DistinguishedName -ProtectedFromAccidentalDeletion $false
+                Start-Sleep -Seconds 5
+                Write-Status "Protection disabled" -Level Success
+            }
+            
+            if ($ModuleConfig.DeleteOUStructure) {
+                Write-Host "  Deleting OU structure..." -ForegroundColor Yellow
+                Remove-ADOrganizationalUnit -Identity $OU.DistinguishedName -Recursive -Confirm:$false -ErrorAction SilentlyContinue
+                Write-Status "OU deleted" -Level Success
+            }
+        }
+        else {
+            Write-Status "OU not found: $($ModuleConfig.OUPath)" -Level Warning
+            $errorCount++
+        }
+    }
+    catch {
+        Write-Status "Error: $_" -Level Error
+        $errorCount++
+    }
     
     Write-Host ""
     if ($errorCount -eq 0) {
-        Write-Status "OUDeleteMe completed successfully" -Level Success
+        Write-Status "DeleteMe OU Deletion completed successfully" -Level Success
     }
     else {
-        Write-Status "OUDeleteMe completed with $errorCount error(s)" -Level Warning
+        Write-Status "DeleteMe OU Deletion completed with $errorCount error(s)" -Level Warning
     }
     Write-Host ""
     return $true

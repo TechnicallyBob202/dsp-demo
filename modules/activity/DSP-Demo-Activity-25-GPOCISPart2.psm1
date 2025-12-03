@@ -2,12 +2,15 @@
 ##
 ## DSP-Demo-Activity-25-GPOCISPart2.psm1
 ##
-## Additional CIS Benchmark modifications
+## Additional CIS Benchmark Windows Server Policy GPO modifications
+##
+## Original Author: Rob Ingenthron (robi@semperis.com)
+## Refactored By: Bob Lyons
 ##
 ################################################################################
 
 #Requires -Version 5.1
-#Requires -Modules ActiveDirectory
+#Requires -Modules GroupPolicy
 
 function Write-Status {
     param([string]$Message, [ValidateSet('Info','Success','Warning','Error')][string]$Level = 'Info')
@@ -31,33 +34,53 @@ function Invoke-GPOCISPart2 {
     )
     
     Write-Host ""
-    Write-Status "Starting GPOCISPart2" -Level Success
+    Write-Status "Starting CIS Benchmark GPO Part 2 Modifications" -Level Success
     Write-Host ""
     
     $DomainInfo = $Environment.DomainInfo
-    $domainDN = $DomainInfo.DN
+    $DomainDNSRoot = $DomainInfo.DNSRoot
+    $ModuleConfig = $Config.Module25_GPOCISPart2
     
     $errorCount = 0
     
-    # ============================================================================
-    # IMPLEMENTATION
-    # ============================================================================
+    Write-Section "Modify $($ModuleConfig.GpoName)"
     
-    Write-Section "PHASE 1: Additional CIS Benchmark modifications"
-    
-    # TODO: Get CIS Benchmark GPO
-# TODO: Additional modifications
-    
-    # ============================================================================
-    # COMPLETION
-    # ============================================================================
+    try {
+        $GPO = Get-GPO -Name $ModuleConfig.GpoName -Domain $DomainDNSRoot -ErrorAction SilentlyContinue
+        
+        if ($GPO) {
+            Write-Status "Found GPO: $($GPO.DisplayName)" -Level Info
+            
+            if ($ModuleConfig.Modifications.AuditAccountLogon) {
+                Write-Host "  Setting Audit Account Logon: $($ModuleConfig.Modifications.AuditAccountLogon)" -ForegroundColor Cyan
+                Set-GPRegistryValue -Name $ModuleConfig.GpoName -Key "HKLM\System\CurrentControlSet\Control\Lsa" -ValueName "AuditBaseObjects" -Value 1 -Type DWord | Out-Null
+                Write-Status "Updated Audit Account Logon" -Level Success
+                Start-Sleep -Seconds 3
+            }
+            
+            if ($ModuleConfig.Modifications.AuditObjectAccess) {
+                Write-Host "  Setting Audit Object Access: $($ModuleConfig.Modifications.AuditObjectAccess)" -ForegroundColor Cyan
+                Set-GPRegistryValue -Name $ModuleConfig.GpoName -Key "HKLM\System\CurrentControlSet\Services\EventLog\Security" -ValueName "Retention" -Value 0 -Type DWord | Out-Null
+                Write-Status "Updated Audit Object Access" -Level Success
+                Start-Sleep -Seconds 3
+            }
+        }
+        else {
+            Write-Status "GPO not found: $($ModuleConfig.GpoName)" -Level Warning
+            $errorCount++
+        }
+    }
+    catch {
+        Write-Status "Error: $_" -Level Error
+        $errorCount++
+    }
     
     Write-Host ""
     if ($errorCount -eq 0) {
-        Write-Status "GPOCISPart2 completed successfully" -Level Success
+        Write-Status "CIS Benchmark GPO Part 2 Modifications completed successfully" -Level Success
     }
     else {
-        Write-Status "GPOCISPart2 completed with $errorCount error(s)" -Level Warning
+        Write-Status "CIS Benchmark GPO Part 2 Modifications completed with $errorCount error(s)" -Level Warning
     }
     Write-Host ""
     return $true
