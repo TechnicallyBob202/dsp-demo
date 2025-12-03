@@ -57,7 +57,7 @@ function Invoke-DSPTriggerGroup {
                 }
                 
                 Write-Host ""
-                Write-Host "✓ All members removed" -ForegroundColor Green
+                Write-Host "OK: All members removed" -ForegroundColor Green
                 Write-Host "  (This change should trigger DSP auto-undo rule)" -ForegroundColor Cyan
             }
             

@@ -47,7 +47,7 @@ function Invoke-DSPTriggerTitle {
             if ($CurrentTitle -ne $NewTitle) {
                 Write-Host "Changing Title to: $NewTitle" -ForegroundColor Yellow
                 Set-ADUser -Identity $UserObj.DistinguishedName -Title $NewTitle -ErrorAction Stop
-                Write-Host "✓ Title updated successfully" -ForegroundColor Green
+                Write-Host "OK: Title updated successfully" -ForegroundColor Green
                 Write-Host "  (This change should trigger DSP auto-undo rule)" -ForegroundColor Cyan
             }
             else {

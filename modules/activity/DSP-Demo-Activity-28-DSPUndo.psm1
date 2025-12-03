@@ -33,12 +33,12 @@ function Invoke-DSPUndo {
         Import-Module Semperis.PoSh.DSP -ErrorAction Stop
     }
     catch {
-        Write-Host "⚠️  DSP module not available (OK in demo environments)" -ForegroundColor Yellow
+        Write-Host "WARNING: DSP module not available (OK in demo environments)" -ForegroundColor Yellow
         Write-Host ""
         return $true
     }
     
-    Write-Host "✓ DSP module loaded" -ForegroundColor Green
+    Write-Host "OK: DSP module loaded" -ForegroundColor Green
     Write-Host ""
     
     Write-Host "Searching for DSP server..." -ForegroundColor Yellow
@@ -50,7 +50,7 @@ function Invoke-DSPUndo {
             if ($SCPitem.Name.Contains('Semperis.Dsp.Management')) {
                 $DSPDN = $SCPitem.DistinguishedName.Split(',')
                 $DSPServerName = $DSPDN[1].Substring(3) + '.' + $DomainDNSRoot
-                Write-Host "✓ Found DSP server: $DSPServerName" -ForegroundColor Green
+                Write-Host "Found DSP server: $DSPServerName" -ForegroundColor Green
                 break
             }
         }
@@ -105,7 +105,7 @@ function Invoke-DSPUndo {
             return ($errorCount -eq 0)
         }
         
-        Write-Host "✓ Connected to DSP" -ForegroundColor Green
+        Write-Host "OK: Connected to DSP" -ForegroundColor Green
         Write-Host "  State: $($DSPconnection.ConnectionState)" -ForegroundColor Cyan
         Write-Host ""
         
@@ -126,10 +126,10 @@ function Invoke-DSPUndo {
                 $UndoStatus = Undo-DSPChangedItem -InputObject $ChangeItem -ForceReplication -Confirm:$false -ErrorAction SilentlyContinue
                 
                 if ($UndoStatus) {
-                    Write-Host "✓ Undo successful" -ForegroundColor Green
+                    Write-Host "OK: Undo successful" -ForegroundColor Green
                 }
                 else {
-                    Write-Host "⚠️  Undo failed or not found" -ForegroundColor Yellow
+                    Write-Host "WARNING: Undo failed or not found" -ForegroundColor Yellow
                 }
             }
             else {
