@@ -94,12 +94,12 @@ function Invoke-DirectoryMovesPart1 {
     function Resolve-OUPathToDN {
         param([string]$LogicalPath, [string]$DomainDN)
         $parts = $LogicalPath -split '/'
-        $dn = ""
+        $dn = @()
+        # Add parts in reverse order (rightmost part becomes leftmost in DN)
         for ($i = $parts.Count - 1; $i -ge 0; $i--) {
-            $dn = "OU=$($parts[$i]),$dn"
+            $dn += "OU=$($parts[$i])"
         }
-        # Remove trailing comma and add domain DN
-        return ($dn.TrimEnd(',') + ',' + $DomainDN)
+        return ($dn -join ',') + ',' + $DomainDN
     }
     
     $sourceDeptDN = Resolve-OUPathToDN $sourceOU $domainDN
