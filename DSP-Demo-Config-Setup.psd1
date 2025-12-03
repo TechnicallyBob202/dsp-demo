@@ -21,6 +21,7 @@
         LogPath = "C:\Logs\DSP-Demo"
         VerboseLogging = $true
         DefaultPassword = "P@ssw0rd123!"
+        SkipDspChecks = $false          # Set to $true to skip DSP checks
     }
     
     #---------------------------------------------------------------------------

@@ -417,7 +417,16 @@ function Main {
     
     if (Test-Path $activityPath) {
         $activityModuleFiles = Get-ChildItem -Path $activityPath -Filter "*.psm1" -ErrorAction SilentlyContinue | Sort-Object Name
-        $activityModules = $activityModuleFiles
+        
+        foreach ($moduleFile in $activityModuleFiles) {
+            # Skip DSP-specific modules if DSP is not available
+            if ((-not $environment.DspAvailable) -and $moduleFile.Name -match "-DSP-|DSPAutomated|DSPTrigger") {
+                Write-Status "Skipping (DSP unavailable): $($moduleFile.BaseName)" -Level Warning
+                continue
+            }
+            
+            $activityModules += $moduleFile
+        }
     }
     
     if ($activityModules.Count -eq 0) {

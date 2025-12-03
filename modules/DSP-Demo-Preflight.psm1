@@ -194,9 +194,18 @@ function Find-DspServer {
         [PSCustomObject]$DomainInfo,
         
         [Parameter(Mandatory=$false)]
-        [string]$ConfigServer = ""
+        [string]$ConfigServer = "",
+        
+        [Parameter(Mandatory=$false)]
+        [bool]$SkipDspChecks = $false
     )
     
+    # If DSP checks are explicitly skipped, don't attempt discovery
+    if ($SkipDspChecks) {
+        Write-Status "DSP checks skipped by configuration" -Level Warning
+        return $null
+    }
+
     # If config specifies a DSP server, try it first
     if ($ConfigServer -and $ConfigServer -ne "") {
         Write-Status "Testing configured DSP server: $ConfigServer" -Level Info
@@ -277,17 +286,28 @@ function Initialize-PreflightEnvironment {
     $dcInfo = Get-ADDomainControllers
     $forestInfo = Get-ForestInfo
     
-    # DSP discovery - continues on warning/failure
+    # DSP discovery - respects SkipDspChecks configuration
     Write-Host ""
     Write-Header "DSP SERVER DISCOVERY"
-    
-    $dspServerFromConfig = if ($Config.General -and $Config.General.DspServer) { 
-        $Config.General.DspServer 
-    } else { 
-        "" 
+
+    $skipDsp = $false
+    $dspServerFromConfig = ""
+
+    if ($Config.General) {
+        $skipDsp = if ($Config.General.ContainsKey('SkipDspChecks')) { 
+            $Config.General.SkipDspChecks 
+        } else { 
+            $false 
+        }
+        
+        $dspServerFromConfig = if ($Config.General.ContainsKey('DspServer')) { 
+            $Config.General.DspServer 
+        } else { 
+            "" 
+        }
     }
-    
-    $dspServer = Find-DspServer -DomainInfo $domainInfo -ConfigServer $dspServerFromConfig
+
+    $dspServer = Find-DspServer -DomainInfo $domainInfo -ConfigServer $dspServerFromConfig -SkipDspChecks $skipDsp
     $dspAvailable = if ($dspServer) { $true } else { $false }
     
     Write-Host ""
@@ -300,6 +320,7 @@ function Initialize-PreflightEnvironment {
         ForestInfo = $forestInfo
         DspAvailable = $dspAvailable
         DspServer = $dspServer
+        SkipDspChecks = $skipDsp
     }
 }
 
