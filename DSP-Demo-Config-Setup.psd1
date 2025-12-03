@@ -384,66 +384,66 @@
     }
     
     #---------------------------------------------------------------------------
-    # AD SUBNETS
+    # AD SUBNETS - Using Default-First-Site-Name (SemperisLabs may not exist yet)
     #---------------------------------------------------------------------------
     AdSubnets = @{
         "10.3.22.0/24" = @{
-            Site = "SemperisLabs"
+            Site = "Default-First-Site-Name"
             Description = "AD subnet for Semperis Labs"
             Location = "USA-TX-Labs"
         }
         "10.0.0.0/8" = @{
-            Site = "SemperisLabs"
+            Site = "Default-First-Site-Name"
             Description = "Primary Lab Infrastructure Network"
             Location = "Lab-USA-All"
         }
         "172.16.32.0/20" = @{
-            Site = "SemperisLabs"
+            Site = "Default-First-Site-Name"
             Description = "Special demo lab subnet"
             Location = "Lab-USA-CA"
         }
         "10.222.0.0/16" = @{
-            Site = "SemperisLabs"
+            Site = "Default-First-Site-Name"
             Description = "Special Devices Infrastructure Network"
             Location = "Lab-USA-East"
         }
         "10.111.0.0/16" = @{
-            Site = "SemperisLabs"
+            Site = "Default-First-Site-Name"
             Description = "Test subnet 0002"
             Location = "Lab-EMEA-ES"
         }
         "10.112.0.0/16" = @{
-            Site = "SemperisLabs"
+            Site = "Default-First-Site-Name"
             Description = "Test subnet 0002"
             Location = "Lab-EMEA-ES"
         }
         "111.2.5.0/24" = @{
-            Site = "SemperisLabs"
+            Site = "Default-First-Site-Name"
             Description = "Lab subnet in TX"
             Location = "USA-TX-Labs"
         }
         "111.2.6.0/24" = @{
-            Site = "SemperisLabs"
+            Site = "Default-First-Site-Name"
             Description = "Lab subnet in Dallas,TX"
             Location = "USA-TX-Dallas-Labs"
         }
         "192.168.0.0/16" = @{
-            Site = "SemperisLabs"
+            Site = "Default-First-Site-Name"
             Description = "Primary Demo Lab Infrastructure Network"
             Location = "Lab-USA-TX"
         }
         "192.168.57.0/24" = @{
-            Site = "SemperisLabs"
+            Site = "Default-First-Site-Name"
             Description = "Special DMZ network"
             Location = "Lab-USA-AZ"
         }
         "111.111.4.0/24" = @{
-            Site = "SemperisLabs"
+            Site = "Default-First-Site-Name"
             Description = "test subnet added via script"
             Location = "USA-TX-Labs"
         }
         "111.111.5.0/24" = @{
-            Site = "SemperisLabs"
+            Site = "Default-First-Site-Name"
             Description = "test subnet added via script"
             Location = "USA-TX-Labs"
         }

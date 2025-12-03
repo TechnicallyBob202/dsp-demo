@@ -251,6 +251,7 @@ function Invoke-CreateUsers {
         $ouPath = Resolve-OUPath $genericConfig.OUPath $DomainInfo
         
         Write-Status "Creating $count generic users in $($genericConfig.OUPath)..." -Level Info
+        Write-Status "  Count: $count, Prefix: $prefix, OUPath: $ouPath" -Level Info
         
         for ($i = 1; $i -le $count; $i++) {
             $num = $i.ToString("000")
