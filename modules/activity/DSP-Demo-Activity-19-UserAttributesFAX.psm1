@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-19-UserAttributesPart2.psm1
+## DSP-Demo-Activity-19-UserAttributesFAX.psm1
 ##
 ## Change FAX attribute on demo users
 ##
@@ -11,7 +11,7 @@
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
 
-function Invoke-UserAttributesPart2 {
+function Invoke-UserAttributesFAX {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -21,8 +21,6 @@ function Invoke-UserAttributesPart2 {
     Write-Host ""
     Write-Host "========== Directory: User Attributes Part 2 ==========" -ForegroundColor Cyan
     Write-Host ""
-    
-    $DomainInfo = $Environment.DomainInfo
     
     $errorCount = 0
     $changeCount = 0
@@ -129,4 +127,4 @@ function Invoke-UserAttributesPart2 {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-UserAttributesPart2
+Export-ModuleMember -Function Invoke-UserAttributesFAX

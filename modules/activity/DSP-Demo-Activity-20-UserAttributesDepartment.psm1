@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-20-UserAttributesPart3.psm1
+## DSP-Demo-Activity-20-UserAttributesDepartment.psm1
 ##
 ## Change Department attribute on demo users
 ##
@@ -11,7 +11,7 @@
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
 
-function Invoke-UserAttributesPart3 {
+function Invoke-UserAttributesDepartment {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -21,8 +21,6 @@ function Invoke-UserAttributesPart3 {
     Write-Host ""
     Write-Host "========== Directory: User Attributes Part 3 ==========" -ForegroundColor Cyan
     Write-Host ""
-    
-    $DomainInfo = $Environment.DomainInfo
     
     $errorCount = 0
     $changeCount = 0
@@ -129,4 +127,4 @@ function Invoke-UserAttributesPart3 {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-UserAttributesPart3
+Export-ModuleMember -Function Invoke-UserAttributesDepartment

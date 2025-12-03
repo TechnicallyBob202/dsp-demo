@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-14-GroupRecreation.psm1
+## DSP-Demo-Activity-14-GroupSpecialLabUsersLifecycle.psm1
 ##
 ## Complex group recreation sequence:
 ## 1. DELETE "Special Lab Users" group

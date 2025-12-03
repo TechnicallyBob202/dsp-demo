@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-10-GPOCIS.psm1
+## DSP-Demo-Activity-10-GPOCISBenchmark.psm1
 ##
 ## Create or modify "CIS Benchmark Windows Server Policy GPO"
 ## Sets multiple CIS Benchmark registry values for security hardening
