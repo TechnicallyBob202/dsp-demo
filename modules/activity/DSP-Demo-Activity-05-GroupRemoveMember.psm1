@@ -2,7 +2,7 @@
 ##
 ## DSP-Demo-Activity-05-GroupRemoveMember.psm1
 ##
-## Remove "App Admin III" from Special Lab Users group
+## Remove member from Special Lab Users group
 ##
 ################################################################################
 
@@ -41,15 +41,6 @@ function Write-Status {
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
 
-function Write-ActivityHeader {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
-    Write-Host ("| " + $Title.PadRight(62) + " |") -ForegroundColor Cyan
-    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
-    Write-Host ""
-}
-
 ################################################################################
 # MAIN FUNCTION
 ################################################################################
@@ -64,7 +55,7 @@ function Invoke-GroupRemoveMember {
         [PSCustomObject]$Environment
     )
     
-    Write-ActivityHeader "Group - Remove Member from Special Lab Users"
+    Write-ActivityHeader "Group - Remove Member"
     
     $removedCount = 0
     $errorCount = 0
@@ -72,10 +63,24 @@ function Invoke-GroupRemoveMember {
     $domainInfo = $Environment.DomainInfo
     $domainDN = $domainInfo.DN
     
-    try {
-        # Get Special Lab Users group
+    # Get config values - default to common values if not configured
+    $groupName = $Config.Module05_GroupMembership.GroupName
+    if (-not $groupName) {
         $groupName = "Special Lab Users"
-        $group = Get-ADGroup -Filter { Name -eq $groupName } -ErrorAction Stop
+        Write-Status "GroupName not in config, using default: $groupName" -Level Info
+    }
+    
+    $membersToRemove = $Config.Module05_GroupMembership.MembersToRemove
+    if (-not $membersToRemove -or $membersToRemove.Count -eq 0) {
+        $membersToRemove = @("App Admin III")
+        Write-Status "MembersToRemove not in config, using default" -Level Info
+    }
+    
+    Write-Host ""
+    
+    try {
+        # Get group
+        $group = Get-ADGroup -Filter { Name -eq $groupName } -ErrorAction SilentlyContinue
         
         if (-not $group) {
             Write-Status "Group '$groupName' not found" -Level Warning
@@ -83,47 +88,44 @@ function Invoke-GroupRemoveMember {
             return $true
         }
         
-        Write-Status "Found group: $($group.Name)" -Level Info
+        Write-Status "Found group: $($group.Name)" -Level Success
+        Write-Host ""
         
-        # Get App Admin III user
-        $memberName = "App Admin III"
-        $member = Get-ADUser -Filter { Name -eq $memberName } -ErrorAction Stop
-        
-        if (-not $member) {
-            Write-Status "User '$memberName' not found" -Level Warning
-            Write-Host ""
-            return $true
-        }
-        
-        Write-Status "Found user: $($member.Name)" -Level Info
-        
-        try {
-            # Check if member exists in group
-            $isMember = Get-ADGroupMember -Identity $group -ErrorAction Stop | Where-Object { $_.DistinguishedName -eq $member.DistinguishedName }
-            
-            if ($isMember) {
-                # Remove member from group
-                Remove-ADGroupMember -Identity $group -Members $member -Confirm:$false -ErrorAction Stop
-                Write-Status "Removed '$memberName' from '$groupName'" -Level Success
-                $removedCount++
-                Start-Sleep -Milliseconds 500
+        # Remove each member
+        foreach ($memberName in $membersToRemove) {
+            try {
+                $member = Get-ADUser -Filter { Name -eq $memberName } -ErrorAction SilentlyContinue
+                
+                if (-not $member) {
+                    Write-Status "User '$memberName' not found" -Level Warning
+                    continue
+                }
+                
+                # Check if member exists in group
+                $isMember = Get-ADGroupMember -Identity $group -ErrorAction SilentlyContinue | Where-Object { $_.DistinguishedName -eq $member.DistinguishedName }
+                
+                if ($isMember) {
+                    Remove-ADGroupMember -Identity $group -Members $member -Confirm:$false -ErrorAction Stop
+                    Write-Status "Removed '$memberName' from '$groupName'" -Level Success
+                    $removedCount++
+                    Start-Sleep -Milliseconds 500
+                }
+                else {
+                    Write-Status "'$memberName' is not a member of '$groupName'" -Level Info
+                }
             }
-            else {
-                Write-Status "'$memberName' is not a member of '$groupName'" -Level Info
+            catch {
+                Write-Status "Error removing $memberName : $_" -Level Error
+                $errorCount++
             }
         }
-        catch {
-            Write-Status "Error removing member: $_" -Level Error
-            $errorCount++
-        }
         
-        # Trigger replication
+        # Trigger replication if members were removed
         if ($removedCount -gt 0) {
             Write-Status "Triggering replication..." -Level Info
             try {
-                $dc = $domainInfo.ReplicationPartners[0]
-                if ($dc) {
-                    Repadmin /syncall $dc /APe | Out-Null
+                if ($domainInfo.ReplicationPartners -and $domainInfo.ReplicationPartners.Count -gt 0) {
+                    Repadmin /syncall $domainInfo.ReplicationPartners[0] /APe | Out-Null
                     Start-Sleep -Seconds 3
                     Write-Status "Replication triggered" -Level Success
                 }
@@ -140,7 +142,7 @@ function Invoke-GroupRemoveMember {
     
     # Summary
     Write-Host ""
-    Write-Status "Removed: $removedCount, Errors: $errorCount" -Level Info
+    Write-Status "Group Remove Member - Removed: $removedCount, Errors: $errorCount" -Level Success
     
     if ($errorCount -eq 0) {
         Write-Status "Group Remove Member completed successfully" -Level Success

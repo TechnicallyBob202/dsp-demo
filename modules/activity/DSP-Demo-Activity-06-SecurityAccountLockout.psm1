@@ -2,7 +2,7 @@
 ##
 ## DSP-Demo-Activity-06-SecurityAccountLockout.psm1
 ##
-## Trigger account lockout on DemoUser2 via 50 bad password attempts
+## Trigger account lockout via bad password attempts
 ##
 ################################################################################
 
@@ -62,30 +62,49 @@ function Invoke-SecurityAccountLockout {
     
     $domainInfo = $Environment.DomainInfo
     $domainFQDN = $domainInfo.FQDN
+    $domainDN = $domainInfo.DN
+    
+    # Get config values - default if not configured
+    $targetUser = $Config.Module06_AccountLockout.TargetUser
+    if (-not $targetUser) {
+        $targetUser = "DemoUser2"
+        Write-Status "TargetUser not in config, using default: $targetUser" -Level Info
+    }
+    
+    $badPasswordAttempts = $Config.Module06_AccountLockout.BadPasswordAttempts
+    if (-not $badPasswordAttempts) {
+        $badPasswordAttempts = 50
+        Write-Status "BadPasswordAttempts not in config, using default: $badPasswordAttempts" -Level Info
+    }
+    
+    $badPassword = $Config.Module06_AccountLockout.BadPassword
+    if (-not $badPassword) {
+        $badPassword = "BadPassword_DoesNotExist_12345!"
+        Write-Status "BadPassword not in config, using default" -Level Info
+    }
+    
+    Write-Host ""
     
     try {
-        # Get DemoUser2
-        $userName = "DemoUser2"
-        $user = Get-ADUser -Filter { SamAccountName -eq $userName } -ErrorAction Stop
+        # Get target user
+        $user = Get-ADUser -Filter { SamAccountName -eq $targetUser } -ErrorAction SilentlyContinue
         
         if (-not $user) {
-            Write-Status "User '$userName' not found" -Level Warning
+            Write-Status "User '$targetUser' not found" -Level Warning
             Write-Host ""
             return $true
         }
         
-        Write-Status "Found user: $($user.Name)" -Level Info
-        Write-Status "Attempting 50 bad passwords to trigger lockout..." -Level Info
+        Write-Status "Found user: $($user.Name)" -Level Success
+        Write-Status "Attempting $badPasswordAttempts bad passwords to trigger lockout..." -Level Info
         Write-Host ""
         
-        # Generate 50 bad password attempts
-        $badPassword = "BadPassword_DoesNotExist_12345!"
-        
-        for ($i = 1; $i -le 50; $i++) {
+        # Generate bad password attempts
+        for ($i = 1; $i -le $badPasswordAttempts; $i++) {
             try {
                 # Attempt to authenticate with bad password
                 $cred = New-Object System.Management.Automation.PSCredential(
-                    "$domainFQDN\$userName",
+                    "$domainFQDN\$targetUser",
                     (ConvertTo-SecureString $badPassword -AsPlainText -Force)
                 )
                 
@@ -95,7 +114,7 @@ function Invoke-SecurityAccountLockout {
                 $attemptCount++
                 
                 if ($i % 10 -eq 0) {
-                    Write-Status "Bad password attempt $i of 50" -Level Info
+                    Write-Status "Bad password attempt $i of $badPasswordAttempts" -Level Info
                 }
             }
             catch {
@@ -103,7 +122,7 @@ function Invoke-SecurityAccountLockout {
                 $attemptCount++
                 
                 if ($i % 10 -eq 0) {
-                    Write-Status "Bad password attempt $i of 50" -Level Info
+                    Write-Status "Bad password attempt $i of $badPasswordAttempts" -Level Info
                 }
             }
             
@@ -111,15 +130,14 @@ function Invoke-SecurityAccountLockout {
         }
         
         Write-Host ""
-        Write-Status "Completed 50 bad password attempts" -Level Success
-        Write-Status "DemoUser2 should now be locked out" -Level Info
+        Write-Status "Completed $badPasswordAttempts bad password attempts" -Level Success
+        Write-Status "$targetUser should now be locked out" -Level Info
         
         # Trigger replication
         Write-Status "Triggering replication..." -Level Info
         try {
-            $dc = $domainInfo.ReplicationPartners[0]
-            if ($dc) {
-                Repadmin /syncall $dc /APe | Out-Null
+            if ($domainInfo.ReplicationPartners -and $domainInfo.ReplicationPartners.Count -gt 0) {
+                Repadmin /syncall $domainInfo.ReplicationPartners[0] /APe | Out-Null
                 Start-Sleep -Seconds 3
                 Write-Status "Replication triggered" -Level Success
             }
@@ -135,7 +153,7 @@ function Invoke-SecurityAccountLockout {
     
     # Summary
     Write-Host ""
-    Write-Status "Bad password attempts: $attemptCount, Errors: $errorCount" -Level Info
+    Write-Status "Bad password attempts: $attemptCount, Errors: $errorCount" -Level Success
     
     if ($errorCount -eq 0) {
         Write-Status "Account Lockout completed successfully" -Level Success
