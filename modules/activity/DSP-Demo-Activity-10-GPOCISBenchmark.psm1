@@ -46,7 +46,7 @@ function Write-Status {
 # MAIN FUNCTION
 ################################################################################
 
-function Invoke-GPOCIS {
+function Invoke-GPOCISBenchmark {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -320,4 +320,4 @@ function Invoke-GPOCIS {
     return $true
 }
 
-Export-ModuleMember -Function Invoke-GPOCIS
+Export-ModuleMember -Function Invoke-GPOCISBenchmark
