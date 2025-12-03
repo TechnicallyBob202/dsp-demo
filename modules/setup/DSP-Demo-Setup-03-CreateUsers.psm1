@@ -1,11 +1,9 @@
 ################################################################################
 ##
-## DSP-Demo-Setup-03-CreateUsers.psm1 - ENHANCED VERSION
+## DSP-Demo-Setup-03-CreateUsers.psm1 - FIXED
 ##
 ## Creates user accounts from configuration file.
 ## Operator-configurable via DSP-Demo-Config-Setup.psd1
-##
-## Enhanced with explicit group membership output and better error tracking.
 ##
 ## Configuration sections consumed:
 ##  - Users.Tier0Admins, Users.Tier1Admins, Users.Tier2Admins
@@ -59,8 +57,7 @@ function Resolve-OUPath {
     $parts = $LogicalPath -split '/'
     $dnParts = @()
     
-    for ($i = $parts.Count - 1;
-    $i -ge 0; $i--) {
+    for ($i = $parts.Count - 1; $i -ge 0; $i--) {
         $part = $parts[$i]
         if ($part -and $part -ne "Root") {
             $dnParts += "OU=$part"
@@ -93,14 +90,12 @@ function New-UserAccount {
     
     # Check if user exists
     try {
-        # FIX START: Capture and return existing user object to allow group membership to be checked.
         $existingUser = Get-ADUser -Identity $samAccountName -ErrorAction Stop
         
         if (-not $Quiet) {
-            Write-Status "User already exists: $samAccountName (Returning object for group checks)" -Level Info
+            Write-Status "User already exists: $samAccountName" -Level Info
         }
-        return $existingUser # Return the existing user object
-        # FIX END
+        return $existingUser
     }
     catch {
         # User doesn't exist, continue with creation
@@ -166,33 +161,45 @@ function Add-UserToGroup {
         [string]$GroupName
     )
     
+    # Get user by SamAccountName
     $user = Get-ADUser -Filter { SamAccountName -eq $UserSam } -ErrorAction SilentlyContinue
     if (-not $user) {
-        Write-Status "  Group membership: User '$UserSam' not found - cannot add to '$GroupName'" -Level Warning
+        Write-Status "User '$UserSam' not found" -Level Warning
         return $false
     }
     
+    # Get group by Name
     $group = Get-ADGroup -Filter { Name -eq $GroupName } -ErrorAction SilentlyContinue
     if (-not $group) {
-        Write-Status "  Group membership: Group '$GroupName' not found - skipping" -Level Warning
+        Write-Status "Group '$GroupName' not found" -Level Warning
         return $false
     }
     
-    $isMember = Get-ADGroupMember -Identity $group -ErrorAction SilentlyContinue |
-        Where-Object { $_.SamAccountName -eq $UserSam }
-    
-    if ($isMember) {
-        Write-Status "  Group membership: '$UserSam' already in '$GroupName'" -Level Info
-        return $true
+    # Check current membership by getting group members and checking DN match
+    # (more reliable than checking SamAccountName from Get-ADGroupMember)
+    try {
+        $currentMembers = Get-ADGroupMember -Identity $group.DistinguishedName `
+            -ErrorAction SilentlyContinue | Select-Object -ExpandProperty DistinguishedName
+        
+        if ($currentMembers -contains $user.DistinguishedName) {
+            Write-Status "Group membership: '$UserSam' already in '$GroupName'" -Level Info
+            return $true
+        }
+    }
+    catch {
+        # Get-ADGroupMember failed, try alternative check
+        Write-Status "  (membership check returned error, attempting add anyway)" -Level Info
     }
     
+    # Add user to group
     try {
-        Add-ADGroupMember -Identity $group -Members $user -ErrorAction Stop
-        Write-Status "  Group membership: Added '$UserSam' to '$GroupName'" -Level Success
+        Add-ADGroupMember -Identity $group.DistinguishedName -Members $user.DistinguishedName `
+            -ErrorAction Stop
+        Write-Status "Group membership: Added '$UserSam' to '$GroupName'" -Level Success
         return $true
     }
     catch {
-        Write-Status "  Group membership: Failed to add '$UserSam' to '$GroupName': $_" -Level Error
+        Write-Status "Failed to add '$UserSam' to '$GroupName': $_" -Level Error
         return $false
     }
 }
@@ -244,20 +251,12 @@ function Invoke-CreateUsers {
                 $ouPath = Resolve-OUPath $userDef.OUPath $DomainInfo
                 $user = New-UserAccount -UserDef $userDef -OUPath $ouPath -Password $DefaultPassword -DomainFQDN $domainFQDN
                 
-                # Because New-UserAccount now returns the existing user object, this block will always run.
                 if ($user) {
-                    # Note: We don't increment createdCount if the user exists.
-                    if (-not $user.Created) { $createdCount++ } # Assumes the New-ADUser object has a 'Created' property if it was just created (or use SamAccountName match/mismatch)
+                    $createdCount++
                     
-                    # Add to groups if specified - with explicit console output
+                    # Add to groups if specified
                     if ($userDef.ContainsKey('Groups') -and $userDef.Groups) {
-                        $groupList = $userDef.Groups
-                        if ($groupList -isnot [array]) {
-                            $groupList = @($groupList)
-                        }
-                        
-                        # Iterate through each group
-                        foreach ($groupName in $groupList) {
+                        foreach ($groupName in $userDef.Groups) {
                             Add-UserToGroup -UserSam $userDef.SamAccountName -GroupName $groupName
                         }
                     }
