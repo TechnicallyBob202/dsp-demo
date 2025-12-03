@@ -79,24 +79,17 @@
     
     #---------------------------------------------------------------------------
     # MODULE 03: Sites-SubnetModifications
-    # Change subnet descriptions and locations
+    # Change subnet descriptions that were created during setup
     #---------------------------------------------------------------------------
     Module03_SubnetsModify = @{
         Subnets = @(
             @{
-                Name = "10.99.0.0/16"
-                Description = "Modified lab subnet description"
-                Location = "Lab-USA-CA"
+                Name = "111.111.4.0/24"
+                Description = "Changed the subnet description attribute!!"
             }
             @{
-                Name = "10.222.0.0/16"
-                Description = "Modified special infrastructure network"
-                Location = "Lab-USA-East"
-            }
-            @{
-                Name = "192.168.0.0/16"
-                Description = "Modified primary demo lab network"
-                Location = "Lab-USA-TX"
+                Name = "111.111.5.0/24"
+                Description = "Changed the subnet description attribute!!"
             }
         )
     }
