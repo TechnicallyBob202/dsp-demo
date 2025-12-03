@@ -2,7 +2,7 @@
 ##
 ## DSP-Demo-Activity-12-SubnetsDelete.psm1
 ##
-## Delete AD subnets
+## Delete AD subnets (111.111.4.0/24 and 111.111.5.0/24)
 ##
 ################################################################################
 
@@ -34,9 +34,6 @@ function Invoke-SubnetsDelete {
     Write-Status "Starting SubnetsDelete" -Level Success
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo
-    $domainDN = $DomainInfo.DN
-    
     $errorCount = 0
     
     # ============================================================================
@@ -45,8 +42,46 @@ function Invoke-SubnetsDelete {
     
     Write-Section "PHASE 1: Delete AD subnets"
     
-    # TODO: Get subnets to delete
-# TODO: Remove subnets
+    $subnetsToDelete = $Config.Module12_SubnetDeletion.SubnetsToDelete
+    
+    if (-not $subnetsToDelete -or $subnetsToDelete.Count -eq 0) {
+        Write-Status "ERROR: SubnetsToDelete not configured" -Level Error
+        $errorCount++
+    }
+    else {
+        Write-Status "Found $($subnetsToDelete.Count) subnet(s) to delete" -Level Info
+        Write-Host ""
+        
+        foreach ($subnet in $subnetsToDelete) {
+            try {
+                # Try to get the subnet first
+                $existingSubnet = Get-ADReplicationSubnet -Identity $subnet -ErrorAction SilentlyContinue
+                
+                if ($existingSubnet) {
+                    Write-Status "Deleting subnet: $subnet" -Level Info
+                    
+                    # Before deletion, optionally update description to show activity
+                    Write-Status "Updating description before deletion..." -Level Info
+                    Set-ADReplicationSubnet -Identity $subnet -Description "Marked for deletion" -ErrorAction SilentlyContinue
+                    
+                    Start-Sleep 2
+                    
+                    # Now delete it
+                    Remove-ADReplicationSubnet -Identity $subnet -Confirm:$false -ErrorAction Stop
+                    Write-Status "Subnet deleted successfully" -Level Success
+                }
+                else {
+                    Write-Status "Subnet '$subnet' not found (may already be deleted)" -Level Warning
+                }
+            }
+            catch {
+                Write-Status "Error deleting subnet '$subnet': $_" -Level Error
+                $errorCount++
+            }
+            
+            Start-Sleep 2
+        }
+    }
     
     # ============================================================================
     # COMPLETION
@@ -60,7 +95,7 @@ function Invoke-SubnetsDelete {
         Write-Status "SubnetsDelete completed with $errorCount error(s)" -Level Warning
     }
     Write-Host ""
-    return $true
+    return ($errorCount -eq 0)
 }
 
 Export-ModuleMember -Function Invoke-SubnetsDelete
