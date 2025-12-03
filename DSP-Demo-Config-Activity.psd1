@@ -385,7 +385,7 @@
     # Disable protection on DeleteMe OU and delete entire structure
     #---------------------------------------------------------------------------
     Module23_OUDeleteMe = @{
-        OUPath = "Delete Me OU"
+        OUPath = "DeleteMe OU"
         DisableProtection = $true
         DeleteOUStructure = $true
     }
