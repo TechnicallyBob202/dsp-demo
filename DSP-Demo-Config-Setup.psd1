@@ -191,6 +191,24 @@
                 PasswordNeverExpires = $true
                 Groups = @("Special Lab Admins")
             }
+            @{
+                GivenName = "App"
+                Surname = "Admin III"
+                UserPrincipalName = "appadminiii@{DOMAIN}"
+                SamAccountName = "AppAdminIII"
+                DisplayName = "App Admin III"
+                Description = "Admin for Lab Applications"
+                Title = "Application Manager"
+                Department = "Demo Development"
+                Company = "Semperis"
+                OfficePhone = "408-555-3434"
+                Fax = "(619) 555-9110"
+                City = "San Diego"
+                EmployeeID = "00088120"
+                OUPath = "Lab Admins/Tier 2"
+                PasswordNeverExpires = $true
+                Groups = @("Special Lab Users")
+            }
         )
         
         DemoUsers = @(
@@ -304,17 +322,6 @@
         )
         
         ServiceAccounts = @(
-            @{
-                GivenName = "DSP"
-                Surname = "Service"
-                UserPrincipalName = "svc-dsp@{DOMAIN}"
-                SamAccountName = "svc-dsp"
-                DisplayName = "DSP Service Account"
-                Description = "Service account for DSP integration"
-                OUPath = "Lab Admins/Tier 1"
-                PasswordNeverExpires = $true
-                Groups = @()
-            }
             @{
                 GivenName = "DNS"
                 Surname = "Service"
