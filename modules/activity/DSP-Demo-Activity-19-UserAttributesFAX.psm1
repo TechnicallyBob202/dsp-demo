@@ -11,7 +11,7 @@
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
 
-function Invoke-UserAttributesPart2 {
+function Invoke-UserAttributesFAX {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -127,4 +127,4 @@ function Invoke-UserAttributesPart2 {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-UserAttributesPart2
+Export-ModuleMember -Function Invoke-UserAttributesFAX

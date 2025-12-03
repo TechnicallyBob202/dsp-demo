@@ -11,7 +11,7 @@
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
 
-function Invoke-UserAttributesPart3 {
+function Invoke-UserAttributesDepartment {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -127,4 +127,4 @@ function Invoke-UserAttributesPart3 {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-UserAttributesPart3
+Export-ModuleMember -Function Invoke-UserAttributesDepartment
