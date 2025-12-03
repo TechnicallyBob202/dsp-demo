@@ -96,14 +96,11 @@ function Invoke-CreateGroups {
         $path = if ($groupDef.ContainsKey('Path')) { Resolve-OUPath $groupDef.Path $DomainInfo } else { $DomainInfo.DN }
         
         # Check if group already exists
-        try {
-            Get-ADGroup -Filter { Name -eq $name } -ErrorAction Stop | Out-Null
+        $existingGroup = Get-ADGroup -Filter { Name -eq $name } -ErrorAction SilentlyContinue
+        if ($existingGroup) {
             Write-Status "Group already exists: $name" -Level Info
             $skippedCount++
             continue
-        }
-        catch {
-            # Group doesn't exist, create it
         }
         
         try {
