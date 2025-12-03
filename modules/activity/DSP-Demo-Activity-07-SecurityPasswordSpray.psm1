@@ -66,10 +66,12 @@ function Invoke-SecurityPasswordSpray {
     
     $domainInfo = $Environment.DomainInfo
     $domainDN = $domainInfo.DN
-    $dcName = $domainInfo.ReplicationPartners[0]
+    
+    # Get DC from Environment object
+    $dcName = $Environment.PrimaryDC
     
     if (-not $dcName) {
-        Write-Status "No domain controller found" -Level Error
+        Write-Status "No primary domain controller found in environment" -Level Error
         Write-Host ""
         return $false
     }
