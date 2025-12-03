@@ -163,10 +163,14 @@ function Invoke-DirectoryMovesPart1 {
             $samAccountName = "GdAct0r-{0:D2}" -f $i
             $displayName = "Lab User $i"
             
-            # Check if user already exists
+            # Check if user already exists anywhere in AD
             $existingUser = Get-ADUser -Filter "SamAccountName -eq '$samAccountName'" -ErrorAction SilentlyContinue
             
-            if (-not $existingUser) {
+            if ($existingUser) {
+                Write-Status "Skipped (exists): $samAccountName" -Level Info
+                $skippedCount++
+            }
+            else {
                 try {
                     $password = ConvertTo-SecureString "P@ssw0rd123!" -AsPlainText -Force
                     New-ADUser -Name $displayName `
@@ -187,10 +191,6 @@ function Invoke-DirectoryMovesPart1 {
                     Write-Status "Error creating $samAccountName : $_" -Level Error
                     $errorCount++
                 }
-            }
-            else {
-                Write-Status "Skipped (exists): $samAccountName" -Level Info
-                $skippedCount++
             }
         }
     }
