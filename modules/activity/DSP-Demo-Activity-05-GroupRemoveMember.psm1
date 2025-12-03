@@ -61,7 +61,6 @@ function Invoke-GroupRemoveMember {
     $errorCount = 0
     
     $domainInfo = $Environment.DomainInfo
-    $domainDN = $domainInfo.DN
     
     # Get config values - REQUIRED
     $groupName = $Config.Module05_GroupMembership.GroupName

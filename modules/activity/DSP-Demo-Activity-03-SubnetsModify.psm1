@@ -28,13 +28,6 @@ function Write-Status {
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
 
-function Write-Section {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ":: $Title" -ForegroundColor DarkRed -BackgroundColor Yellow
-    Write-Host ""
-}
-
 function Invoke-SubnetsModify {
     [CmdletBinding()]
     param(
@@ -49,8 +42,6 @@ function Invoke-SubnetsModify {
     Write-Host "+------------------------------------------------------------------+" -ForegroundColor White
     Write-Host "| Subnets - Modify Descriptions and Locations                    |" -ForegroundColor White
     Write-Host "+------------------------------------------------------------------+" -ForegroundColor White
-    
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     
     # Get subnet modifications - REQUIRED
     $subnetChanges = $Config.Module03_SubnetMods.SubnetChanges

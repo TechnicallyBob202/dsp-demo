@@ -91,27 +91,22 @@ function Invoke-DirectoryMovesPart1 {
     Write-Host ""
     
     # Parse OU paths (e.g., "Lab Users/Dept999" → "OU=Dept999,OU=Lab Users,DC=d3,DC=lab")
-    $sourceOUParts = $sourceOU -split '/'
-    $sourceDeptDN = ""
-    for ($i = $sourceOUParts.Count - 1; $i -ge 0; $i--) {
-        if ($sourceDeptDN) {
-            $sourceDeptDN = "OU=$($sourceOUParts[$i]),$sourceDeptDN"
-        } else {
-            $sourceDeptDN = "OU=$($sourceOUParts[$i])"
+    function Resolve-OUPathToDN {
+        param([string]$LogicalPath, [string]$DomainDN)
+        $parts = $LogicalPath -split '/'
+        $dn = ""
+        for ($i = $parts.Count - 1; $i -ge 0; $i--) {
+            $dn = "OU=$($parts[$i]),$dn"
         }
+        # Remove trailing comma and add domain DN
+        return ($dn.TrimEnd(',') + ',' + $DomainDN)
     }
-    $sourceDeptDN = "$sourceDeptDN,$domainDN"
     
-    $targetOUParts = $targetOU -split '/'
-    $targetDeptDN = ""
-    for ($i = $targetOUParts.Count - 1; $i -ge 0; $i--) {
-        if ($targetDeptDN) {
-            $targetDeptDN = "OU=$($targetOUParts[$i]),$targetDeptDN"
-        } else {
-            $targetDeptDN = "OU=$($targetOUParts[$i])"
-        }
-    }
-    $targetDeptDN = "$targetDeptDN,$domainDN"
+    $sourceDeptDN = Resolve-OUPathToDN $sourceOU $domainDN
+    $targetDeptDN = Resolve-OUPathToDN $targetOU $domainDN
+    
+    Write-Status "Source DN: $sourceDeptDN" -Level Info
+    Write-Status "Target DN: $targetDeptDN" -Level Info
     
     # ============================================================================
     # PHASE 1: MOVE USERS FROM SOURCE TO TARGET

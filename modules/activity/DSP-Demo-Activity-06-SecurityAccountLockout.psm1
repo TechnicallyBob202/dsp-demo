@@ -62,7 +62,6 @@ function Invoke-SecurityAccountLockout {
     
     $domainInfo = $Environment.DomainInfo
     $domainFQDN = $domainInfo.FQDN
-    $domainDN = $domainInfo.DN
     
     # Get config values - REQUIRED
     $targetUser = $Config.Module06_AccountLockout.TargetUser
