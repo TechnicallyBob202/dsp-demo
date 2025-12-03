@@ -83,13 +83,10 @@ function Invoke-DSPUndo {
     try {
         Connect-DSPServer -Server
     }
-    catch [System.Management.Automation.ParameterBindingException] {
-        if (($Error[0].FullyQualifiedErrorId).Contains("NamedParameterNotFound")) {
+    catch {
+        if ($Error[0].FullyQualifiedErrorId -like "*NamedParameterNotFound*") {
             $DSPServerConnectOption = '-ComputerName'
         }
-    }
-    catch {
-        # Default to -Server
     }
     
     Write-Host "Connecting to DSP server ($DSPServerConnectOption)..." -ForegroundColor Yellow
