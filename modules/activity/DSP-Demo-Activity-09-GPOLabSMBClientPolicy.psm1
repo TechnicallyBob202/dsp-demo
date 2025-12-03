@@ -1,26 +1,13 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-09-GPOLabSMBClientPolicy.psm1
+## DSP-Demo-Activity-09-GPOLabSMB.psm1
 ##
-## Create or modify "Lab SMB Client Policy GPO"
+## Create or modify Lab SMB Client Policy GPO
 ##
 ################################################################################
 
 #Requires -Version 5.1
 #Requires -Modules GroupPolicy, ActiveDirectory
-
-################################################################################
-# HELPER FUNCTIONS
-################################################################################
-
-function Write-ActivityHeader {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
-    Write-Host ("| " + $Title.PadRight(62) + " |") -ForegroundColor Cyan
-    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
-    Write-Host ""
-}
 
 function Write-Status {
     param(
@@ -41,11 +28,7 @@ function Write-Status {
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
 
-################################################################################
-# MAIN FUNCTION
-################################################################################
-
-function Invoke-GPOLabSMBClientPolicy {
+function Invoke-GPOLabSMB {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -55,71 +38,47 @@ function Invoke-GPOLabSMBClientPolicy {
         [PSCustomObject]$Environment
     )
     
-    Write-ActivityHeader "GPO - Lab SMB Client Policy Modifications"
+    Write-Host ""
+    Write-Host "+------------------------------------------------------------------+" -ForegroundColor Cyan
+    Write-Host "| GPO - Lab SMB Client Policy                                    |" -ForegroundColor Cyan
+    Write-Host "+------------------------------------------------------------------+" -ForegroundColor Cyan
+    Write-Host ""
     
-    $modifiedCount = 0
     $createdCount = 0
+    $modifiedCount = 0
     $errorCount = 0
     
-    $gpoName = "Lab SMB Client Policy GPO"
+    # Get config - REQUIRED
+    $gpoName = $Config.Module09_GPOLabSMB.GpoName
+    if (-not $gpoName) {
+        Write-Status "ERROR: GpoName not configured in Module09_GPOLabSMB" -Level Error
+        Write-Host ""
+        return $false
+    }
+    
+    Write-Status "Target GPO: $gpoName" -Level Info
+    Write-Host ""
     
     try {
         # Check if GPO exists
         $gpo = Get-GPO -Name $gpoName -ErrorAction SilentlyContinue
         
-        if (-not $gpo) {
-            # Create the GPO
-            try {
-                $gpo = New-GPO -Name $gpoName -ErrorAction Stop
-                Write-Status "Created new GPO: $gpoName" -Level Success
-                $createdCount++
-                Start-Sleep -Seconds 1
-            }
-            catch {
-                Write-Status "Failed to create GPO: $_" -Level Error
-                $errorCount++
-                Write-Host ""
-                return $true
-            }
+        if ($gpo) {
+            Write-Status "GPO '$gpoName' already exists" -Level Info
+            $modifiedCount++
         }
         else {
-            Write-Status "GPO already exists: $gpoName" -Level Info
+            # Create new GPO
+            Write-Status "Creating GPO: $gpoName" -Level Info
+            $gpo = New-GPO -Name $gpoName -ErrorAction Stop
+            Write-Status "Created GPO: $gpoName" -Level Success
+            $createdCount++
         }
         
-        # Make modifications to the GPO
-        try {
-            # Update GPO description
-            Set-GPO -Name $gpoName -Description "SMB Client security configuration for lab" -ErrorAction Stop
-            Write-Status "Updated GPO description" -Level Success
-            $modifiedCount++
-            
-            Start-Sleep -Milliseconds 500
-        }
-        catch {
-            Write-Status "Error modifying GPO: $_" -Level Error
-            $errorCount++
-        }
-        
-        # Trigger replication
-        Write-Status "Triggering replication..." -Level Info
-        try {
-            $domainInfo = $Environment.DomainInfo
-            if ($domainInfo.ReplicationPartners -and $domainInfo.ReplicationPartners.Count -gt 0) {
-                $dc = $domainInfo.ReplicationPartners[0]
-                Repadmin /syncall $dc /APe | Out-Null
-                Start-Sleep -Seconds 3
-                Write-Status "Replication triggered" -Level Success
-            }
-            else {
-                Write-Status "No replication partners available" -Level Warning
-            }
-        }
-        catch {
-            Write-Status "Warning: Could not trigger replication: $_" -Level Warning
-        }
+        Start-Sleep -Milliseconds 500
     }
     catch {
-        Write-Status "Fatal error: $_" -Level Error
+        Write-Status "Error with GPO: $_" -Level Error
         $errorCount++
     }
     
@@ -128,14 +87,14 @@ function Invoke-GPOLabSMBClientPolicy {
     Write-Status "Created: $createdCount, Modified: $modifiedCount, Errors: $errorCount" -Level Info
     
     if ($errorCount -eq 0) {
-        Write-Status "GPO Lab SMB Client Policy completed successfully" -Level Success
+        Write-Status "GPO Lab SMB completed successfully" -Level Success
     }
     else {
-        Write-Status "GPO Lab SMB Client Policy completed with $errorCount error(s)" -Level Warning
+        Write-Status "GPO Lab SMB completed with $errorCount error(s)" -Level Error
     }
     
     Write-Host ""
-    return $true
+    return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-GPOLabSMBClientPolicy
+Export-ModuleMember -Function Invoke-GPOLabSMB

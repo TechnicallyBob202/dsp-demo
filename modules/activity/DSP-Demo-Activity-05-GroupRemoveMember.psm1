@@ -70,9 +70,9 @@ function Invoke-GroupRemoveMember {
         return $false
     }
     
-    $membersToRemove = $Config.Module05_GroupMembership.MembersToRemove
+    $membersToRemove = $Config.Module05_GroupMembership.RemoveMembers
     if (-not $membersToRemove -or $membersToRemove.Count -eq 0) {
-        Write-Status "ERROR: MembersToRemove not configured in Module05_GroupMembership" -Level Error
+        Write-Status "ERROR: RemoveMembers not configured in Module05_GroupMembership" -Level Error
         Write-Host ""
         return $false
     }

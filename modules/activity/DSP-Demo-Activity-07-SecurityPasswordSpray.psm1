@@ -1,8 +1,8 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-07-SecurityPasswordSpray.psm1
+## DSP-Demo-Activity-06-SecurityAccountLockout.psm1
 ##
-## Password spray attack: select 5 users from TEST OU, try 10 passwords each
+## Trigger account lockout via bad password attempts
 ##
 ################################################################################
 
@@ -45,7 +45,7 @@ function Write-Status {
 # MAIN FUNCTION
 ################################################################################
 
-function Invoke-SecurityPasswordSpray {
+function Invoke-SecurityAccountLockout {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -55,97 +55,93 @@ function Invoke-SecurityPasswordSpray {
         [PSCustomObject]$Environment
     )
     
-    Write-ActivityHeader "Security - Password Spray Attack"
+    Write-ActivityHeader "Security - Account Lockout via Bad Passwords"
     
-    $sprayAttempts = 0
+    $attemptCount = 0
     $errorCount = 0
     
     $domainInfo = $Environment.DomainInfo
-    $domainDN = $domainInfo.DN
     $domainFQDN = $domainInfo.FQDN
     
-    # Define test passwords for spray
-    $testPasswords = @(
-        "Password123!",
-        "Admin@123",
-        "Company2024",
-        "Welcome123",
-        "Spring2024",
-        "Test@123",
-        "Temporary1",
-        "Change@Me1",
-        "NewPass123",
-        "Demo123456"
-    )
+    # Get config values - REQUIRED
+    $targetUser = $Config.Module06_AccountLockout.TargetUser
+    if (-not $targetUser) {
+        Write-Status "ERROR: TargetUser not configured in Module06_AccountLockout" -Level Error
+        Write-Host ""
+        return $false
+    }
+    
+    $badPasswordAttempts = $Config.Module06_AccountLockout.BadPasswordAttempts
+    if (-not $badPasswordAttempts) {
+        Write-Status "ERROR: BadPasswordAttempts not configured in Module06_AccountLockout" -Level Error
+        Write-Host ""
+        return $false
+    }
+    
+    $badPassword = $Config.Module06_AccountLockout.BadPassword
+    if (-not $badPassword) {
+        $badPassword = "InvalidPassword_DoNotUse_123!"
+        Write-Status "BadPassword not in config, using default" -Level Info
+    }
+    
+    Write-Status "TargetUser: $targetUser" -Level Info
+    Write-Status "BadPasswordAttempts: $badPasswordAttempts" -Level Info
+    
+    Write-Host ""
     
     try {
-        # Find TEST OU
-        $testOU = Get-ADOrganizationalUnit -Filter { Name -eq "TEST" } -SearchBase $domainDN -ErrorAction SilentlyContinue
+        # Get target user
+        $user = Get-ADUser -Filter { SamAccountName -eq $targetUser } -ErrorAction SilentlyContinue
         
-        if (-not $testOU) {
-            Write-Status "TEST OU not found" -Level Warning
+        if (-not $user) {
+            Write-Status "User '$targetUser' not found" -Level Warning
             Write-Host ""
             return $true
         }
         
-        Write-Status "Found TEST OU: $($testOU.DistinguishedName)" -Level Info
-        
-        # Get all enabled users from TEST OU
-        $testUsers = Get-ADUser -Filter { Enabled -eq $true } -SearchBase $testOU.DistinguishedName -ErrorAction Stop
-        
-        if (-not $testUsers) {
-            Write-Status "No enabled users found in TEST OU" -Level Warning
-            Write-Host ""
-            return $true
-        }
-        
-        # Select up to 5 random users
-        if ($testUsers -is [array]) {
-            $selectedUsers = $testUsers | Get-Random -Count ([Math]::Min(5, $testUsers.Count))
-        }
-        else {
-            $selectedUsers = @($testUsers)
-        }
-        
-        Write-Status "Targeting $($selectedUsers.Count) user(s) with password spray" -Level Info
+        Write-Status "Found user: $($user.Name)" -Level Success
+        Write-Status "Attempting $badPasswordAttempts bad passwords to trigger lockout..." -Level Info
         Write-Host ""
         
-        foreach ($user in $selectedUsers) {
-            Write-Status "Spraying user: $($user.SamAccountName)" -Level Info
-            
-            foreach ($password in $testPasswords) {
-                try {
-                    # Attempt to authenticate with test password
-                    $cred = New-Object System.Management.Automation.PSCredential(
-                        "$domainFQDN\$($user.SamAccountName)",
-                        (ConvertTo-SecureString $password -AsPlainText -Force)
-                    )
-                    
-                    # This will fail, but the failed attempt is logged by AD
-                    Add-ADGroupMember -Identity "Domain Users" -Members $user -Credential $cred -ErrorAction SilentlyContinue 2>$null
-                    
-                    $sprayAttempts++
-                }
-                catch {
-                    # Expected - auth attempt failed
-                    $sprayAttempts++
-                }
+        # Generate bad password attempts
+        for ($i = 1; $i -le $badPasswordAttempts; $i++) {
+            try {
+                # Attempt to authenticate with bad password
+                $cred = New-Object System.Management.Automation.PSCredential(
+                    "$domainFQDN\$targetUser",
+                    (ConvertTo-SecureString $badPassword -AsPlainText -Force)
+                )
                 
-                Start-Sleep -Milliseconds 100
+                # This will fail, but the failed attempt is logged by AD
+                Add-ADGroupMember -Identity "Domain Users" -Members $user -Credential $cred -ErrorAction SilentlyContinue 2>$null
+                
+                $attemptCount++
+                
+                if ($i % 10 -eq 0) {
+                    Write-Status "Bad password attempt $i of $badPasswordAttempts" -Level Info
+                }
+            }
+            catch {
+                # Expected - auth attempt failed
+                $attemptCount++
+                
+                if ($i % 10 -eq 0) {
+                    Write-Status "Bad password attempt $i of $badPasswordAttempts" -Level Info
+                }
             }
             
-            Write-Status "Completed 10 attempts against $($user.SamAccountName)" -Level Success
+            Start-Sleep -Milliseconds 50
         }
         
         Write-Host ""
-        Write-Status "Completed password spray attack" -Level Success
+        Write-Status "Completed $badPasswordAttempts bad password attempts" -Level Success
+        Write-Status "$targetUser should now be locked out" -Level Info
         
         # Trigger replication
         Write-Status "Triggering replication..." -Level Info
         try {
-            $dc = $domainInfo.ReplicationPartners[0]
-            if ($dc) {
-                Repadmin /syncall $dc /APe | Out-Null
+            if ($domainInfo.ReplicationPartners -and $domainInfo.ReplicationPartners.Count -gt 0) {
+                Repadmin /syncall $domainInfo.ReplicationPartners[0] /APe | Out-Null
                 Start-Sleep -Seconds 3
                 Write-Status "Replication triggered" -Level Success
             }
@@ -161,17 +157,17 @@ function Invoke-SecurityPasswordSpray {
     
     # Summary
     Write-Host ""
-    Write-Status "Spray attempts: $sprayAttempts, Errors: $errorCount" -Level Info
+    Write-Status "Bad password attempts: $attemptCount, Errors: $errorCount" -Level Success
     
     if ($errorCount -eq 0) {
-        Write-Status "Password Spray completed successfully" -Level Success
+        Write-Status "Account Lockout completed successfully" -Level Success
     }
     else {
-        Write-Status "Password Spray completed with $errorCount error(s)" -Level Warning
+        Write-Status "Account Lockout completed with $errorCount error(s)" -Level Error
     }
     
     Write-Host ""
-    return $true
+    return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-SecurityPasswordSpray
+Export-ModuleMember -Function Invoke-SecurityAccountLockout

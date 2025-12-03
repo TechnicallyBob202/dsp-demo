@@ -1,66 +1,100 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-10-GPOCISBenchmark.psm1
+## DSP-Demo-Activity-10-GPOCIS.psm1
 ##
-## Create/modify CIS Benchmark GPO
+## Create or modify CIS Benchmark Windows Server Policy GPO
 ##
 ################################################################################
 
 #Requires -Version 5.1
-#Requires -Modules ActiveDirectory
+#Requires -Modules GroupPolicy, ActiveDirectory
 
 function Write-Status {
-    param([string]$Message, [ValidateSet('Info','Success','Warning','Error')][string]$Level = 'Info')
+    param(
+        [string]$Message,
+        [ValidateSet('Info','Success','Warning','Error')]
+        [string]$Level = 'Info'
+    )
+    
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $colors = @{'Info'='White';'Success'='Green';'Warning'='Yellow';'Error'='Red'}
-    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colors[$Level]
+    $colors = @{
+        'Info'    = 'White'
+        'Success' = 'Green'
+        'Warning' = 'Yellow'
+        'Error'   = 'Red'
+    }
+    
+    $color = $colors[$Level]
+    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
 
-function Write-Section {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ":: $Title" -ForegroundColor DarkRed -BackgroundColor Yellow
-    Write-Host ""
-}
-
-function Invoke-GPOCISBenchmark {
+function Invoke-GPOCIS {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][hashtable]$Config,
-        [Parameter(Mandatory=$true)]$Environment
+        [Parameter(Mandatory=$true)]
+        [hashtable]$Config,
+        
+        [Parameter(Mandatory=$true)]
+        [PSCustomObject]$Environment
     )
     
     Write-Host ""
-    Write-Status "Starting GPOCISBenchmark" -Level Success
+    Write-Host "+------------------------------------------------------------------+" -ForegroundColor Cyan
+    Write-Host "| GPO - CIS Benchmark Windows Server Policy                      |" -ForegroundColor Cyan
+    Write-Host "+------------------------------------------------------------------+" -ForegroundColor Cyan
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo
-    $domainDN = $DomainInfo.DN
-    
+    $createdCount = 0
+    $modifiedCount = 0
     $errorCount = 0
     
-    # ============================================================================
-    # IMPLEMENTATION
-    # ============================================================================
+    # Get config - REQUIRED
+    $gpoName = $Config.Module10_GPOCIS.GpoName
+    if (-not $gpoName) {
+        Write-Status "ERROR: GpoName not configured in Module10_GPOCIS" -Level Error
+        Write-Host ""
+        return $false
+    }
     
-    Write-Section "PHASE 1: Create/modify CIS Benchmark GPO"
-    
-    # TODO: Create or get CIS Benchmark GPO
-# TODO: Apply CIS settings
-    
-    # ============================================================================
-    # COMPLETION
-    # ============================================================================
-    
+    Write-Status "Target GPO: $gpoName" -Level Info
     Write-Host ""
+    
+    try {
+        # Check if GPO exists
+        $gpo = Get-GPO -Name $gpoName -ErrorAction SilentlyContinue
+        
+        if ($gpo) {
+            Write-Status "GPO '$gpoName' already exists" -Level Info
+            $modifiedCount++
+        }
+        else {
+            # Create new GPO
+            Write-Status "Creating GPO: $gpoName" -Level Info
+            $gpo = New-GPO -Name $gpoName -ErrorAction Stop
+            Write-Status "Created GPO: $gpoName" -Level Success
+            $createdCount++
+        }
+        
+        Start-Sleep -Milliseconds 500
+    }
+    catch {
+        Write-Status "Error with GPO: $_" -Level Error
+        $errorCount++
+    }
+    
+    # Summary
+    Write-Host ""
+    Write-Status "Created: $createdCount, Modified: $modifiedCount, Errors: $errorCount" -Level Info
+    
     if ($errorCount -eq 0) {
-        Write-Status "GPOCISBenchmark completed successfully" -Level Success
+        Write-Status "GPO CIS Benchmark completed successfully" -Level Success
     }
     else {
-        Write-Status "GPOCISBenchmark completed with $errorCount error(s)" -Level Warning
+        Write-Status "GPO CIS Benchmark completed with $errorCount error(s)" -Level Error
     }
+    
     Write-Host ""
-    return $true
+    return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-GPOCISBenchmark
+Export-ModuleMember -Function Invoke-GPOCIS

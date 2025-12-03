@@ -1,8 +1,8 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-06-SecurityAccountLockout.psm1
+## DSP-Demo-Activity-05-GroupRemoveMember.psm1
 ##
-## Trigger account lockout via bad password attempts
+## Remove member from Special Lab Users group
 ##
 ################################################################################
 
@@ -45,7 +45,7 @@ function Write-Status {
 # MAIN FUNCTION
 ################################################################################
 
-function Invoke-SecurityAccountLockout {
+function Invoke-GroupRemoveMember {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -55,100 +55,88 @@ function Invoke-SecurityAccountLockout {
         [PSCustomObject]$Environment
     )
     
-    Write-ActivityHeader "Security - Account Lockout via Bad Passwords"
+    Write-ActivityHeader "Group - Remove Member"
     
-    $attemptCount = 0
+    $removedCount = 0
     $errorCount = 0
     
     $domainInfo = $Environment.DomainInfo
-    $domainFQDN = $domainInfo.FQDN
     
     # Get config values - REQUIRED
-    $targetUser = $Config.Module06_AccountLockout.TargetUser
-    if (-not $targetUser) {
-        Write-Status "ERROR: TargetUser not configured in Module06_AccountLockout" -Level Error
+    $groupName = $Config.Module05_GroupMembership.GroupName
+    if (-not $groupName) {
+        Write-Status "ERROR: GroupName not configured in Module05_GroupMembership" -Level Error
         Write-Host ""
         return $false
     }
     
-    $badPasswordAttempts = $Config.Module06_AccountLockout.BadPasswordAttempts
-    if (-not $badPasswordAttempts) {
-        Write-Status "ERROR: BadPasswordAttempts not configured in Module06_AccountLockout" -Level Error
+    $membersToRemove = $Config.Module05_GroupMembership.RemoveMembers
+    if (-not $membersToRemove -or $membersToRemove.Count -eq 0) {
+        Write-Status "ERROR: RemoveMembers not configured in Module05_GroupMembership" -Level Error
         Write-Host ""
         return $false
     }
     
-    $badPassword = $Config.Module06_AccountLockout.BadPassword
-    if (-not $badPassword) {
-        Write-Status "ERROR: BadPassword not configured in Module06_AccountLockout" -Level Error
-        Write-Host ""
-        return $false
-    }
-    
-    Write-Status "TargetUser: $targetUser" -Level Info
-    Write-Status "BadPasswordAttempts: $badPasswordAttempts" -Level Info
+    Write-Status "GroupName: $groupName" -Level Info
+    Write-Status "MembersToRemove: $($membersToRemove -join ', ')" -Level Info
     
     Write-Host ""
     
     try {
-        # Get target user
-        $user = Get-ADUser -Filter { SamAccountName -eq $targetUser } -ErrorAction SilentlyContinue
+        # Get group
+        $group = Get-ADGroup -Filter { Name -eq $groupName } -ErrorAction SilentlyContinue
         
-        if (-not $user) {
-            Write-Status "User '$targetUser' not found" -Level Warning
+        if (-not $group) {
+            Write-Status "Group '$groupName' not found" -Level Warning
             Write-Host ""
             return $true
         }
         
-        Write-Status "Found user: $($user.Name)" -Level Success
-        Write-Status "Attempting $badPasswordAttempts bad passwords to trigger lockout..." -Level Info
+        Write-Status "Found group: $($group.Name)" -Level Success
         Write-Host ""
         
-        # Generate bad password attempts
-        for ($i = 1; $i -le $badPasswordAttempts; $i++) {
+        # Remove each member
+        foreach ($memberName in $membersToRemove) {
             try {
-                # Attempt to authenticate with bad password
-                $cred = New-Object System.Management.Automation.PSCredential(
-                    "$domainFQDN\$targetUser",
-                    (ConvertTo-SecureString $badPassword -AsPlainText -Force)
-                )
+                $member = Get-ADUser -Filter { Name -eq $memberName } -ErrorAction SilentlyContinue
                 
-                # This will fail, but the failed attempt is logged by AD
-                Add-ADGroupMember -Identity "Domain Users" -Members $user -Credential $cred -ErrorAction SilentlyContinue 2>$null
+                if (-not $member) {
+                    Write-Status "User '$memberName' not found" -Level Warning
+                    continue
+                }
                 
-                $attemptCount++
+                # Check if member exists in group
+                $isMember = Get-ADGroupMember -Identity $group -ErrorAction SilentlyContinue | Where-Object { $_.DistinguishedName -eq $member.DistinguishedName }
                 
-                if ($i % 10 -eq 0) {
-                    Write-Status "Bad password attempt $i of $badPasswordAttempts" -Level Info
+                if ($isMember) {
+                    Remove-ADGroupMember -Identity $group -Members $member -Confirm:$false -ErrorAction Stop
+                    Write-Status "Removed '$memberName' from '$groupName'" -Level Success
+                    $removedCount++
+                    Start-Sleep -Milliseconds 500
+                }
+                else {
+                    Write-Status "'$memberName' is not a member of '$groupName'" -Level Info
                 }
             }
             catch {
-                # Expected - auth attempt failed
-                $attemptCount++
-                
-                if ($i % 10 -eq 0) {
-                    Write-Status "Bad password attempt $i of $badPasswordAttempts" -Level Info
+                Write-Status "Error removing $memberName : $_" -Level Error
+                $errorCount++
+            }
+        }
+        
+        # Trigger replication if members were removed
+        if ($removedCount -gt 0) {
+            Write-Status "Triggering replication..." -Level Info
+            try {
+                if ($domainInfo.ReplicationPartners -and $domainInfo.ReplicationPartners.Count -gt 0) {
+                    Repadmin /syncall $domainInfo.ReplicationPartners[0] /APe | Out-Null
+                    Start-Sleep -Seconds 3
+                    Write-Status "Replication triggered" -Level Success
                 }
             }
-            
-            Start-Sleep -Milliseconds 50
-        }
-        
-        Write-Host ""
-        Write-Status "Completed $badPasswordAttempts bad password attempts" -Level Success
-        Write-Status "$targetUser should now be locked out" -Level Info
-        
-        # Trigger replication
-        Write-Status "Triggering replication..." -Level Info
-        try {
-            if ($domainInfo.ReplicationPartners -and $domainInfo.ReplicationPartners.Count -gt 0) {
-                Repadmin /syncall $domainInfo.ReplicationPartners[0] /APe | Out-Null
-                Start-Sleep -Seconds 3
-                Write-Status "Replication triggered" -Level Success
+            catch {
+                Write-Status "Warning: Could not trigger replication: $_" -Level Warning
             }
-        }
-        catch {
-            Write-Status "Warning: Could not trigger replication: $_" -Level Warning
         }
     }
     catch {
@@ -158,17 +146,17 @@ function Invoke-SecurityAccountLockout {
     
     # Summary
     Write-Host ""
-    Write-Status "Bad password attempts: $attemptCount, Errors: $errorCount" -Level Success
+    Write-Status "Group Remove Member - Removed: $removedCount, Errors: $errorCount" -Level Success
     
     if ($errorCount -eq 0) {
-        Write-Status "Account Lockout completed successfully" -Level Success
+        Write-Status "Group Remove Member completed successfully" -Level Success
     }
     else {
-        Write-Status "Account Lockout completed with $errorCount error(s)" -Level Error
+        Write-Status "Group Remove Member completed with $errorCount error(s)" -Level Error
     }
     
     Write-Host ""
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-SecurityAccountLockout
+Export-ModuleMember -Function Invoke-GroupRemoveMember
