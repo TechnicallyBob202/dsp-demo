@@ -23,8 +23,13 @@ function Invoke-DSPUndo {
     $ModuleConfig = $Config.Module28_DSPUndo
     $DomainInfo = $Environment.DomainInfo
     $DomainDN = $DomainInfo.DN
-    $DomainDNSRoot = $DomainInfo.DNSRoot
     $errorCount = 0
+    
+    # Extract DNS root from DN if not available (DC=d3,DC=lab -> d3.lab)
+    $DomainDNSRoot = if ($DomainInfo.DNSRoot) { $DomainInfo.DNSRoot } else {
+        $dcParts = $DomainDN -split ',' | Where-Object { $_ -like 'DC=*' } | ForEach-Object { $_.Substring(3) }
+        $dcParts -join '.'
+    }
     
     Write-Host "Attempting to load DSP PoSh module..." -ForegroundColor Yellow
     Remove-Module Semperis.PoSh.DSP -ErrorAction SilentlyContinue -Force
