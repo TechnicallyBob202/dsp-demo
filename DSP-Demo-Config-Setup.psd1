@@ -4,19 +4,18 @@
 ##
 ## Setup configuration for DSP Demo script suite
 ## Contains all baseline AD objects created during setup phase:
-## - Organizational Units
-## - Groups
-## - Users (Tier admins, demo users, service accounts, generic users)
-## - Computers
-## - AD Sites
-## - AD Subnets
-## - AD Site Links
+## - Organizational Units (14 total)
+## - Groups (3 security groups)
+## - Users (demo, admin, service, generic)
+## - AD Sites, Subnets, Site Links
 ## - DNS Zones (forward and reverse)
 ## - Group Policy Objects
 ##
+## Corrected to match legacy script: Invoke-CreateDspChangeDataForDemos-20251002_0012.ps1
+## 
 ## Original Author: Rob Ingenthron (robi@semperis.com)
 ## Refactored By: Bob Lyons
-## Version: 1.0.0-20251202
+## Version: 2.0.0-20251202 (CORRECTED)
 ##
 ################################################################################
 
@@ -29,80 +28,68 @@
         Company = "HaleHapa"
         LogPath = "C:\Logs\DSP-Demo"
         VerboseLogging = $true
-        DefaultPassword = "Password1"
     }
     
     #---------------------------------------------------------------------------
-    # ORGANIZATIONAL UNITS STRUCTURE
+    # ORGANIZATIONAL UNITS STRUCTURE (14 TOTAL)
     #---------------------------------------------------------------------------
     OUs = @{
-        # =====================================================
-        # ADMIN TIER STRUCTURE
-        # =====================================================
+        # Root level OUs
         LabAdmins = @{
             Name = "Lab Admins"
-            Description = "Lab administrator accounts"
+            Description = "OU for all lab admins!!"
             ProtectFromAccidentalDeletion = $true
             Children = @{
                 Tier0 = @{
                     Name = "Tier 0"
-                    Description = "Tier 0 - Enterprise administrators and sensitive accounts"
+                    Description = "OU for all TIER 0 lab admins!!"
                     ProtectFromAccidentalDeletion = $true
                 }
                 Tier1 = @{
                     Name = "Tier 1"
-                    Description = "Tier 1 - Domain and infrastructure administrators"
+                    Description = "OU for all TIER 1 lab admins!!"
                     ProtectFromAccidentalDeletion = $true
                 }
                 Tier2 = @{
                     Name = "Tier 2"
-                    Description = "Tier 2 - Application and service administrators"
+                    Description = "OU for all TIER 2 lab admins!!"
                     ProtectFromAccidentalDeletion = $true
                 }
             }
         }
         
-        # =====================================================
-        # USER STRUCTURE
-        # =====================================================
         LabUsers = @{
             Name = "Lab Users"
-            Description = "Lab user accounts for demonstrations"
+            Description = "OU for all lab users!!"
             ProtectFromAccidentalDeletion = $true
             Children = @{
-                Dept101 = @{
-                    Name = "Dept101"
-                    Description = "Department 101 for user movement demonstrations"
-                    ProtectFromAccidentalDeletion = $true
-                }
                 Dept999 = @{
                     Name = "Dept999"
-                    Description = "Department 999 for user movement demonstrations"
+                    Description = "OU for users in Dept999"
+                    ProtectFromAccidentalDeletion = $true
+                }
+                Dept101 = @{
+                    Name = "Dept101"
+                    Description = "OU for users in Dept101"
                     ProtectFromAccidentalDeletion = $true
                 }
             }
         }
         
-        # =====================================================
-        # COMPUTERS STRUCTURE
-        # =====================================================
         LabComputers = @{
             Name = "Lab Computers"
             Description = "Lab computer accounts"
             ProtectFromAccidentalDeletion = $true
         }
         
-        # =====================================================
-        # DELETE ME - FOR RECOVERY DEMOS
-        # =====================================================
         DeleteMeOU = @{
             Name = "DeleteMe OU"
-            Description = "OU structure for deletion and recovery demonstrations"
+            Description = "OU that gets DELETED by someone"
             ProtectFromAccidentalDeletion = $true
             Children = @{
                 Servers = @{
                     Name = "Servers"
-                    Description = "Server computers for demo purposes"
+                    Description = "Server computers for demo recovery"
                     ProtectFromAccidentalDeletion = $false
                 }
                 Resources = @{
@@ -113,313 +100,324 @@
             }
         }
         
-        # =====================================================
-        # SPECIAL RESTRICTED OU FOR TIER 0 ASSETS
-        # =====================================================
+        BadOU = @{
+            Name = "Bad OU"
+            Description = "OU that gets modified by someone"
+            ProtectFromAccidentalDeletion = $false
+        }
+        
+        TestOU = @{
+            Name = "TEST"
+            Description = "OU for generic test user accounts"
+            ProtectFromAccidentalDeletion = $false
+        }
+        
         SpecialOU = @{
-            Name = "Special Restricted OU"
-            Description = "Highly restricted OU for tier 0 infrastructure assets"
+            Name = "zSpecial OU"
+            Description = "Restricted OU for special objects"
             ProtectFromAccidentalDeletion = $true
         }
     }
     
     #---------------------------------------------------------------------------
-    # GROUPS
+    # SECURITY GROUPS (3 TOTAL)
     #---------------------------------------------------------------------------
     Groups = @{
-        AdminGroups = @(
-            @{
-                SamAccountName = "Tier0Admins"
-                Name = "Tier0Admins"
-                DisplayName = "Tier 0 Admins"
-                Description = "Tier 0 admin group for enterprise administrators"
-                GroupScope = "Global"
-                GroupCategory = "Security"
-                OUPath = "Lab Admins"
-            }
-            @{
-                SamAccountName = "Tier1Admins"
-                Name = "Tier1Admins"
-                DisplayName = "Tier 1 Admins"
-                Description = "Tier 1 admin group for domain administrators"
-                GroupScope = "Global"
-                GroupCategory = "Security"
-                OUPath = "Lab Admins"
-            }
-            @{
-                SamAccountName = "Tier2Admins"
-                Name = "Tier2Admins"
-                DisplayName = "Tier 2 Admins"
-                Description = "Tier 2 admin group for application administrators"
-                GroupScope = "Global"
-                GroupCategory = "Security"
-                OUPath = "Lab Admins"
-            }
-        )
-        UserGroups = @(
-            @{
-                SamAccountName = "DemoUsers"
-                Name = "DemoUsers"
-                DisplayName = "Demo Users"
-                Description = "Group for demo user accounts"
-                GroupScope = "Global"
-                GroupCategory = "Security"
-                OUPath = "Lab Users"
-            }
-        )
+        SpecialLabUsers = @{
+            Name = "Special Lab Users"
+            Path = "Lab Users"
+            GroupScope = "Global"
+            GroupCategory = "Security"
+            Description = "Special lab users group"
+        }
+        SpecialLabAdmins = @{
+            Name = "Special Lab Admins"
+            Path = "Lab Admins"
+            GroupScope = "Global"
+            GroupCategory = "Security"
+            Description = "Special lab admins group"
+        }
+        HelpdeskOps = @{
+            Name = "HelpDesk Ops"
+            Path = "Lab Admins"
+            GroupScope = "Global"
+            GroupCategory = "Security"
+            Description = "HelpDesk operations group"
+        }
     }
     
     #---------------------------------------------------------------------------
     # TIER ADMIN ACCOUNTS
     #---------------------------------------------------------------------------
-    Users = @{
-        Tier0Admins = @(
-            @{
-                Name = "t0-admin-enterprise"
-                GivenName = "Enterprise"
-                Surname = "Admin"
-                UserPrincipalName = "t0-admin-enterprise@{DOMAIN}"
-                SamAccountName = "t0-admin-ent"
-                Description = "Tier 0 Enterprise Admin account"
-                OUPath = "Lab Admins/Tier 0"
-                Enabled = $true
-                PasswordNeverExpires = $false
-            }
-        )
-        Tier1Admins = @(
-            @{
-                Name = "t1-admin-domain"
-                GivenName = "Domain"
-                Surname = "Admin"
-                UserPrincipalName = "t1-admin-domain@{DOMAIN}"
-                SamAccountName = "t1-admin-dom"
-                Description = "Tier 1 Domain Admin account"
-                OUPath = "Lab Admins/Tier 1"
-                Enabled = $true
-                PasswordNeverExpires = $false
-            }
-            @{
-                Name = "t1-admin-infrastructure"
-                GivenName = "Infrastructure"
-                Surname = "Admin"
-                UserPrincipalName = "t1-admin-infrastructure@{DOMAIN}"
-                SamAccountName = "t1-admin-inf"
-                Description = "Tier 1 Infrastructure Admin account"
-                OUPath = "Lab Admins/Tier 1"
-                Enabled = $true
-                PasswordNeverExpires = $false
-            }
-        )
-        Tier2Admins = @(
-            @{
-                Name = "t2-admin-application"
-                GivenName = "Application"
-                Surname = "Admin"
-                UserPrincipalName = "t2-admin-application@{DOMAIN}"
-                SamAccountName = "t2-admin-app"
-                Description = "Tier 2 Application Admin account"
-                OUPath = "Lab Admins/Tier 2"
-                Enabled = $true
-                PasswordNeverExpires = $false
-            }
-            @{
-                Name = "t2-admin-service"
-                GivenName = "Service"
-                Surname = "Admin"
-                UserPrincipalName = "t2-admin-service@{DOMAIN}"
-                SamAccountName = "t2-admin-svc"
-                Description = "Tier 2 Service Admin account"
-                OUPath = "Lab Admins/Tier 2"
-                Enabled = $true
-                PasswordNeverExpires = $false
-            }
-        )
-        DemoUsers = @(
-            @{
-                Name = "demo-user-01"
-                GivenName = "Demo"
-                Surname = "User01"
-                UserPrincipalName = "demo-user-01@{DOMAIN}"
-                SamAccountName = "demo-user-01"
-                Description = "Demo user account for demonstrations"
-                OUPath = "Lab Users/Dept101"
-                Enabled = $true
-                PasswordNeverExpires = $false
-            }
-            @{
-                Name = "demo-user-02"
-                GivenName = "Demo"
-                Surname = "User02"
-                UserPrincipalName = "demo-user-02@{DOMAIN}"
-                SamAccountName = "demo-user-02"
-                Description = "Demo user account for demonstrations"
-                OUPath = "Lab Users/Dept101"
-                Enabled = $true
-                PasswordNeverExpires = $false
-            }
-            @{
-                Name = "demo-user-03"
-                GivenName = "Demo"
-                Surname = "User03"
-                UserPrincipalName = "demo-user-03@{DOMAIN}"
-                SamAccountName = "demo-user-03"
-                Description = "Demo user account for demonstrations"
-                OUPath = "Lab Users/Dept101"
-                Enabled = $true
-                PasswordNeverExpires = $false
-            }
-        )
-        ServiceAccounts = @(
-            @{
-                Name = "svc-dsp"
-                GivenName = "DSP"
-                Surname = "Service"
-                UserPrincipalName = "svc-dsp@{DOMAIN}"
-                SamAccountName = "svc-dsp"
-                Description = "Service account for DSP integration"
-                OUPath = "Lab Admins/Tier 1"
-                Enabled = $true
-                PasswordNeverExpires = $false
-            }
-            @{
-                Name = "svc-dns"
-                GivenName = "DNS"
-                Surname = "Service"
-                UserPrincipalName = "svc-dns@{DOMAIN}"
-                SamAccountName = "svc-dns"
-                Description = "Service account for DNS operations"
-                OUPath = "Lab Admins/Tier 1"
-                Enabled = $true
-                PasswordNeverExpires = $false
-            }
-        )
-        GenericUsers = @(
-            @{
-                Count = 250
-                SamAccountNamePrefix = "User"
-                OUPath = "Lab Users/Dept101"
-                Description = "Generic lab user account"
-            }
-        )
+    Tier0Admins = @{
+        "admin-t0" = @{
+            GivenName = "Tier"
+            Surname = "ZeroAdmin"
+            UserPrincipalName = "admin-t0@{DOMAIN}"
+            SamAccountName = "admin-t0"
+            DisplayName = "Tier 0 Admin"
+            Description = "Tier 0 administrator account"
+            Title = "Enterprise Admin"
+            Department = "IT Administration"
+            Path = "Lab Admins/Tier 0"
+            PasswordNeverExpires = $true
+        }
+    }
+    
+    Tier1Admins = @{
+        "admin-t1" = @{
+            GivenName = "Tier"
+            Surname = "OneAdmin"
+            UserPrincipalName = "admin-t1@{DOMAIN}"
+            SamAccountName = "admin-t1"
+            DisplayName = "Tier 1 Admin"
+            Description = "Tier 1 administrator account"
+            Title = "Domain Admin"
+            Department = "IT Administration"
+            Path = "Lab Admins/Tier 1"
+            PasswordNeverExpires = $true
+        }
+    }
+    
+    Tier2Admins = @{
+        "admin-t2" = @{
+            GivenName = "Tier"
+            Surname = "TwoAdmin"
+            UserPrincipalName = "admin-t2@{DOMAIN}"
+            SamAccountName = "admin-t2"
+            DisplayName = "Tier 2 Admin"
+            Description = "Tier 2 administrator account"
+            Title = "Application Admin"
+            Department = "IT Administration"
+            Path = "Lab Admins/Tier 2"
+            PasswordNeverExpires = $true
+        }
     }
     
     #---------------------------------------------------------------------------
-    # COMPUTERS
+    # DEMO USERS (5 NAMED + ADDITIONAL)
     #---------------------------------------------------------------------------
-    Computers = @(
-        @{
-            Name = "srv-iis-us01"
-            SamAccountName = "srv-iis-us01"
-            Description = "Special application server for lab"
-            OUPath = "DeleteMe OU/Servers"
+    DemoUsers = @{
+        "arose" = @{
+            GivenName = "William"
+            Surname = "Rose"
+            UserPrincipalName = "arose@{DOMAIN}"
+            SamAccountName = "arose"
+            DisplayName = "Axl Rose"
+            Description = "Coder"
+            Title = "Application Mgr"
+            Department = "Sales"
+            Division = "Rock Analysis"
+            Company = "Roses and Guns"
+            OfficePhone = "408-555-1212"
+            Fax = "(408) 555-1212"
+            City = "City of angels"
+            EmployeeID = "000123456"
+            Path = "Lab Users/Dept101"
+            PasswordNeverExpires = $true
         }
-        @{
-            Name = "ops-app-us05"
-            SamAccountName = "ops-app-us05"
-            Description = "Special application server for lab"
-            OUPath = "DeleteMe OU/Resources"
+        "lskywalker" = @{
+            GivenName = "Luke"
+            Surname = "Skywalker"
+            UserPrincipalName = "lskywalker@{DOMAIN}"
+            SamAccountName = "lskywalker"
+            DisplayName = "Luke Skywalker"
+            Description = "apprentice"
+            Title = "Nerfherder"
+            Department = "Religion"
+            Division = "Spoon Bending"
+            Company = "Jedi Knights, Inc"
+            OfficePhone = "408-555-5151"
+            Fax = "(408) 555-5555"
+            City = "Tatooine"
+            EmployeeID = "00314159"
+            Path = "Lab Users/Dept101"
         }
-        @{
-            Name = "PIMPAM"
-            SamAccountName = "PIMPAM"
-            Description = "Privileged access server"
-            OUPath = "Special Restricted OU"
+        "peter.griffin" = @{
+            GivenName = "Peter"
+            Surname = "Griffin"
+            UserPrincipalName = "peter.griffin@{DOMAIN}"
+            SamAccountName = "peter.griffin"
+            DisplayName = "Peter Griffin"
+            Description = "cartoon character"
+            Title = "Sales"
+            Department = "Parody"
+            Division = "Blue Collar"
+            Company = "Happy-Go-Lucky Toy Factory"
+            OfficePhone = "408-777-3333"
+            Fax = "(216) 555-1000"
+            City = "Quahog"
+            EmployeeID = "00987654321"
+            Path = "Lab Users/Dept101"
         }
-        @{
-            Name = "VAULT"
-            SamAccountName = "VAULT"
-            Description = "Vault server to store passwords and credentials"
-            OUPath = "Special Restricted OU"
+        "pmccartney" = @{
+            GivenName = "Paul"
+            Surname = "McCartney"
+            UserPrincipalName = "pmccartney@{DOMAIN}"
+            SamAccountName = "pmccartney"
+            DisplayName = "Paul McCartney"
+            Description = "Bandmember"
+            Title = "Lead Beatle"
+            Department = "Music"
+            Division = "Legends"
+            Company = "The Beat Brothers"
+            OfficePhone = "011 44 20 1234 5678"
+            Fax = "011 44 20 5555 1111"
+            City = "Liverpool"
+            EmployeeID = "000001212"
+            Path = "Lab Users/Dept101"
         }
-        @{
-            Name = "BASTION-HOST01"
-            SamAccountName = "BASTION-HOST01"
-            Description = "Bastion host for restricted privileged access"
-            OUPath = "Special Restricted OU"
+        "yanli" = @{
+            GivenName = "Yan"
+            Surname = "Li"
+            UserPrincipalName = "yanli@{DOMAIN}"
+            SamAccountName = "yanli"
+            DisplayName = "Yan Li"
+            Description = "manager of shop line"
+            Title = "Manager"
+            Department = "Wiget Manufacturing"
+            Division = "Manufacturing"
+            Company = "Contractors Inc"
+            OfficePhone = "212 555-5600"
+            Fax = "212 555-5699"
+            City = "Jersey"
+            EmployeeID = "000062312"
+            Path = "Lab Users/Dept101"
         }
-    )
-    
-    #---------------------------------------------------------------------------
-    # FINE-GRAINED PASSWORD POLICIES (FGPP)
-    #---------------------------------------------------------------------------
-    FGPPs = @(
-        @{
-            Name = "SpecialLabUsers_PSO"
-            Description = "Account Lockout policy for Special Lab Users members"
-            DisplayName = "SpecialLabUsers_PSO"
-            Precedence = 2
-            MinPasswordLength = 8
-            ComplexityEnabled = $true
-            LockoutThreshold = 20
-            MaxPasswordAge = 42
-            MinPasswordAge = 1
-            PasswordHistoryCount = 24
-            ReversibleEncryptionEnabled = $false
-            ApplyToGroup = "SpecialLabUsers"
-        }
-    )
-    
-    #---------------------------------------------------------------------------
-    # DEFAULT DOMAIN PASSWORD POLICY SETTINGS
-    #---------------------------------------------------------------------------
-    DefaultDomainPolicy = @{
-        MinPasswordLength = 8
-        PasswordComplexity = $true
-        PasswordHistoryCount = 24
-        MaxPasswordAge = 42
-        MinPasswordAge = 0
-        LockoutThreshold = 11
-        LockoutDuration = 3
-        LockoutObservationWindow = 3
-        ReversibleEncryption = $false
     }
     
     #---------------------------------------------------------------------------
-    # AD SITES
+    # OPS ADMIN ACCOUNT (for alternate credentials in Module 15)
+    #---------------------------------------------------------------------------
+    OpsAdmin = @{
+        "opsadmin1" = @{
+            GivenName = "Ops"
+            Surname = "Admin"
+            UserPrincipalName = "opsadmin1@{DOMAIN}"
+            SamAccountName = "opsadmin1"
+            DisplayName = "Ops Admin 1"
+            Description = "Operations administrator account"
+            Title = "Operations Admin"
+            Department = "IT Operations"
+            Path = "Lab Admins/Tier 2"
+            PasswordNeverExpires = $true
+        }
+    }
+    
+    #---------------------------------------------------------------------------
+    # SERVICE ACCOUNTS
+    #---------------------------------------------------------------------------
+    ServiceAccounts = @{
+        "svc-dsp" = @{
+            GivenName = "DSP"
+            Surname = "Service"
+            UserPrincipalName = "svc-dsp@{DOMAIN}"
+            SamAccountName = "svc-dsp"
+            DisplayName = "DSP Service Account"
+            Description = "Service account for DSP integration"
+            Path = "Lab Admins/Tier 1"
+            PasswordNeverExpires = $true
+        }
+        "svc-dns" = @{
+            GivenName = "DNS"
+            Surname = "Service"
+            UserPrincipalName = "svc-dns@{DOMAIN}"
+            SamAccountName = "svc-dns"
+            DisplayName = "DNS Service Account"
+            Description = "Service account for DNS operations"
+            Path = "Lab Admins/Tier 1"
+            PasswordNeverExpires = $true
+        }
+    }
+    
+    #---------------------------------------------------------------------------
+    # GENERIC USERS (BULK) - CREATED IN DEPT999, NOT DEPT101
+    #---------------------------------------------------------------------------
+    GenericUsers = @{
+        Count = 15
+        NamePrefix = "User"
+        Path = "Lab Users/Dept999"
+        Description = "Generic lab user account"
+        PasswordRandomized = $true
+    }
+    
+    #---------------------------------------------------------------------------
+    # AD SITES - SemperisLabs (NOT LabSite001)
     #---------------------------------------------------------------------------
     AdSites = @{
-        LabSite001 = @{
-            Description = "Lab site for demonstration"
-            Location = "SemperisLabs-USA-AZ"
+        "SemperisLabs" = @{
+            Name = "SemperisLabs"
+            Description = "AD site for Semperis Labs"
+            Location = "USA-TX-Labs"
         }
     }
     
     #---------------------------------------------------------------------------
-    # AD SUBNETS - Includes temporary subnets for activity modules
+    # AD SUBNETS - INCLUDES TEMPORARY SUBNETS FOR ACTIVITY MODULES
     #---------------------------------------------------------------------------
     AdSubnets = @{
+        # Site-specific subnet for SemperisLabs
+        "10.3.22.0/24" = @{
+            Site = "SemperisLabs"
+            Description = "AD subnet for Semperis Labs"
+            Location = "USA-TX-Labs"
+        }
+        
+        # Permanent subnets
         "10.0.0.0/8" = @{
-            Site = "LabSite001"
+            Site = "SemperisLabs"
             Description = "Primary Lab Infrastructure Network"
             Location = "Lab-USA-All"
         }
         "172.16.32.0/20" = @{
-            Site = "LabSite001"
+            Site = "SemperisLabs"
             Description = "Special demo lab subnet"
             Location = "Lab-USA-CA"
         }
         "10.222.0.0/16" = @{
-            Site = "LabSite001"
+            Site = "SemperisLabs"
             Description = "Special Devices Infrastructure Network"
             Location = "Lab-USA-East"
         }
+        "10.111.0.0/16" = @{
+            Site = "SemperisLabs"
+            Description = "Test subnet 0002"
+            Location = "Lab-EMEA-ES"
+        }
+        "10.112.0.0/16" = @{
+            Site = "SemperisLabs"
+            Description = "Test subnet 0002"
+            Location = "Lab-EMEA-ES"
+        }
+        "111.2.5.0/24" = @{
+            Site = "SemperisLabs"
+            Description = "Lab subnet in TX"
+            Location = "USA-TX-Labs"
+        }
+        "111.2.6.0/24" = @{
+            Site = "SemperisLabs"
+            Description = "Lab subnet in Dallas,TX"
+            Location = "USA-TX-Dallas-Labs"
+        }
         "192.168.0.0/16" = @{
-            Site = "LabSite001"
+            Site = "SemperisLabs"
             Description = "Primary Demo Lab Infrastructure Network"
             Location = "Lab-USA-TX"
         }
         "192.168.57.0/24" = @{
-            Site = "LabSite001"
+            Site = "SemperisLabs"
             Description = "Special DMZ network"
             Location = "Lab-USA-AZ"
         }
+        
+        # Temporary subnets (for Module 03 modification, deleted in Module 12)
         "111.111.4.0/24" = @{
-            Site = "LabSite001"
+            Site = "SemperisLabs"
             Description = "test subnet added via script"
             Location = "USA-TX-Labs"
         }
         "111.111.5.0/24" = @{
-            Site = "LabSite001"
+            Site = "SemperisLabs"
             Description = "test subnet added via script"
             Location = "USA-TX-Labs"
         }
@@ -429,16 +427,16 @@
     # AD SITE LINKS
     #---------------------------------------------------------------------------
     AdSiteLinks = @{
-        "Default-First-Site-Name -- LabSite001" = @{
-            Sites = @("Default-First-Site-Name", "LabSite001")
+        "Default-First-Site-Name -- SemperisLabs" = @{
+            Sites = @("Default-First-Site-Name", "SemperisLabs")
             Cost = 22
             ReplicationFrequencyInMinutes = 18
-            Description = "Site link for lab replication"
+            Description = "Site link for [SemperisLabs]"
         }
     }
     
     #---------------------------------------------------------------------------
-    # DNS ZONES
+    # DNS ZONES (FORWARD)
     #---------------------------------------------------------------------------
     DnsForwardZones = @{
         "specialsite.lab" = @{
@@ -446,6 +444,9 @@
         }
     }
     
+    #---------------------------------------------------------------------------
+    # DNS ZONES (REVERSE)
+    #---------------------------------------------------------------------------
     DnsReverseZones = @{
         "10.in-addr.arpa" = @{
             Description = "Reverse zone for 10.x.x.x network"
