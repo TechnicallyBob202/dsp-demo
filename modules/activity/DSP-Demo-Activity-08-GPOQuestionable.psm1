@@ -113,9 +113,6 @@ function Invoke-GPOQuestionable {
         }
         
         # Force replication
-        Write-Status "Waiting 20 seconds before replication..." -Level Info
-        Start-Sleep -Seconds 20
-        
         Write-Status "Triggering replication..." -Level Info
         try {
             $dc = (Get-ADDomainController -Discover -ErrorAction SilentlyContinue).HostName
@@ -135,9 +132,6 @@ function Invoke-GPOQuestionable {
         # ====================================================================
         # PHASE 2: Set CreateEncryptedOnlyTickets to 0
         # ====================================================================
-        
-        Write-Status "Waiting 20 seconds before second change..." -Level Info
-        Start-Sleep -Seconds 20
         
         Write-Status "Getting current setting for CreateEncryptedOnlyTickets..." -Level Info
         try {

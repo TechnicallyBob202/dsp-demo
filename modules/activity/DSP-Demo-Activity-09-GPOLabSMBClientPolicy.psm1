@@ -114,9 +114,6 @@ function Invoke-GPOLabSMBClientPolicy {
         }
         
         # Force replication
-        Write-Status "Waiting 20 seconds before replication..." -Level Info
-        Start-Sleep -Seconds 20
-        
         Write-Status "Triggering replication..." -Level Info
         try {
             $dc = (Get-ADDomainController -Discover -ErrorAction SilentlyContinue).HostName
@@ -147,9 +144,6 @@ function Invoke-GPOLabSMBClientPolicy {
         # PHASE 2: Set AllowInsecureGuestAuth to 0 (SECURE)
         # ====================================================================
         
-        Write-Status "Waiting 10 seconds before second change..." -Level Info
-        Start-Sleep -Seconds 10
-        
         Write-Status "Getting current setting for AllowInsecureGuestAuth..." -Level Info
         try {
             Get-GPRegistryValue -Name $gpoName -Key "HKLM\Software\Policies\Microsoft\Windows\LanmanWorkstation" -ValueName AllowInsecureGuestAuth -ErrorAction SilentlyContinue | Out-Null
@@ -171,9 +165,6 @@ function Invoke-GPOLabSMBClientPolicy {
         }
         
         # Force replication
-        Write-Status "Waiting 25 seconds before replication..." -Level Info
-        Start-Sleep -Seconds 25
-        
         Write-Status "Triggering replication..." -Level Info
         try {
             $dc = (Get-ADDomainController -Discover -ErrorAction SilentlyContinue).HostName

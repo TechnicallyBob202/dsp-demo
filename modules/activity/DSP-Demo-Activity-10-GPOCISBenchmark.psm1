@@ -247,9 +247,6 @@ function Invoke-GPOCIS {
         # Force replication
         # ====================================================================
         
-        Write-Status "Waiting 10 seconds before replication..." -Level Info
-        Start-Sleep -Seconds 10
-        
         Write-Status "Triggering replication..." -Level Info
         try {
             $dc = (Get-ADDomainController -Discover -ErrorAction SilentlyContinue).HostName
@@ -275,9 +272,6 @@ function Invoke-GPOCIS {
         catch {
             Write-Status "Warning: gpupdate failed: $_" -Level Warning
         }
-        
-        Write-Status "Waiting 5 seconds for refresh to complete..." -Level Info
-        Start-Sleep -Seconds 5
         
         # Final replication
         Write-Status "Triggering final replication..." -Level Info
