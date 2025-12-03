@@ -2,26 +2,14 @@
 ##
 ## DSP-Demo-Activity-17-GPODefaultDomain.psm1
 ##
-## Modify Default Domain Policy
+## Modify Default Domain Policy settings
+##
+## Original code from Rob Ingenthron's Invoke-CreateDspChangeDataForDemos.ps1
 ##
 ################################################################################
 
 #Requires -Version 5.1
-#Requires -Modules ActiveDirectory
-
-function Write-Status {
-    param([string]$Message, [ValidateSet('Info','Success','Warning','Error')][string]$Level = 'Info')
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $colors = @{'Info'='White';'Success'='Green';'Warning'='Yellow';'Error'='Red'}
-    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colors[$Level]
-}
-
-function Write-Section {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ":: $Title" -ForegroundColor DarkRed -BackgroundColor Yellow
-    Write-Host ""
-}
+#Requires -Modules ActiveDirectory, GroupPolicy
 
 function Invoke-GPODefaultDomain {
     [CmdletBinding()]
@@ -31,36 +19,61 @@ function Invoke-GPODefaultDomain {
     )
     
     Write-Host ""
-    Write-Status "Starting GPODefaultDomain" -Level Success
+    Write-Host "========== GPO: Modify Default Domain Policy ==========" -ForegroundColor Cyan
     Write-Host ""
     
     $DomainInfo = $Environment.DomainInfo
-    $domainDN = $DomainInfo.DN
+    $domainDNS = $DomainInfo.FQDN
     
     $errorCount = 0
+    $changeCount = 0
     
-    # ============================================================================
-    # IMPLEMENTATION
-    # ============================================================================
+    try {
+        Write-Host "Getting current Default Domain Password Policy..." -ForegroundColor Yellow
+        $currentPolicy = Get-ADDefaultDomainPasswordPolicy -Identity $domainDNS `
+            -ErrorAction Stop
+        
+        Write-Host "  Current LockoutThreshold: $($currentPolicy.LockoutThreshold)" -ForegroundColor White
+        Write-Host ""
+        
+        Write-Host "Setting LockoutThreshold to 888..." -ForegroundColor Yellow
+        Set-ADDefaultDomainPasswordPolicy -Identity $domainDNS `
+            -LockoutThreshold 888 `
+            -ErrorAction Stop
+        
+        Write-Host "  - updated" -ForegroundColor Green
+        $changeCount++
+        
+        Write-Host ""
+        Write-Host "Pausing 10 seconds for changes to settle..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 10
+        
+        Write-Host ""
+        Write-Host "Verifying updated Default Domain Password Policy..." -ForegroundColor Yellow
+        $updatedPolicy = Get-ADDefaultDomainPasswordPolicy -Identity $domainDNS `
+            -ErrorAction Stop
+        
+        Write-Host "  New LockoutThreshold: $($updatedPolicy.LockoutThreshold)" -ForegroundColor Green
+        Write-Host ""
+    }
+    catch {
+        Write-Host "ERROR: $_" -ForegroundColor Red
+        $errorCount++
+    }
     
-    Write-Section "PHASE 1: Modify Default Domain Policy"
-    
-    # TODO: Get Default Domain Policy
-# TODO: Modify policy settings
-    
-    # ============================================================================
+    # ========================================================================
     # COMPLETION
-    # ============================================================================
+    # ========================================================================
     
     Write-Host ""
-    if ($errorCount -eq 0) {
-        Write-Status "GPODefaultDomain completed successfully" -Level Success
-    }
-    else {
-        Write-Status "GPODefaultDomain completed with $errorCount error(s)" -Level Warning
+    Write-Host "========== GPO: Modify Default Domain Policy Complete ==========" -ForegroundColor Cyan
+    Write-Host "  Changes: $changeCount" -ForegroundColor Green
+    if ($errorCount -gt 0) {
+        Write-Host "  Errors: $errorCount" -ForegroundColor Red
     }
     Write-Host ""
-    return $true
+    
+    return ($errorCount -eq 0)
 }
 
 Export-ModuleMember -Function Invoke-GPODefaultDomain
