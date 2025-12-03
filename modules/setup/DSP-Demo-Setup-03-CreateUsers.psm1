@@ -80,7 +80,10 @@ function New-UserAccount {
         [securestring]$Password,
         
         [Parameter(Mandatory=$true)]
-        [string]$DomainFQDN
+        [string]$DomainFQDN,
+        
+        [Parameter(Mandatory=$false)]
+        [switch]$Quiet
     )
     
     $samAccountName = $UserDef.SamAccountName
@@ -131,11 +134,15 @@ function New-UserAccount {
             Set-ADUser -Identity $samAccountName -PasswordNeverExpires $true
         }
         
-        Write-Status "Created user: $samAccountName" -Level Success
+        if (-not $Quiet) {
+            Write-Status "Created user: $samAccountName" -Level Success
+        }
         return $user
     }
     catch {
-        Write-Status "Error creating user '$samAccountName': $_" -Level Error
+        if (-not $Quiet) {
+            Write-Status "Error creating user '$samAccountName': $_" -Level Error
+        }
         return $null
     }
 }
@@ -252,24 +259,33 @@ function Invoke-CreateUsers {
         
         Write-Status "Creating $count generic users in $($genericConfig.OUPath)..." -Level Info
         Write-Status "  Count: $count, Prefix: $prefix, OUPath: $ouPath" -Level Info
+        Write-Host ""
         
         for ($i = 1; $i -le $count; $i++) {
+            # Update progress bar
+            $percentComplete = [math]::Round(($i / $count) * 100)
+            Write-Progress -Activity "Creating Generic Users" -Status "User $i of $count" -PercentComplete $percentComplete
+            
             $num = $i.ToString("000")
-            $sam = "$prefix$num"
+            $sam = "$prefix$num".ToLower()
             
             $userDef = @{
                 GivenName = $prefix
                 Surname = $num
                 DisplayName = "$prefix $num"
-                SamAccountName = $sam.ToLower()
+                SamAccountName = $sam
                 Description = $genericConfig.Description
-                UserPrincipalName = "$($sam.ToLower())@{DOMAIN}"
+                UserPrincipalName = "$sam@{DOMAIN}"
                 OUPath = $genericConfig.OUPath
             }
             
-            $user = New-UserAccount -UserDef $userDef -OUPath $ouPath -Password $DefaultPassword -DomainFQDN $domainFQDN
+            $user = New-UserAccount -UserDef $userDef -OUPath $ouPath -Password $DefaultPassword -DomainFQDN $domainFQDN -Quiet
             if ($user) { $createdCount++ } else { $skippedCount++ }
         }
+        
+        # Complete the progress bar
+        Write-Progress -Activity "Creating Generic Users" -Completed
+        Write-Host ""
     }
     
     Write-Host ""
