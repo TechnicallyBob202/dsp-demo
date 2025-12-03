@@ -142,6 +142,20 @@
     }
     
     #---------------------------------------------------------------------------
+    # ACL DELEGATIONS - Permissions granted to groups on specific OUs
+    # Used by Setup-02-CreateGroups to configure delegated permissions
+    #---------------------------------------------------------------------------
+    ACLDelegations = @{
+        AccountOperatorsOnLabUsers = @{
+            GroupName = "Account Operators"
+            OUName = "Lab Users"
+            Rights = "WriteProperty"  # Allows writing all properties on child user objects
+            Description = "Allows Account Operators to modify user attributes in Lab Users OU for Module 15"
+            Enabled = $true
+        }
+    }
+
+    #---------------------------------------------------------------------------
     # USER ACCOUNTS - Organized by type
     #---------------------------------------------------------------------------
     Users = @{
