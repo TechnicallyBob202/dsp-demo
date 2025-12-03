@@ -143,11 +143,14 @@ function Invoke-SecurityPasswordSpray {
         # Trigger replication
         Write-Status "Triggering replication..." -Level Info
         try {
-            $dc = $domainInfo.ReplicationPartners[0]
+            $dc = $Environment.PrimaryDC
             if ($dc) {
                 Repadmin /syncall $dc /APe | Out-Null
                 Start-Sleep -Seconds 3
                 Write-Status "Replication triggered" -Level Success
+            }
+            else {
+                Write-Status "No primary DC available for replication" -Level Warning
             }
         }
         catch {
