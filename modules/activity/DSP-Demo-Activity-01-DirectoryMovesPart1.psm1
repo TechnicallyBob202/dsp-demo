@@ -2,7 +2,7 @@
 ##
 ## DSP-Demo-Activity-01-DirectoryMovesPart1.psm1
 ##
-## Move users FROM Dept999 TO Dept101, create generic users in Dept101
+## Move users FROM source OU TO target OU, create generic users in target
 ##
 ################################################################################
 
@@ -65,31 +65,59 @@ function Invoke-DirectoryMovesPart1 {
     $domainInfo = $Environment.DomainInfo
     $domainDN = $domainInfo.DN
     
-    # Get config values - paths like "Lab Users/Dept999"
-    $sourceOUPath = $Config.Module01_UserMovesP1.SourceOU
-    $targetOUPath = $Config.Module01_UserMovesP1.TargetOU
+    # Get config values - REQUIRED
+    $sourceOU = $Config.Module01_UserMovesP1.SourceOU
+    if (-not $sourceOU) {
+        Write-Status "ERROR: SourceOU not configured in Module01_UserMovesP1" -Level Error
+        Write-Host ""
+        return $false
+    }
     
-    # Convert path format "Lab Users/Dept999" to DN format (reverse order for DN)
-    # "Lab Users/Dept999" becomes "OU=Dept999,OU=Lab Users,DC=..."
-    $sourceOUParts = $sourceOUPath -split '/' | Where-Object { $_ }
-    $sourceDNParts = @()
+    $targetOU = $Config.Module01_UserMovesP1.TargetOU
+    if (-not $targetOU) {
+        Write-Status "ERROR: TargetOU not configured in Module01_UserMovesP1" -Level Error
+        Write-Host ""
+        return $false
+    }
+    
+    $newUsersToCreate = $Config.Module01_UserMovesP1.NewUsersToCreate
+    if (-not $newUsersToCreate) {
+        $newUsersToCreate = 15
+        Write-Status "NewUsersToCreate not in config, using default: $newUsersToCreate" -Level Info
+    }
+    
+    Write-Status "SourceOU: $sourceOU" -Level Info
+    Write-Status "TargetOU: $targetOU" -Level Info
+    Write-Host ""
+    
+    # Parse OU paths (e.g., "Lab Users/Dept999" → "OU=Dept999,OU=Lab Users,DC=d3,DC=lab")
+    $sourceOUParts = $sourceOU -split '/'
+    $sourceDeptDN = ""
     for ($i = $sourceOUParts.Count - 1; $i -ge 0; $i--) {
-        $sourceDNParts += "OU=$($sourceOUParts[$i])"
+        if ($sourceDeptDN) {
+            $sourceDeptDN = "OU=$($sourceOUParts[$i]),$sourceDeptDN"
+        } else {
+            $sourceDeptDN = "OU=$($sourceOUParts[$i])"
+        }
     }
-    $sourceDeptDN = ($sourceDNParts -join ',') + ",$domainDN"
+    $sourceDeptDN = "$sourceDeptDN,$domainDN"
     
-    $targetOUParts = $targetOUPath -split '/' | Where-Object { $_ }
-    $targetDNParts = @()
+    $targetOUParts = $targetOU -split '/'
+    $targetDeptDN = ""
     for ($i = $targetOUParts.Count - 1; $i -ge 0; $i--) {
-        $targetDNParts += "OU=$($targetOUParts[$i])"
+        if ($targetDeptDN) {
+            $targetDeptDN = "OU=$($targetOUParts[$i]),$targetDeptDN"
+        } else {
+            $targetDeptDN = "OU=$($targetOUParts[$i])"
+        }
     }
-    $targetDeptDN = ($targetDNParts -join ',') + ",$domainDN"
+    $targetDeptDN = "$targetDeptDN,$domainDN"
     
     # ============================================================================
-    # PHASE 1: MOVE USERS FROM SOURCE TO TARGET DEPT
+    # PHASE 1: MOVE USERS FROM SOURCE TO TARGET
     # ============================================================================
     
-    Write-Status "Moving users FROM $sourceOUPath TO $targetOUPath" -Level Info
+    Write-Status "Moving users FROM $sourceOU TO $targetOU" -Level Info
     Write-Host ""
     
     try {
@@ -116,7 +144,7 @@ function Invoke-DirectoryMovesPart1 {
             }
         }
         else {
-            Write-Status "No users found in $sourceOUPath" -Level Warning
+            Write-Status "No users found in source OU" -Level Info
         }
     }
     catch {
@@ -124,32 +152,36 @@ function Invoke-DirectoryMovesPart1 {
         $errorCount++
     }
     
-    # ============================================================================
-    # PHASE 2: CREATE GENERIC USERS IN TARGET DEPT
-    # ============================================================================
-    
-    Write-Host ""
-    Write-Status "Creating generic users in $targetOUPath" -Level Info
     Write-Host ""
     
-    $userCount = $Config.Module01_UserMovesP1.NewUsersToCreate
+    # ============================================================================
+    # PHASE 2: CREATE NEW GENERIC USERS IN TARGET
+    # ============================================================================
+    
+    Write-Status "Creating $newUsersToCreate generic users in $targetOU" -Level Info
+    Write-Host ""
     
     try {
-        for ($i = 1; $i -le $userCount; $i++) {
-            $samAccountName = "GenericUser$($i.ToString('000'))"
-            $userExists = Get-ADUser -Filter "SamAccountName -eq '$samAccountName'" -ErrorAction SilentlyContinue
+        $prefix = "LabUs3r"
+        
+        for ($i = 0; $i -lt $newUsersToCreate; $i++) {
+            $samAccountName = "$prefix-$i"
             
-            if (-not $userExists) {
+            $existingUser = Get-ADUser -Filter "SamAccountName -eq '$samAccountName'" -ErrorAction SilentlyContinue
+            
+            if (-not $existingUser) {
                 try {
-                    $newUser = New-ADUser `
-                        -SamAccountName $samAccountName `
-                        -Name "Generic User $i" `
-                        -GivenName "Generic" `
-                        -Surname "User$i" `
-                        -Enabled $true `
-                        -Path $targetDeptDN `
-                        -AccountPassword (ConvertTo-SecureString -AsPlainText $Config.General.DefaultPassword -Force) `
-                        -ErrorAction Stop -PassThru
+                    $password = ConvertTo-SecureString "P@ssw0rd$(Get-Random -Minimum 1000 -Maximum 9999)" -AsPlainText -Force
+                    
+                    New-ADUser -SamAccountName $samAccountName `
+                               -Name "Lab User $i" `
+                               -GivenName "Lab" `
+                               -Surname "User $i" `
+                               -DisplayName "Lab User $i" `
+                               -Path $targetDeptDN `
+                               -AccountPassword $password `
+                               -Enabled $true `
+                               -ErrorAction Stop
                     
                     Write-Status "Created: $samAccountName" -Level Success
                     $createdCount++
@@ -175,7 +207,6 @@ function Invoke-DirectoryMovesPart1 {
     Write-Host ""
     Write-Status "Triggering replication..." -Level Info
     try {
-        $domainInfo = $Environment.DomainInfo
         if ($domainInfo.ReplicationPartners -and $domainInfo.ReplicationPartners.Count -gt 0) {
             $dc = $domainInfo.ReplicationPartners[0]
             Repadmin /syncall $dc /APe | Out-Null
@@ -198,11 +229,11 @@ function Invoke-DirectoryMovesPart1 {
         Write-Status "Directory Moves Part 1 completed successfully" -Level Success
     }
     else {
-        Write-Status "Directory Moves Part 1 completed with $errorCount error(s)" -Level Warning
+        Write-Status "Directory Moves Part 1 completed with $errorCount error(s)" -Level Error
     }
     
     Write-Host ""
-    return $true
+    return ($errorCount -eq 0)
 }
 
 Export-ModuleMember -Function Invoke-DirectoryMovesPart1

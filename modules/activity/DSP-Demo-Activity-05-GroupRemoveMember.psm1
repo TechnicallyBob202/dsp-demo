@@ -63,18 +63,23 @@ function Invoke-GroupRemoveMember {
     $domainInfo = $Environment.DomainInfo
     $domainDN = $domainInfo.DN
     
-    # Get config values - default to common values if not configured
+    # Get config values - REQUIRED
     $groupName = $Config.Module05_GroupMembership.GroupName
     if (-not $groupName) {
-        $groupName = "Special Lab Users"
-        Write-Status "GroupName not in config, using default: $groupName" -Level Info
+        Write-Status "ERROR: GroupName not configured in Module05_GroupMembership" -Level Error
+        Write-Host ""
+        return $false
     }
     
     $membersToRemove = $Config.Module05_GroupMembership.MembersToRemove
     if (-not $membersToRemove -or $membersToRemove.Count -eq 0) {
-        $membersToRemove = @("App Admin III")
-        Write-Status "MembersToRemove not in config, using default" -Level Info
+        Write-Status "ERROR: MembersToRemove not configured in Module05_GroupMembership" -Level Error
+        Write-Host ""
+        return $false
     }
+    
+    Write-Status "GroupName: $groupName" -Level Info
+    Write-Status "MembersToRemove: $($membersToRemove -join ', ')" -Level Info
     
     Write-Host ""
     
@@ -148,11 +153,11 @@ function Invoke-GroupRemoveMember {
         Write-Status "Group Remove Member completed successfully" -Level Success
     }
     else {
-        Write-Status "Group Remove Member completed with $errorCount error(s)" -Level Warning
+        Write-Status "Group Remove Member completed with $errorCount error(s)" -Level Error
     }
     
     Write-Host ""
-    return $true
+    return ($errorCount -eq 0)
 }
 
 Export-ModuleMember -Function Invoke-GroupRemoveMember

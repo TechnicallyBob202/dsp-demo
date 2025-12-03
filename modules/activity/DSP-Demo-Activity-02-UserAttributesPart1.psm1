@@ -2,8 +2,7 @@
 ##
 ## DSP-Demo-Activity-02-UserAttributesPart1.psm1
 ##
-## Set/change attributes on demo users (lskywalker, peter.griffin, pmccartney)
-## Config-driven approach - all values come from Module02_UserAttributesP1
+## Set/change attributes on users
 ##
 ################################################################################
 
@@ -51,46 +50,44 @@ function Invoke-UserAttributesPart1 {
     Write-ActivityHeader "User Attributes - Part 1"
     
     $modifiedCount = 0
-    $notFoundCount = 0
     $errorCount = 0
     
-    # Get users list from config Module02_UserAttributesP1
-    if (-not $Config.Module02_UserAttributesP1 -or -not $Config.Module02_UserAttributesP1.Users) {
-        Write-Status "No users found in Module02_UserAttributesP1 config" -Level Warning
+    # Get users to modify - REQUIRED
+    $users = $Config.Module02_UserAttributesP1.Users
+    if (-not $users -or $users.Count -eq 0) {
+        Write-Status "ERROR: Users not configured in Module02_UserAttributesP1" -Level Error
         Write-Host ""
         return $false
     }
     
-    $usersList = $Config.Module02_UserAttributesP1.Users
-    
-    # Ensure usersList is an array
-    if ($usersList -isnot [array]) {
-        $usersList = @($usersList)
-    }
-    
-    Write-Status "Processing $($usersList.Count) user(s)" -Level Info
+    Write-Status "Found $($users.Count) user(s) to modify" -Level Info
     Write-Host ""
     
-    foreach ($userConfig in $usersList) {
+    # Process each user
+    foreach ($userConfig in $users) {
         $samAccountName = $userConfig.SamAccountName
         
         try {
-            # Find the user in AD
-            $adUser = Get-ADUser -Identity $samAccountName -ErrorAction Stop
+            # Find user
+            $user = Get-ADUser -Filter { SamAccountName -eq $samAccountName } -ErrorAction SilentlyContinue
             
-            Write-Status "Modifying: $samAccountName ($($adUser.Name))" -Level Info
+            if (-not $user) {
+                Write-Status "User '$samAccountName' not found" -Level Error
+                $errorCount++
+                continue
+            }
             
-            # Apply each attribute from config
-            if ($userConfig.Attributes -and $userConfig.Attributes -is [hashtable]) {
-                $attributeCount = 0
-                
+            Write-Status "Found user: $($user.Name)" -Level Success
+            
+            # Apply attributes
+            if ($userConfig.Attributes) {
                 foreach ($attrName in $userConfig.Attributes.Keys) {
                     $attrValue = $userConfig.Attributes[$attrName]
                     
                     try {
                         # Map attribute names to Set-ADUser parameters
                         $setParams = @{
-                            Identity = $adUser
+                            Identity = $user
                             ErrorAction = 'Stop'
                         }
                         
@@ -100,55 +97,69 @@ function Invoke-UserAttributesPart1 {
                             'Division' { $setParams['Division'] = $attrValue }
                             'EmployeeID' { $setParams['EmployeeID'] = $attrValue }
                             'Office' { $setParams['Office'] = $attrValue }
+                            'Company' { $setParams['Company'] = $attrValue }
                             'Department' { $setParams['Department'] = $attrValue }
                             'Title' { $setParams['Title'] = $attrValue }
-                            'Company' { $setParams['Company'] = $attrValue }
-                            'Description' { $setParams['Description'] = $attrValue }
                             'Fax' { $setParams['Fax'] = $attrValue }
+                            'MobilePhone' { $setParams['MobilePhone'] = $attrValue }
                             default { 
-                                $setParams['Replace'] = @{$attrName = $attrValue}
+                                Write-Status "Skipping unknown attribute: $attrName" -Level Warning
+                                continue 
                             }
                         }
                         
                         Set-ADUser @setParams
-                        Write-Status "  Set $attrName = '$attrValue'" -Level Success
-                        $attributeCount++
+                        Write-Status "  Set $attrName = $attrValue" -Level Info
+                        Start-Sleep -Milliseconds 250
                     }
                     catch {
-                        Write-Status "  Error setting $attrName : $_" -Level Error
+                        Write-Status "Error setting $attrName : $_" -Level Error
                         $errorCount++
                     }
                 }
-                
-                if ($attributeCount -gt 0) {
-                    $modifiedCount++
-                }
-                
-                Start-Sleep -Milliseconds 500
             }
-            else {
-                Write-Status "  No attributes defined for $samAccountName" -Level Warning
-            }
+            
+            Write-Status "Modified: $($user.Name)" -Level Success
+            $modifiedCount++
+            Start-Sleep -Seconds 2
         }
         catch {
-            Write-Status "User not found: $samAccountName" -Level Warning
-            $notFoundCount++
+            Write-Status "Error modifying user $samAccountName : $_" -Level Error
+            $errorCount++
         }
+    }
+    
+    # Trigger replication
+    Write-Host ""
+    Write-Status "Triggering replication..." -Level Info
+    try {
+        $dc = (Get-ADDomainController -Discover -ErrorAction SilentlyContinue).HostName
+        if ($dc) {
+            Repadmin /syncall $dc /APe | Out-Null
+            Start-Sleep -Seconds 5
+            Write-Status "Replication triggered" -Level Success
+        }
+        else {
+            Write-Status "No DC available for replication" -Level Warning
+        }
+    }
+    catch {
+        Write-Status "Warning: Could not trigger replication: $_" -Level Warning
     }
     
     # Summary
     Write-Host ""
-    Write-Status "Modified: $modifiedCount, Not Found: $notFoundCount, Errors: $errorCount" -Level Info
+    Write-Status "Modified: $modifiedCount, Errors: $errorCount" -Level Info
     
-    if ($errorCount -eq 0 -and $notFoundCount -eq 0) {
+    if ($errorCount -eq 0) {
         Write-Status "User Attributes Part 1 completed successfully" -Level Success
     }
     else {
-        Write-Status "User Attributes Part 1 completed with issues" -Level Warning
+        Write-Status "User Attributes Part 1 completed with $errorCount error(s)" -Level Error
     }
     
     Write-Host ""
-    return $true
+    return ($errorCount -eq 0)
 }
 
 Export-ModuleMember -Function Invoke-UserAttributesPart1

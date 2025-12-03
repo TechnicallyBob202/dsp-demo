@@ -64,24 +64,30 @@ function Invoke-SecurityAccountLockout {
     $domainFQDN = $domainInfo.FQDN
     $domainDN = $domainInfo.DN
     
-    # Get config values - default if not configured
+    # Get config values - REQUIRED
     $targetUser = $Config.Module06_AccountLockout.TargetUser
     if (-not $targetUser) {
-        $targetUser = "DemoUser2"
-        Write-Status "TargetUser not in config, using default: $targetUser" -Level Info
+        Write-Status "ERROR: TargetUser not configured in Module06_AccountLockout" -Level Error
+        Write-Host ""
+        return $false
     }
     
     $badPasswordAttempts = $Config.Module06_AccountLockout.BadPasswordAttempts
     if (-not $badPasswordAttempts) {
-        $badPasswordAttempts = 50
-        Write-Status "BadPasswordAttempts not in config, using default: $badPasswordAttempts" -Level Info
+        Write-Status "ERROR: BadPasswordAttempts not configured in Module06_AccountLockout" -Level Error
+        Write-Host ""
+        return $false
     }
     
     $badPassword = $Config.Module06_AccountLockout.BadPassword
     if (-not $badPassword) {
-        $badPassword = "BadPassword_DoesNotExist_12345!"
-        Write-Status "BadPassword not in config, using default" -Level Info
+        Write-Status "ERROR: BadPassword not configured in Module06_AccountLockout" -Level Error
+        Write-Host ""
+        return $false
     }
+    
+    Write-Status "TargetUser: $targetUser" -Level Info
+    Write-Status "BadPasswordAttempts: $badPasswordAttempts" -Level Info
     
     Write-Host ""
     
@@ -159,11 +165,11 @@ function Invoke-SecurityAccountLockout {
         Write-Status "Account Lockout completed successfully" -Level Success
     }
     else {
-        Write-Status "Account Lockout completed with $errorCount error(s)" -Level Warning
+        Write-Status "Account Lockout completed with $errorCount error(s)" -Level Error
     }
     
     Write-Host ""
-    return $true
+    return ($errorCount -eq 0)
 }
 
 Export-ModuleMember -Function Invoke-SecurityAccountLockout

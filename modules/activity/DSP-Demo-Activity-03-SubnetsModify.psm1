@@ -2,22 +2,12 @@
 ##
 ## DSP-Demo-Activity-03-SubnetsModify.psm1
 ##
-## Modify subnet descriptions for AD replication subnets
-## Changes descriptions on subnets 111.111.4.0/24 and 111.111.5.0/24
+## Change subnet descriptions and locations
 ##
 ################################################################################
 
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
-
-function Write-ActivityHeader {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
-    Write-Host ("| " + $Title.PadRight(62) + " |") -ForegroundColor Cyan
-    Write-Host ("+--" + ("-" * 62) + "--+") -ForegroundColor Cyan
-    Write-Host ""
-}
 
 function Write-Status {
     param(
@@ -38,6 +28,13 @@ function Write-Status {
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
 
+function Write-Section {
+    param([string]$Title)
+    Write-Host ""
+    Write-Host ":: $Title" -ForegroundColor DarkRed -BackgroundColor Yellow
+    Write-Host ""
+}
+
 function Invoke-SubnetsModify {
     [CmdletBinding()]
     param(
@@ -45,38 +42,43 @@ function Invoke-SubnetsModify {
         [hashtable]$Config,
         
         [Parameter(Mandatory=$true)]
-        [PSCustomObject]$Environment
+        $Environment
     )
     
-    Write-ActivityHeader "Sites and Services - Modify Subnet Descriptions"
+    Write-Host ""
+    Write-Host "+------------------------------------------------------------------+" -ForegroundColor White
+    Write-Host "| Subnets - Modify Descriptions and Locations                    |" -ForegroundColor White
+    Write-Host "+------------------------------------------------------------------+" -ForegroundColor White
     
-    $modifiedCount = 0
-    $notFoundCount = 0
-    $errorCount = 0
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     
-    # Get subnets list from config Module03_SubnetsModify
-    if (-not $Config.Module03_SubnetsModify -or -not $Config.Module03_SubnetsModify.Subnets) {
-        Write-Status "No subnets found in Module03_SubnetsModify config" -Level Warning
+    # Get subnet modifications - REQUIRED
+    $subnetChanges = $Config.Module03_SubnetMods.SubnetChanges
+    if (-not $subnetChanges -or $subnetChanges.Count -eq 0) {
+        Write-Status "ERROR: SubnetChanges not configured in Module03_SubnetMods" -Level Error
         Write-Host ""
         return $false
     }
     
-    $subnetsList = $Config.Module03_SubnetsModify.Subnets
+    $modifiedCount = 0
+    $errorCount = 0
     
-    # Ensure subnetsList is an array
-    if ($subnetsList -isnot [array]) {
-        $subnetsList = @($subnetsList)
-    }
-    
-    Write-Status "Processing $($subnetsList.Count) subnet(s)" -Level Info
+    Write-Status "Found $($subnetChanges.Count) subnet change(s) to apply" -Level Info
     Write-Host ""
     
-    foreach ($subnetConfig in $subnetsList) {
-        $subnetName = $subnetConfig.Name
+    # Process each subnet change
+    foreach ($change in $subnetChanges) {
+        $subnetName = $change.Name
         
         try {
-            # Check if subnet exists (will throw if not found)
-            Get-ADReplicationSubnet -Identity $subnetName -ErrorAction Stop | Out-Null
+            # Check if subnet exists
+            $subnet = Get-ADReplicationSubnet -Filter "Name -eq '$subnetName'" -ErrorAction SilentlyContinue
+            
+            if (-not $subnet) {
+                Write-Status "Subnet '$subnetName' not found" -Level Error
+                $errorCount++
+                continue
+            }
             
             Write-Status "Found subnet: $subnetName" -Level Info
             
@@ -86,40 +88,41 @@ function Invoke-SubnetsModify {
                 ErrorAction = 'Stop'
             }
             
-            if ($subnetConfig.Description) {
-                $setParams['Description'] = $subnetConfig.Description
+            if ($change.NewDescription) {
+                $setParams['Description'] = $change.NewDescription
+                Write-Status "  Setting Description: $($change.NewDescription)" -Level Info
             }
             
-            if ($subnetConfig.Location) {
-                $setParams['Location'] = $subnetConfig.Location
+            if ($change.NewLocation) {
+                $setParams['Location'] = $change.NewLocation
+                Write-Status "  Setting Location: $($change.NewLocation)" -Level Info
             }
             
             # Apply the changes
             Set-ADReplicationSubnet @setParams
-            Write-Status "  Modified: Description set to '$($subnetConfig.Description)'" -Level Success
+            Write-Status "Modified subnet: $subnetName" -Level Success
             $modifiedCount++
             
             Start-Sleep -Milliseconds 500
         }
         catch {
-            Write-Status "Subnet not found: $subnetName" -Level Warning
-            $notFoundCount++
+            Write-Status "Error modifying subnet $subnetName : $_" -Level Error
+            $errorCount++
         }
     }
     
-    # Summary
     Write-Host ""
-    Write-Status "Modified: $modifiedCount, Not Found: $notFoundCount, Errors: $errorCount" -Level Info
+    Write-Status "Subnets modified: $modifiedCount, Errors: $errorCount" -Level Info
     
-    if ($errorCount -eq 0 -and $notFoundCount -eq 0) {
+    if ($errorCount -eq 0) {
         Write-Status "Subnets Modify completed successfully" -Level Success
     }
     else {
-        Write-Status "Subnets Modify completed with issues" -Level Warning
+        Write-Status "Subnets Modify completed with $errorCount error(s)" -Level Error
     }
     
     Write-Host ""
-    return $true
+    return ($errorCount -eq 0)
 }
 
 Export-ModuleMember -Function Invoke-SubnetsModify
