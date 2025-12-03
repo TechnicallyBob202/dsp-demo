@@ -2,7 +2,7 @@
 ##
 ## DSP-Demo-Activity-07-SecurityPasswordSpray.psm1
 ##
-## Password spray attack: select 5 users from TEST OU, try 10 passwords each
+## Password spray attack: select 5 users from TEST OU, attempt UNC auth with bad passwords
 ##
 ################################################################################
 
@@ -63,20 +63,13 @@ function Invoke-SecurityPasswordSpray {
     $domainInfo = $Environment.DomainInfo
     $domainDN = $domainInfo.DN
     $domainFQDN = $domainInfo.FQDN
+    $primaryDC = $Environment.PrimaryDC
     
-    # Define test passwords for spray
-    $testPasswords = @(
-        "Password123!",
-        "Admin@123",
-        "Company2024",
-        "Welcome123",
-        "Spring2024",
-        "Test@123",
-        "Temporary1",
-        "Change@Me1",
-        "NewPass123",
-        "Demo123456"
-    )
+    # UNC path to trigger authentication attempts (SYSVOL is always available)
+    $uncPath = "\\$primaryDC\sysvol\$domainFQDN"
+    
+    Write-Status "Target UNC path: $uncPath" -Level Info
+    Write-Host ""
     
     try {
         # Find TEST OU
@@ -107,38 +100,47 @@ function Invoke-SecurityPasswordSpray {
             $selectedUsers = @($testUsers)
         }
         
-        Write-Status "Targeting $($selectedUsers.Count) user(s) with password spray" -Level Info
+        Write-Status "Targeting $($selectedUsers.Count) user(s) with password spray (10 attempts each)" -Level Info
         Write-Host ""
         
-        foreach ($user in $selectedUsers) {
-            Write-Status "Spraying user: $($user.SamAccountName)" -Level Info
+        # Spray passwords - 10 different passwords per user
+        for ($i = 1; $i -le 10; $i++) {
+            $testPassword = "SomeP@sswordGu3ss!$i"
+            Write-Status "Spray attempt $i of 10 (password: $testPassword)" -Level Info
             
-            foreach ($password in $testPasswords) {
+            foreach ($user in $selectedUsers) {
                 try {
-                    # Attempt to authenticate with test password
+                    # Create credential with bad password
+                    $securePassword = ConvertTo-SecureString $testPassword -AsPlainText -Force
                     $cred = New-Object System.Management.Automation.PSCredential(
-                        "$domainFQDN\$($user.SamAccountName)",
-                        (ConvertTo-SecureString $password -AsPlainText -Force)
+                        $user.SamAccountName,
+                        $securePassword
                     )
                     
-                    # This will fail, but the failed attempt is logged by AD
-                    Add-ADGroupMember -Identity "Domain Users" -Members $user -Credential $cred -ErrorAction SilentlyContinue 2>$null
+                    # Attempt to mount UNC path with bad credentials
+                    # This triggers authentication failure events in AD
+                    New-PSDrive -Name "TempShare" -PSProvider FileSystem -Root $uncPath `
+                        -Credential $cred -ErrorAction SilentlyContinue -Verbose | Out-Null
                     
                     $sprayAttempts++
                 }
                 catch {
-                    # Expected - auth attempt failed
+                    # Expected - auth will fail
                     $sprayAttempts++
                 }
-                
-                Start-Sleep -Milliseconds 100
+                finally {
+                    # Clean up the drive if it somehow succeeded
+                    Remove-PSDrive -Name "TempShare" -ErrorAction SilentlyContinue -Force
+                }
             }
-            
-            Write-Status "Completed 10 attempts against $($user.SamAccountName)" -Level Success
         }
         
         Write-Host ""
-        Write-Status "Completed password spray attack" -Level Success
+        Write-Status "Password spray completed: $sprayAttempts total attempts" -Level Success
+        
+        # Wait for events to be written to security log
+        Write-Status "Waiting 10 seconds for security events to be written..." -Level Info
+        Start-Sleep -Seconds 10
         
         # Trigger replication
         Write-Status "Triggering replication..." -Level Info
@@ -150,7 +152,7 @@ function Invoke-SecurityPasswordSpray {
                     Write-Status "Replication completed successfully" -Level Success
                 }
                 else {
-                    Write-Status "Replication command executed (status unknown)" -Level Info
+                    Write-Status "Replication executed (status uncertain)" -Level Info
                 }
                 
                 # Also replicate secondary DC if available
