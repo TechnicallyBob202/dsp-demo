@@ -28,7 +28,7 @@ function Write-Status {
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
 
-function Invoke-GPOCIS {
+function Invoke-GPOCISBenchmark {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]

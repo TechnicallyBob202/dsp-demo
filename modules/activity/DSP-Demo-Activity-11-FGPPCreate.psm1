@@ -35,7 +35,6 @@ function Invoke-FGPPCreate {
     Write-Host ""
     
     $DomainInfo = $Environment.DomainInfo
-    $domainDN = $DomainInfo.DN
     
     $errorCount = 0
     

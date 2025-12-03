@@ -28,7 +28,7 @@ function Write-Status {
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
 
-function Invoke-GPOLabSMB {
+function Invoke-GPOLabSMBClientPolicy {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
