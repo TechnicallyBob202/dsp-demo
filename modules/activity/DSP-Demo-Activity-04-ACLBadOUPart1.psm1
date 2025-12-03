@@ -42,7 +42,8 @@ function Invoke-ACLBadOUPart1 {
     Write-Status "Starting ACLBadOUPart1" -Level Success
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo    $domainDN = $DomainInfo.DN
+    $DomainInfo = $Environment.DomainInfo    
+    $domainDN = $DomainInfo.DN
     
     $errorCount = 0
     $changedCount = 0

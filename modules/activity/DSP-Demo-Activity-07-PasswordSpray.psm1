@@ -64,7 +64,8 @@ function Invoke-PasswordSpray {
     $sprayAttempts = 0
     $errorCount = 0
     
-    $DomainInfo = $Environment.DomainInfo    $domainDN = $domainInfo.DN
+    $DomainInfo = $Environment.DomainInfo    
+    $domainDN = $domainInfo.DN
     
     # Get DC from Environment object
     $dcName = $Environment.PrimaryDC

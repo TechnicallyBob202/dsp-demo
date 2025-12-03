@@ -40,7 +40,8 @@ function Invoke-GroupRecreation {
     Write-Status "Starting GroupRecreation" -Level Success
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo    $domainDN = $DomainInfo.DN
+    $DomainInfo = $Environment.DomainInfo    
+    $domainDN = $DomainInfo.DN
     
     $errorCount = 0
     $groupName = "Special Lab Users"
