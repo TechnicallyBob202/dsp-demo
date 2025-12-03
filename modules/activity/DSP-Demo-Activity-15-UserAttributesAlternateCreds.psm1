@@ -27,7 +27,7 @@ function Write-Section {
     Write-Host ""
 }
 
-function Invoke-UserAttributesAltCreds {
+function Invoke-UserAttributesAlternateCreds {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -248,4 +248,4 @@ function Invoke-UserAttributesAltCreds {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-UserAttributesAltCreds
+Export-ModuleMember -Function Invoke-UserAttributesAlternateCreds
