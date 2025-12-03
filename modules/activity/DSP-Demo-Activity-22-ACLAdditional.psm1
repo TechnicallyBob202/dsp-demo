@@ -37,9 +37,8 @@ function Invoke-ACLAdditional {
     Write-Status "Starting Additional ACL Modifications" -Level Success
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo
+    $PrimaryDC = $Environment.PrimaryDC
     $ModuleConfig = $Config.Module22_ACLAdditional
-    $ModuleConfig = $Config.Module22_ACLMoreChanges
     
     $errorCount = 0
     
@@ -98,7 +97,7 @@ function Invoke-ACLAdditional {
         
         # Force replication
         Write-Host "  Forcing replication..." -ForegroundColor Yellow
-        repadmin.exe /syncall /force $DomainInfo.DomainController | Out-Null
+        repadmin.exe /syncall /force $PrimaryDC | Out-Null
         Start-Sleep -Seconds 1
         
         # Remove Allow DeleteTree

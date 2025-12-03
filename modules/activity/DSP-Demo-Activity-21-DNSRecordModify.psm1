@@ -37,8 +37,7 @@ function Invoke-DNSRecordModify {
     Write-Status "Starting DNS Record Modifications" -Level Success
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo
-    $DomainDC = $DomainInfo.DomainController
+    $PrimaryDC = $Environment.PrimaryDC
     $ModuleConfig = $Config.Module21_DNSRecordModify
     
     $errorCount = 0
@@ -51,13 +50,13 @@ function Invoke-DNSRecordModify {
     
     foreach ($record in $ModuleConfig.RecordModifications) {
         try {
-            $oldRecord = Get-DnsServerResourceRecord -ComputerName $DomainDC -ZoneName $record.Zone -Name $record.Name -RRType A -ErrorAction SilentlyContinue
+            $oldRecord = Get-DnsServerResourceRecord -ComputerName $PrimaryDC -ZoneName $record.Zone -Name $record.Name -RRType A -ErrorAction SilentlyContinue
             
             if ($oldRecord) {
                 Write-Host "  Modifying: $($record.Name) in $($record.Zone)" -ForegroundColor Cyan
-                Remove-DnsServerResourceRecord -ComputerName $DomainDC -ZoneName $record.Zone -Name $record.Name -RRType A -RecordData $oldRecord.RecordData[0].IPv4Address -Confirm:$false -Force
+                Remove-DnsServerResourceRecord -ComputerName $PrimaryDC -ZoneName $record.Zone -Name $record.Name -RRType A -RecordData $oldRecord.RecordData[0].IPv4Address -Confirm:$false -Force
                 Start-Sleep -Seconds 1
-                Add-DnsServerResourceRecordA -ComputerName $DomainDC -ZoneName $record.Zone -Name $record.Name -IPv4Address $record.NewIPAddress
+                Add-DnsServerResourceRecordA -ComputerName $PrimaryDC -ZoneName $record.Zone -Name $record.Name -IPv4Address $record.NewIPAddress
                 Write-Status "Modified: $($record.Name)" -Level Success
             }
             else {
@@ -80,11 +79,11 @@ function Invoke-DNSRecordModify {
     
     foreach ($record in $ModuleConfig.RecordsToDelete) {
         try {
-            $dnsRecord = Get-DnsServerResourceRecord -ComputerName $DomainDC -ZoneName $record.Zone -Name $record.Name -RRType A -ErrorAction SilentlyContinue
+            $dnsRecord = Get-DnsServerResourceRecord -ComputerName $PrimaryDC -ZoneName $record.Zone -Name $record.Name -RRType A -ErrorAction SilentlyContinue
             
             if ($dnsRecord) {
                 Write-Host "  Deleting: $($record.Name) from $($record.Zone)" -ForegroundColor Yellow
-                Remove-DnsServerResourceRecord -ComputerName $DomainDC -ZoneName $record.Zone -Name $record.Name -RRType A -RecordData $dnsRecord.RecordData[0].IPv4Address -Confirm:$false -Force
+                Remove-DnsServerResourceRecord -ComputerName $PrimaryDC -ZoneName $record.Zone -Name $record.Name -RRType A -RecordData $dnsRecord.RecordData[0].IPv4Address -Confirm:$false -Force
                 Write-Status "Deleted: $($record.Name)" -Level Success
             }
             else {
