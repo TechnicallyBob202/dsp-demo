@@ -37,6 +37,7 @@ function Invoke-OUDeleteMe {
     Write-Status "Starting DeleteMe OU Deletion" -Level Success
     Write-Host ""
     
+    $DomainInfo = $Environment.DomainInfo
     $ModuleConfig = $Config.Module23_OUDeleteMe
     
     $errorCount = 0
@@ -44,7 +45,8 @@ function Invoke-OUDeleteMe {
     Write-Section "Delete OU Structure"
     
     try {
-        $OU = Get-ADOrganizationalUnit -LDAPFilter "(&(objectClass=OrganizationalUnit)(OU=$($ModuleConfig.OUPath)))" -ErrorAction SilentlyContinue
+        # Try exact match first, then case-insensitive search
+        $OU = Get-ADOrganizationalUnit -LDAPFilter "(name=$($ModuleConfig.OUPath))" -ErrorAction SilentlyContinue
         
         if ($OU) {
             Write-Host "  Found OU: $($OU.DistinguishedName)" -ForegroundColor Cyan
