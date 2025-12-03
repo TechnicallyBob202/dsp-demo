@@ -119,21 +119,23 @@ function Invoke-DirectoryMovesPart1 {
         $usersToMove = Get-ADUser -Filter "Enabled -eq `$true" -SearchBase $sourceDeptDN -ErrorAction SilentlyContinue
         
         if ($usersToMove) {
-            if ($usersToMove -isnot [array]) {
+            if ($usersToMove -is [array]) {
+                Write-Status "Found $($usersToMove.Count) users to move" -Level Info
+            }
+            else {
+                Write-Status "Found 1 user to move" -Level Info
                 $usersToMove = @($usersToMove)
             }
             
-            Write-Status "Found $($usersToMove.Count) user(s) to move" -Level Info
-            
             foreach ($user in $usersToMove) {
                 try {
-                    Move-ADObject -Identity $user -TargetPath $targetDeptDN -ErrorAction Stop
-                    Write-Status "Moved: $($user.Name)" -Level Success
+                    Move-ADObject -Identity $user.DistinguishedName -TargetPath $targetDeptDN -ErrorAction Stop
+                    Write-Status "Moved: $($user.SamAccountName)" -Level Success
                     $movedCount++
-                    Start-Sleep -Milliseconds 500
+                    Start-Sleep -Milliseconds 100
                 }
                 catch {
-                    Write-Status "Error moving $($user.Name) : $_" -Level Error
+                    Write-Status "Error moving $($user.SamAccountName) : $_" -Level Error
                     $errorCount++
                 }
             }
@@ -147,39 +149,30 @@ function Invoke-DirectoryMovesPart1 {
         $errorCount++
     }
     
-    Write-Host ""
-    
     # ============================================================================
     # PHASE 2: CREATE NEW GENERIC USERS IN TARGET
     # ============================================================================
     
-    Write-Status "Creating $newUsersToCreate generic users in $targetOU" -Level Info
+    Write-Status "Creating $newUsersToCreate new generic users in target OU" -Level Info
     Write-Host ""
     
+    $defaultPassword = ConvertTo-SecureString "P@ssw0rd123!" -AsPlainText -Force
+    
     try {
-        $prefix = $Config.Module01_UserMovesP1.UserPrefix
-        if (-not $prefix) {
-            $prefix = "LabUs3r"
-        }
-        
-        $defaultPassword = $Config.Module01_UserMovesP1.DefaultPassword
-        if (-not $defaultPassword) {
-            $defaultPassword = "P@ssw0rd123!"
-        }
-        
-        for ($i = 0; $i -lt $newUsersToCreate; $i++) {
-            $samAccountName = "$prefix-$i"
+        for ($i = 1; $i -le $newUsersToCreate; $i++) {
+            $samAccountName = "GdAct0r-{0:D2}" -f $i
+            $displayName = "Lab User $i"
             
+            # Check if user already exists
             $existingUser = Get-ADUser -Filter "SamAccountName -eq '$samAccountName'" -ErrorAction SilentlyContinue
             
             if (-not $existingUser) {
                 try {
-                    $password = ConvertTo-SecureString $defaultPassword -AsPlainText -Force
-                    
-                    New-ADUser -SamAccountName $samAccountName `
-                               -Name "Lab User $i" `
+                    $password = ConvertTo-SecureString "P@ssw0rd123!" -AsPlainText -Force
+                    New-ADUser -Name $displayName `
+                               -SamAccountName $samAccountName `
                                -GivenName "Lab" `
-                               -Surname "User $i" `
+                               -Surname "User" `
                                -DisplayName "Lab User $i" `
                                -Path $targetDeptDN `
                                -AccountPassword $password `
@@ -210,14 +203,14 @@ function Invoke-DirectoryMovesPart1 {
     Write-Host ""
     Write-Status "Triggering replication..." -Level Info
     try {
-        if ($domainInfo.ReplicationPartners -and $domainInfo.ReplicationPartners.Count -gt 0) {
-            $dc = $domainInfo.ReplicationPartners[0]
+        $dc = (Get-ADDomainController -Discover -ErrorAction SilentlyContinue).HostName
+        if ($dc) {
             Repadmin /syncall $dc /APe | Out-Null
             Start-Sleep -Seconds 5
-            Write-Status "Replication triggered" -Level Success
+            Write-Status "Replication complete" -Level Success
         }
         else {
-            Write-Status "No replication partners available" -Level Warning
+            Write-Status "No DC available for replication" -Level Warning
         }
     }
     catch {

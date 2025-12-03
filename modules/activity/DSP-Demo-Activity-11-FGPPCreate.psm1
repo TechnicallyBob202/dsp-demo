@@ -34,8 +34,6 @@ function Invoke-FGPPCreate {
     Write-Status "Starting FGPPCreate" -Level Success
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo
-    
     $errorCount = 0
     
     # ============================================================================

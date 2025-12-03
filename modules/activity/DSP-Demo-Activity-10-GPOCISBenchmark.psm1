@@ -252,11 +252,14 @@ function Invoke-GPOCIS {
         
         Write-Status "Triggering replication..." -Level Info
         try {
-            if ($Environment.DomainInfo.ReplicationPartners -and $Environment.DomainInfo.ReplicationPartners.Count -gt 0) {
-                $dc = $Environment.DomainInfo.ReplicationPartners[0]
-                repadmin /syncall $dc /APe | Out-Null
+            $dc = (Get-ADDomainController -Discover -ErrorAction SilentlyContinue).HostName
+            if ($dc) {
+                Repadmin /syncall $dc /APe | Out-Null
                 Start-Sleep -Seconds 3
                 Write-Status "Replication complete" -Level Success
+            }
+            else {
+                Write-Status "No DC available for replication" -Level Warning
             }
         }
         catch {
@@ -279,11 +282,14 @@ function Invoke-GPOCIS {
         # Final replication
         Write-Status "Triggering final replication..." -Level Info
         try {
-            if ($Environment.DomainInfo.ReplicationPartners -and $Environment.DomainInfo.ReplicationPartners.Count -gt 0) {
-                $dc = $Environment.DomainInfo.ReplicationPartners[0]
-                repadmin /syncall $dc /APe | Out-Null
+            $dc = (Get-ADDomainController -Discover -ErrorAction SilentlyContinue).HostName
+            if ($dc) {
+                Repadmin /syncall $dc /APe | Out-Null
                 Start-Sleep -Seconds 3
                 Write-Status "Final replication complete" -Level Success
+            }
+            else {
+                Write-Status "No DC available for replication" -Level Warning
             }
         }
         catch {
