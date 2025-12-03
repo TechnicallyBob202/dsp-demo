@@ -232,7 +232,7 @@ function Invoke-UserAttributesAlternateCreds {
     try {
         Write-Status "Clearing info attribute using alternate credentials" -Level Info
         Set-ADUser -Identity $targetUser.DistinguishedName `
-            -Replace @{info=$null} `
+            -Clear info `
             -Credential $altCreds `
             -ErrorAction Stop
         Write-Status "info attribute cleared" -Level Success

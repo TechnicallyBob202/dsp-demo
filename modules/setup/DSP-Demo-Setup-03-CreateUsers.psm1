@@ -1,9 +1,11 @@
 ################################################################################
 ##
-## DSP-Demo-Setup-03-CreateUsers.psm1
+## DSP-Demo-Setup-03-CreateUsers.psm1 - ENHANCED VERSION
 ##
 ## Creates user accounts from configuration file.
 ## Operator-configurable via DSP-Demo-Config-Setup.psd1
+##
+## Enhanced with explicit group membership output and better error tracking.
 ##
 ## Configuration sections consumed:
 ##  - Users.Tier0Admins, Users.Tier1Admins, Users.Tier2Admins
@@ -166,30 +168,31 @@ function Add-UserToGroup {
     
     $user = Get-ADUser -Filter { SamAccountName -eq $UserSam } -ErrorAction SilentlyContinue
     if (-not $user) {
-        Write-Status "User '$UserSam' not found - cannot add to group" -Level Warning
+        Write-Status "  Group membership: User '$UserSam' not found - cannot add to '$GroupName'" -Level Warning
         return $false
     }
     
     $group = Get-ADGroup -Filter { Name -eq $GroupName } -ErrorAction SilentlyContinue
     if (-not $group) {
-        Write-Status "Group '$GroupName' not found - skipping membership" -Level Warning
+        Write-Status "  Group membership: Group '$GroupName' not found - skipping" -Level Warning
         return $false
     }
     
     $isMember = Get-ADGroupMember -Identity $group -ErrorAction SilentlyContinue |
-    Where-Object { $_.SamAccountName -eq $UserSam }
+        Where-Object { $_.SamAccountName -eq $UserSam }
     
     if ($isMember) {
+        Write-Status "  Group membership: '$UserSam' already in '$GroupName'" -Level Info
         return $true
     }
     
     try {
         Add-ADGroupMember -Identity $group -Members $user -ErrorAction Stop
-        Write-Status "Added '$UserSam' to '$GroupName'" -Level Success
+        Write-Status "  Group membership: Added '$UserSam' to '$GroupName'" -Level Success
         return $true
     }
     catch {
-        Write-Status "Failed to add '$UserSam' to '$GroupName': $_" -Level Error
+        Write-Status "  Group membership: Failed to add '$UserSam' to '$GroupName': $_" -Level Error
         return $false
     }
 }
@@ -208,8 +211,7 @@ function Invoke-CreateUsers {
     $DefaultPassword = if ($Config.General.ContainsKey('DefaultPassword')) { 
         ConvertTo-SecureString -String $Config.General.DefaultPassword -AsPlainText -Force
     } else { 
-        ConvertTo-SecureString -String "P@ssw0rd123!"
-        -AsPlainText -Force
+        ConvertTo-SecureString -String "P@ssw0rd123!" -AsPlainText -Force
     }
     $domainFQDN = $DomainInfo.FQDN
     
@@ -247,9 +249,15 @@ function Invoke-CreateUsers {
                     # Note: We don't increment createdCount if the user exists.
                     if (-not $user.Created) { $createdCount++ } # Assumes the New-ADUser object has a 'Created' property if it was just created (or use SamAccountName match/mismatch)
                     
-                    # Add to groups if specified
+                    # Add to groups if specified - with explicit console output
                     if ($userDef.ContainsKey('Groups') -and $userDef.Groups) {
-                        foreach ($groupName in $userDef.Groups) {
+                        $groupList = $userDef.Groups
+                        if ($groupList -isnot [array]) {
+                            $groupList = @($groupList)
+                        }
+                        
+                        # Iterate through each group
+                        foreach ($groupName in $groupList) {
                             Add-UserToGroup -UserSam $userDef.SamAccountName -GroupName $groupName
                         }
                     }
@@ -272,8 +280,7 @@ function Invoke-CreateUsers {
         Write-Status "Creating $count generic users..." -Level Info
         Write-Host ""
         
-        for ($i = 1;
-        $i -le $count; $i++) {
+        for ($i = 1; $i -le $count; $i++) {
             # Update progress bar
             $percentComplete = [math]::Round(($i / $count) * 100)
             Write-Progress -Activity "Creating Generic Users" -Status "User $i of $count" -PercentComplete $percentComplete
