@@ -29,7 +29,7 @@ function Write-Section {
     Write-Host ""
 }
 
-function Invoke-GroupRecreation {
+function Invoke-GroupSpecialLabUsersLifecycle {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -191,4 +191,4 @@ function Invoke-GroupRecreation {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-GroupRecreation
+Export-ModuleMember -Function Invoke-GroupSpecialLabUsersLifecycle
