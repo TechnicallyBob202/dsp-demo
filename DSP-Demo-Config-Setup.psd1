@@ -317,7 +317,7 @@
                 Department = "IT Operations"
                 OUPath = "Lab Admins/Tier 2"
                 PasswordNeverExpires = $true
-                Groups = @("Special Lab Admins")
+                Groups = @("Special Lab Admins", "Account Operators")
             }
         )
         
