@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## DSP-Demo-02-Setup-CreateGroups.psm1
+## DSP-Demo-Setup-02-CreateGroups.psm1
 ##
 ## Creates security and distribution groups from configuration file.
 ##
@@ -12,10 +12,6 @@
 
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
-
-################################################################################
-# LOGGING
-################################################################################
 
 function Write-Status {
     param(
@@ -36,16 +32,7 @@ function Write-Status {
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
 
-################################################################################
-# PRIVATE HELPER FUNCTIONS
-################################################################################
-
 function Resolve-OUPath {
-    <#
-    .SYNOPSIS
-    Converts logical OU path (e.g., "Root/LabAdmins") to DN
-    #>
-    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
         [string]$LogicalPath,
@@ -60,35 +47,19 @@ function Resolve-OUPath {
         return $domainDN
     }
     
-    # Split path and build DN from left to right
     $parts = $LogicalPath -split '/'
-    $dn = ""
+    $dnParts = @()
     
-    foreach ($part in $parts) {
+    for ($i = $parts.Count - 1; $i -ge 0; $i--) {
+        $part = $parts[$i]
         if ($part -and $part -ne "Root") {
-            if ($dn) {
-                $dn = "OU=$part,$dn"
-            }
-            else {
-                $dn = "OU=$part"
-            }
+            $dnParts += "OU=$part"
         }
     }
     
-    # Append domain DN at the end
-    if ($dn) {
-        $dn = "$dn,$domainDN"
-    }
-    else {
-        $dn = $domainDN
-    }
-    
+    $dn = ($dnParts -join ",") + "," + $domainDN
     return $dn
 }
-
-################################################################################
-# PUBLIC FUNCTION
-################################################################################
 
 function Invoke-CreateGroups {
     [CmdletBinding()]
@@ -105,92 +76,56 @@ function Invoke-CreateGroups {
     Write-Host ""
     Write-Status "Creating groups..." -Level Info
     
-    # Track results
     $createdCount = 0
     $skippedCount = 0
     $failedCount = 0
     
-    # Check if Groups section exists in config
+    # Check if Groups section exists
     if (-not $Config.ContainsKey('Groups') -or -not $Config.Groups) {
         Write-Status "No Groups section in configuration - skipping" -Level Info
         Write-Host ""
         return $true
     }
     
-    # Process all groups in config
-    # Groups can be nested in arrays or hashtables (AdminGroups, UserGroups, etc.)
-    foreach ($groupCategory in $Config.Groups.Values) {
-        # Handle both array and hashtable formats
-        if ($groupCategory -is [array]) {
-            $groupList = $groupCategory
-        }
-        elseif ($groupCategory -is [hashtable] -and $groupCategory.ContainsKey('Name')) {
-            # Single group object
-            $groupList = @($groupCategory)
-        }
-        else {
+    # Process each group in config
+    foreach ($groupName in $Config.Groups.Keys) {
+        $groupDef = $Config.Groups[$groupName]
+        
+        # Get group name (use Name if present, otherwise use key)
+        $name = if ($groupDef.ContainsKey('Name')) { $groupDef.Name } else { $groupName }
+        $path = if ($groupDef.ContainsKey('Path')) { Resolve-OUPath $groupDef.Path $DomainInfo } else { $DomainInfo.DN }
+        
+        # Check if group already exists
+        try {
+            Get-ADGroup -Filter { Name -eq $name } -ErrorAction Stop | Out-Null
+            Write-Status "Group already exists: $name" -Level Info
+            $skippedCount++
             continue
         }
+        catch {
+            # Group doesn't exist, create it
+        }
         
-        foreach ($groupDef in $groupList) {
-            # Validate required fields
-            if (-not $groupDef.SamAccountName -or -not $groupDef.Name) {
-                Write-Status "Skipping group - missing required SamAccountName or Name" -Level Warning
-                $skippedCount++
-                continue
+        try {
+            $newGroupParams = @{
+                Name = $name
+                Path = $path
+                GroupScope = if ($groupDef.ContainsKey('GroupScope')) { $groupDef.GroupScope } else { 'Global' }
+                GroupCategory = if ($groupDef.ContainsKey('GroupCategory')) { $groupDef.GroupCategory } else { 'Security' }
+                ErrorAction = 'Stop'
             }
             
-            # Resolve OU path
-            $ouPath = if ($groupDef.OUPath) {
-                Resolve-OUPath -LogicalPath $groupDef.OUPath -DomainInfo $DomainInfo
-            }
-            else {
-                $DomainInfo.DomainDN
+            if ($groupDef.ContainsKey('Description')) {
+                $newGroupParams['Description'] = $groupDef.Description
             }
             
-            # Verify target OU exists
-            if (-not (Test-Path -Path "AD:\$ouPath" -ErrorAction SilentlyContinue)) {
-                Write-Status "Target OU does not exist: $ouPath - skipping $($groupDef.SamAccountName)" -Level Warning
-                $skippedCount++
-                continue
-            }
-            
-            # Check if group already exists
-            $existingGroup = Get-ADGroup -Filter "SamAccountName -eq '$($groupDef.SamAccountName)'" -ErrorAction SilentlyContinue
-            
-            if ($existingGroup) {
-                Write-Status "Group already exists: $($groupDef.SamAccountName)" -Level Info
-                $skippedCount++
-                continue
-            }
-            
-            # Create new group
-            try {
-                $newGroupParams = @{
-                    SamAccountName = $groupDef.SamAccountName
-                    Name = $groupDef.Name
-                    Path = $ouPath
-                    GroupScope = if ($groupDef.GroupScope) { $groupDef.GroupScope } else { 'Global' }
-                    GroupCategory = if ($groupDef.GroupCategory) { $groupDef.GroupCategory } else { 'Security' }
-                    ErrorAction = 'Stop'
-                }
-                
-                if ($groupDef.DisplayName) {
-                    $newGroupParams.DisplayName = $groupDef.DisplayName
-                }
-                
-                if ($groupDef.Description) {
-                    $newGroupParams.Description = $groupDef.Description
-                }
-                
-                $newGroup = New-ADGroup @newGroupParams
-                Write-Status "Created group: $($groupDef.SamAccountName)" -Level Success
-                $createdCount++
-            }
-            catch {
-                Write-Status "Error creating group $($groupDef.SamAccountName) : $_" -Level Error
-                $failedCount++
-            }
+            New-ADGroup @newGroupParams | Out-Null
+            Write-Status "Created group: $name" -Level Success
+            $createdCount++
+        }
+        catch {
+            Write-Status "Error creating group '$name': $_" -Level Error
+            $failedCount++
         }
     }
     
@@ -200,9 +135,5 @@ function Invoke-CreateGroups {
     
     return $true
 }
-
-################################################################################
-# EXPORTS
-################################################################################
 
 Export-ModuleMember -Function Invoke-CreateGroups

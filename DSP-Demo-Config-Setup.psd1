@@ -3,19 +3,11 @@
 ## DSP-Demo-Config-Setup.psd1
 ##
 ## Setup configuration for DSP Demo script suite
-## Contains all baseline AD objects created during setup phase:
-## - Organizational Units (14 total)
-## - Groups (3 security groups)
-## - Users (demo, admin, service, generic)
-## - AD Sites, Subnets, Site Links
-## - DNS Zones (forward and reverse)
-## - Group Policy Objects
+## CORRECTED to match module expectations
 ##
-## Corrected to match legacy script: Invoke-CreateDspChangeDataForDemos-20251002_0012.ps1
-## 
 ## Original Author: Rob Ingenthron (robi@semperis.com)
 ## Refactored By: Bob Lyons
-## Version: 2.0.0-20251202 (CORRECTED)
+## Version: 2.1.0-20251202 (CORRECTED v2 - Module Compatible)
 ##
 ################################################################################
 
@@ -28,13 +20,13 @@
         Company = "HaleHapa"
         LogPath = "C:\Logs\DSP-Demo"
         VerboseLogging = $true
+        DefaultPassword = "P@ssw0rd123!"
     }
     
     #---------------------------------------------------------------------------
     # ORGANIZATIONAL UNITS STRUCTURE (14 TOTAL)
     #---------------------------------------------------------------------------
     OUs = @{
-        # Root level OUs
         LabAdmins = @{
             Name = "Lab Admins"
             Description = "OU for all lab admins!!"
@@ -120,11 +112,12 @@
     }
     
     #---------------------------------------------------------------------------
-    # SECURITY GROUPS (3 TOTAL)
+    # SECURITY GROUPS - Must have SamAccountName
     #---------------------------------------------------------------------------
     Groups = @{
         SpecialLabUsers = @{
             Name = "Special Lab Users"
+            SamAccountName = "Special Lab Users"
             Path = "Lab Users"
             GroupScope = "Global"
             GroupCategory = "Security"
@@ -132,6 +125,7 @@
         }
         SpecialLabAdmins = @{
             Name = "Special Lab Admins"
+            SamAccountName = "Special Lab Admins"
             Path = "Lab Admins"
             GroupScope = "Global"
             GroupCategory = "Security"
@@ -139,6 +133,7 @@
         }
         HelpdeskOps = @{
             Name = "HelpDesk Ops"
+            SamAccountName = "HelpDesk Ops"
             Path = "Lab Admins"
             GroupScope = "Global"
             GroupCategory = "Security"
@@ -147,199 +142,235 @@
     }
     
     #---------------------------------------------------------------------------
-    # TIER ADMIN ACCOUNTS
+    # USER ACCOUNTS - Organized by type
     #---------------------------------------------------------------------------
-    Tier0Admins = @{
-        "admin-t0" = @{
-            GivenName = "Tier"
-            Surname = "ZeroAdmin"
-            UserPrincipalName = "admin-t0@{DOMAIN}"
-            SamAccountName = "admin-t0"
-            DisplayName = "Tier 0 Admin"
-            Description = "Tier 0 administrator account"
-            Title = "Enterprise Admin"
-            Department = "IT Administration"
-            Path = "Lab Admins/Tier 0"
-            PasswordNeverExpires = $true
+    Users = @{
+        Tier0Admins = @(
+            @{
+                GivenName = "Tier"
+                Surname = "ZeroAdmin"
+                UserPrincipalName = "admin-t0@{DOMAIN}"
+                SamAccountName = "admin-t0"
+                DisplayName = "Tier 0 Admin"
+                Description = "Tier 0 administrator account"
+                Title = "Enterprise Admin"
+                Department = "IT Administration"
+                OUPath = "Lab Admins/Tier 0"
+                PasswordNeverExpires = $true
+                Groups = @("Special Lab Admins")
+            }
+        )
+        
+        Tier1Admins = @(
+            @{
+                GivenName = "Tier"
+                Surname = "OneAdmin"
+                UserPrincipalName = "admin-t1@{DOMAIN}"
+                SamAccountName = "admin-t1"
+                DisplayName = "Tier 1 Admin"
+                Description = "Tier 1 administrator account"
+                Title = "Domain Admin"
+                Department = "IT Administration"
+                OUPath = "Lab Admins/Tier 1"
+                PasswordNeverExpires = $true
+                Groups = @("Special Lab Admins")
+            }
+        )
+        
+        Tier2Admins = @(
+            @{
+                GivenName = "Tier"
+                Surname = "TwoAdmin"
+                UserPrincipalName = "admin-t2@{DOMAIN}"
+                SamAccountName = "admin-t2"
+                DisplayName = "Tier 2 Admin"
+                Description = "Tier 2 administrator account"
+                Title = "Application Admin"
+                Department = "IT Administration"
+                OUPath = "Lab Admins/Tier 2"
+                PasswordNeverExpires = $true
+                Groups = @("Special Lab Admins")
+            }
+        )
+        
+        DemoUsers = @(
+            @{
+                GivenName = "William"
+                Surname = "Rose"
+                UserPrincipalName = "arose@{DOMAIN}"
+                SamAccountName = "arose"
+                DisplayName = "Axl Rose"
+                Description = "Coder"
+                Title = "Application Mgr"
+                Department = "Sales"
+                Division = "Rock Analysis"
+                Company = "Roses and Guns"
+                OfficePhone = "408-555-1212"
+                Fax = "(408) 555-1212"
+                City = "City of angels"
+                EmployeeID = "000123456"
+                OUPath = "Lab Users/Dept101"
+                PasswordNeverExpires = $true
+                Groups = @("Special Lab Users")
+            }
+            @{
+                GivenName = "Luke"
+                Surname = "Skywalker"
+                UserPrincipalName = "lskywalker@{DOMAIN}"
+                SamAccountName = "lskywalker"
+                DisplayName = "Luke Skywalker"
+                Description = "apprentice"
+                Title = "Nerfherder"
+                Department = "Religion"
+                Division = "Spoon Bending"
+                Company = "Jedi Knights, Inc"
+                OfficePhone = "408-555-5151"
+                Fax = "(408) 555-5555"
+                City = "Tatooine"
+                EmployeeID = "00314159"
+                OUPath = "Lab Users/Dept101"
+                Groups = @("Special Lab Users")
+            }
+            @{
+                GivenName = "Peter"
+                Surname = "Griffin"
+                UserPrincipalName = "peter.griffin@{DOMAIN}"
+                SamAccountName = "peter.griffin"
+                DisplayName = "Peter Griffin"
+                Description = "cartoon character"
+                Title = "Sales"
+                Department = "Parody"
+                Division = "Blue Collar"
+                Company = "Happy-Go-Lucky Toy Factory"
+                OfficePhone = "408-777-3333"
+                Fax = "(216) 555-1000"
+                City = "Quahog"
+                EmployeeID = "00987654321"
+                OUPath = "Lab Users/Dept101"
+                Groups = @("Special Lab Users")
+            }
+            @{
+                GivenName = "Paul"
+                Surname = "McCartney"
+                UserPrincipalName = "pmccartney@{DOMAIN}"
+                SamAccountName = "pmccartney"
+                DisplayName = "Paul McCartney"
+                Description = "Bandmember"
+                Title = "Lead Beatle"
+                Department = "Music"
+                Division = "Legends"
+                Company = "The Beat Brothers"
+                OfficePhone = "011 44 20 1234 5678"
+                Fax = "011 44 20 5555 1111"
+                City = "Liverpool"
+                EmployeeID = "000001212"
+                OUPath = "Lab Users/Dept101"
+                Groups = @("Special Lab Users")
+            }
+            @{
+                GivenName = "Yan"
+                Surname = "Li"
+                UserPrincipalName = "yanli@{DOMAIN}"
+                SamAccountName = "yanli"
+                DisplayName = "Yan Li"
+                Description = "manager of shop line"
+                Title = "Manager"
+                Department = "Wiget Manufacturing"
+                Division = "Manufacturing"
+                Company = "Contractors Inc"
+                OfficePhone = "212 555-5600"
+                Fax = "212 555-5699"
+                City = "Jersey"
+                EmployeeID = "000062312"
+                OUPath = "Lab Users/Dept101"
+                Groups = @("Special Lab Users")
+            }
+        )
+        
+        OpsAdmins = @(
+            @{
+                GivenName = "Ops"
+                Surname = "Admin"
+                UserPrincipalName = "opsadmin1@{DOMAIN}"
+                SamAccountName = "opsadmin1"
+                DisplayName = "Ops Admin 1"
+                Description = "Operations administrator account"
+                Title = "Operations Admin"
+                Department = "IT Operations"
+                OUPath = "Lab Admins/Tier 2"
+                PasswordNeverExpires = $true
+                Groups = @("Special Lab Admins")
+            }
+        )
+        
+        ServiceAccounts = @(
+            @{
+                GivenName = "DSP"
+                Surname = "Service"
+                UserPrincipalName = "svc-dsp@{DOMAIN}"
+                SamAccountName = "svc-dsp"
+                DisplayName = "DSP Service Account"
+                Description = "Service account for DSP integration"
+                OUPath = "Lab Admins/Tier 1"
+                PasswordNeverExpires = $true
+                Groups = @()
+            }
+            @{
+                GivenName = "DNS"
+                Surname = "Service"
+                UserPrincipalName = "svc-dns@{DOMAIN}"
+                SamAccountName = "svc-dns"
+                DisplayName = "DNS Service Account"
+                Description = "Service account for DNS operations"
+                OUPath = "Lab Admins/Tier 1"
+                PasswordNeverExpires = $true
+                Groups = @()
+            }
+        )
+        
+        GenericUsers = @{
+            Count = 15
+            NamePrefix = "User"
+            OUPath = "Lab Users/Dept999"
+            Description = "Generic lab user account"
         }
     }
     
-    Tier1Admins = @{
-        "admin-t1" = @{
-            GivenName = "Tier"
-            Surname = "OneAdmin"
-            UserPrincipalName = "admin-t1@{DOMAIN}"
-            SamAccountName = "admin-t1"
-            DisplayName = "Tier 1 Admin"
-            Description = "Tier 1 administrator account"
-            Title = "Domain Admin"
-            Department = "IT Administration"
-            Path = "Lab Admins/Tier 1"
-            PasswordNeverExpires = $true
-        }
-    }
-    
-    Tier2Admins = @{
-        "admin-t2" = @{
-            GivenName = "Tier"
-            Surname = "TwoAdmin"
-            UserPrincipalName = "admin-t2@{DOMAIN}"
-            SamAccountName = "admin-t2"
-            DisplayName = "Tier 2 Admin"
-            Description = "Tier 2 administrator account"
-            Title = "Application Admin"
-            Department = "IT Administration"
-            Path = "Lab Admins/Tier 2"
-            PasswordNeverExpires = $true
-        }
-    }
-    
     #---------------------------------------------------------------------------
-    # DEMO USERS (5 NAMED + ADDITIONAL)
+    # COMPUTERS (in DeleteMe OU and zSpecial OU)
     #---------------------------------------------------------------------------
-    DemoUsers = @{
-        "arose" = @{
-            GivenName = "William"
-            Surname = "Rose"
-            UserPrincipalName = "arose@{DOMAIN}"
-            SamAccountName = "arose"
-            DisplayName = "Axl Rose"
-            Description = "Coder"
-            Title = "Application Mgr"
-            Department = "Sales"
-            Division = "Rock Analysis"
-            Company = "Roses and Guns"
-            OfficePhone = "408-555-1212"
-            Fax = "(408) 555-1212"
-            City = "City of angels"
-            EmployeeID = "000123456"
-            Path = "Lab Users/Dept101"
-            PasswordNeverExpires = $true
+    Computers = @(
+        @{
+            Name = "srv-iis-us01"
+            SamAccountName = "srv-iis-us01"
+            Description = "Special application server for lab"
+            OUPath = "DeleteMe OU/Servers"
         }
-        "lskywalker" = @{
-            GivenName = "Luke"
-            Surname = "Skywalker"
-            UserPrincipalName = "lskywalker@{DOMAIN}"
-            SamAccountName = "lskywalker"
-            DisplayName = "Luke Skywalker"
-            Description = "apprentice"
-            Title = "Nerfherder"
-            Department = "Religion"
-            Division = "Spoon Bending"
-            Company = "Jedi Knights, Inc"
-            OfficePhone = "408-555-5151"
-            Fax = "(408) 555-5555"
-            City = "Tatooine"
-            EmployeeID = "00314159"
-            Path = "Lab Users/Dept101"
+        @{
+            Name = "ops-app-us05"
+            SamAccountName = "ops-app-us05"
+            Description = "Special application server for lab"
+            OUPath = "DeleteMe OU/Resources"
         }
-        "peter.griffin" = @{
-            GivenName = "Peter"
-            Surname = "Griffin"
-            UserPrincipalName = "peter.griffin@{DOMAIN}"
-            SamAccountName = "peter.griffin"
-            DisplayName = "Peter Griffin"
-            Description = "cartoon character"
-            Title = "Sales"
-            Department = "Parody"
-            Division = "Blue Collar"
-            Company = "Happy-Go-Lucky Toy Factory"
-            OfficePhone = "408-777-3333"
-            Fax = "(216) 555-1000"
-            City = "Quahog"
-            EmployeeID = "00987654321"
-            Path = "Lab Users/Dept101"
+        @{
+            Name = "PIMPAM"
+            SamAccountName = "PIMPAM"
+            Description = "Privileged access server"
+            OUPath = "zSpecial OU"
         }
-        "pmccartney" = @{
-            GivenName = "Paul"
-            Surname = "McCartney"
-            UserPrincipalName = "pmccartney@{DOMAIN}"
-            SamAccountName = "pmccartney"
-            DisplayName = "Paul McCartney"
-            Description = "Bandmember"
-            Title = "Lead Beatle"
-            Department = "Music"
-            Division = "Legends"
-            Company = "The Beat Brothers"
-            OfficePhone = "011 44 20 1234 5678"
-            Fax = "011 44 20 5555 1111"
-            City = "Liverpool"
-            EmployeeID = "000001212"
-            Path = "Lab Users/Dept101"
+        @{
+            Name = "VAULT"
+            SamAccountName = "VAULT"
+            Description = "Vault server to store passwords and credentials"
+            OUPath = "zSpecial OU"
         }
-        "yanli" = @{
-            GivenName = "Yan"
-            Surname = "Li"
-            UserPrincipalName = "yanli@{DOMAIN}"
-            SamAccountName = "yanli"
-            DisplayName = "Yan Li"
-            Description = "manager of shop line"
-            Title = "Manager"
-            Department = "Wiget Manufacturing"
-            Division = "Manufacturing"
-            Company = "Contractors Inc"
-            OfficePhone = "212 555-5600"
-            Fax = "212 555-5699"
-            City = "Jersey"
-            EmployeeID = "000062312"
-            Path = "Lab Users/Dept101"
+        @{
+            Name = "BASTION-HOST01"
+            SamAccountName = "BASTION-HOST01"
+            Description = "Bastion host for restricted privileged access"
+            OUPath = "zSpecial OU"
         }
-    }
-    
-    #---------------------------------------------------------------------------
-    # OPS ADMIN ACCOUNT (for alternate credentials in Module 15)
-    #---------------------------------------------------------------------------
-    OpsAdmin = @{
-        "opsadmin1" = @{
-            GivenName = "Ops"
-            Surname = "Admin"
-            UserPrincipalName = "opsadmin1@{DOMAIN}"
-            SamAccountName = "opsadmin1"
-            DisplayName = "Ops Admin 1"
-            Description = "Operations administrator account"
-            Title = "Operations Admin"
-            Department = "IT Operations"
-            Path = "Lab Admins/Tier 2"
-            PasswordNeverExpires = $true
-        }
-    }
-    
-    #---------------------------------------------------------------------------
-    # SERVICE ACCOUNTS
-    #---------------------------------------------------------------------------
-    ServiceAccounts = @{
-        "svc-dsp" = @{
-            GivenName = "DSP"
-            Surname = "Service"
-            UserPrincipalName = "svc-dsp@{DOMAIN}"
-            SamAccountName = "svc-dsp"
-            DisplayName = "DSP Service Account"
-            Description = "Service account for DSP integration"
-            Path = "Lab Admins/Tier 1"
-            PasswordNeverExpires = $true
-        }
-        "svc-dns" = @{
-            GivenName = "DNS"
-            Surname = "Service"
-            UserPrincipalName = "svc-dns@{DOMAIN}"
-            SamAccountName = "svc-dns"
-            DisplayName = "DNS Service Account"
-            Description = "Service account for DNS operations"
-            Path = "Lab Admins/Tier 1"
-            PasswordNeverExpires = $true
-        }
-    }
-    
-    #---------------------------------------------------------------------------
-    # GENERIC USERS (BULK) - CREATED IN DEPT999, NOT DEPT101
-    #---------------------------------------------------------------------------
-    GenericUsers = @{
-        Count = 15
-        NamePrefix = "User"
-        Path = "Lab Users/Dept999"
-        Description = "Generic lab user account"
-        PasswordRandomized = $true
-    }
+    )
     
     #---------------------------------------------------------------------------
     # AD SITES - SemperisLabs (NOT LabSite001)
@@ -353,17 +384,14 @@
     }
     
     #---------------------------------------------------------------------------
-    # AD SUBNETS - INCLUDES TEMPORARY SUBNETS FOR ACTIVITY MODULES
+    # AD SUBNETS
     #---------------------------------------------------------------------------
     AdSubnets = @{
-        # Site-specific subnet for SemperisLabs
         "10.3.22.0/24" = @{
             Site = "SemperisLabs"
             Description = "AD subnet for Semperis Labs"
             Location = "USA-TX-Labs"
         }
-        
-        # Permanent subnets
         "10.0.0.0/8" = @{
             Site = "SemperisLabs"
             Description = "Primary Lab Infrastructure Network"
@@ -409,8 +437,6 @@
             Description = "Special DMZ network"
             Location = "Lab-USA-AZ"
         }
-        
-        # Temporary subnets (for Module 03 modification, deleted in Module 12)
         "111.111.4.0/24" = @{
             Site = "SemperisLabs"
             Description = "test subnet added via script"
@@ -436,7 +462,7 @@
     }
     
     #---------------------------------------------------------------------------
-    # DNS ZONES (FORWARD)
+    # DNS ZONES
     #---------------------------------------------------------------------------
     DnsForwardZones = @{
         "specialsite.lab" = @{
@@ -444,9 +470,6 @@
         }
     }
     
-    #---------------------------------------------------------------------------
-    # DNS ZONES (REVERSE)
-    #---------------------------------------------------------------------------
     DnsReverseZones = @{
         "10.in-addr.arpa" = @{
             Description = "Reverse zone for 10.x.x.x network"
