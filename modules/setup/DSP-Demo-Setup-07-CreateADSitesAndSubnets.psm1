@@ -35,7 +35,7 @@ function Invoke-CreateADSitesAndSubnets {
             $siteConfig = $Config.AdSites[$siteName]
             
             try {
-                $existing = Get-ADReplicationSite -Filter "Name -eq '$siteName'" -ErrorAction Stop
+                Get-ADReplicationSite -Filter "Name -eq '$siteName'" -ErrorAction Stop | Out-Null
                 Write-Host "    $siteName - already exists" -ForegroundColor Green
                 $skippedCount++
             }
@@ -81,12 +81,22 @@ function Invoke-CreateADSitesAndSubnets {
                 continue
             }
             
+            # Check if subnet exists using -Identity instead of -Filter
+            $subnetExists = $false
             try {
-                $existing = Get-ADReplicationSubnet -Filter "Name -eq '$subnetName'" -ErrorAction Stop
+                Get-ADReplicationSubnet -Identity $subnetName -ErrorAction Stop | Out-Null
+                $subnetExists = $true
+            }
+            catch {
+                # Subnet does not exist
+                $subnetExists = $false
+            }
+            
+            if ($subnetExists) {
                 Write-Host "    $subnetName - already exists" -ForegroundColor Green
                 $skippedCount++
             }
-            catch {
+            else {
                 try {
                     $params = @{
                         Name = $subnetName
@@ -130,7 +140,7 @@ function Invoke-CreateADSitesAndSubnets {
             }
             
             try {
-                $existing = Get-ADReplicationSiteLink -Filter "Name -eq '$linkName'" -ErrorAction Stop
+                Get-ADReplicationSiteLink -Filter "Name -eq '$linkName'" -ErrorAction Stop | Out-Null
                 Write-Host "    $linkName - already exists" -ForegroundColor Green
                 $skippedCount++
             }
