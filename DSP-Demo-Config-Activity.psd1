@@ -231,11 +231,12 @@
     
     #---------------------------------------------------------------------------
     # MODULE 15: Directory-UserAttributes-AlternateCredentials
-    # DemoUser1 (arose) changes using alternate credentials (DemoUser2/lskywalker)
+    # DemoUser1 (arose) changes using alternate credentials (OpsAdmin1)
     #---------------------------------------------------------------------------
     Module15_UserAttributesAltCreds = @{
         TargetUser = "arose"
-        ChangeAsUser = "lskywalker"
+        ChangeAsUser = "opsadmin1"     # Changed from lskywalker to opsadmin1
+        AltUserPassword = "P@ssw0rd123!" # Added for unattended execution
         Attributes = @{
             telephoneNumber = "(000) 867-5309"
             info = "Changed by alternate user"

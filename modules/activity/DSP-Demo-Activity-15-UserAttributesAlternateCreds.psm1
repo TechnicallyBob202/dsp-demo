@@ -68,26 +68,35 @@ function Invoke-UserAttributesAlternateCreds {
     }
     
     Write-Host ""
-    Write-Section "PHASE 2: Prepare alternate credentials"
+    Write-Section "PHASE 2: Prepare alternate credentials (Unattended)"
     
     try {
-        Write-Status "Prompting for credentials for $changeAsUserName" -Level Info
-        Write-Host "NOTE: You will be prompted for the password for: $($altCredUser.UserPrincipalName)" -ForegroundColor Yellow
-        Write-Host ""
+        Write-Status "Retrieving credentials for $changeAsUserName from config" -Level Info
         
-        $altCreds = Get-Credential -UserName $altCredUser.UserPrincipalName -Message "Enter credentials for alternate user"
+        # Check if password exists in config
+        if (-not $Config.Module15_UserAttributesAltCreds.ContainsKey('AltUserPassword')) {
+            throw "Configuration missing 'AltUserPassword' for Module 15 unattended execution."
+        }
+
+        $plainPassword = $Config.Module15_UserAttributesAltCreds.AltUserPassword
+        
+        # Convert plain text to SecureString
+        $securePass = ConvertTo-SecureString $plainPassword -AsPlainText -Force
+        
+        # Create the Credential object programmatically
+        $altCreds = New-Object System.Management.Automation.PSCredential ($altCredUser.UserPrincipalName, $securePass)
         
         if (-not $altCreds) {
-            Write-Status "ERROR: No credentials provided" -Level Error
+            Write-Status "ERROR: Failed to create credential object" -Level Error
             $errorCount++
             Write-Host ""
             return $false
         }
         
-        Write-Status "Credentials collected" -Level Success
+        Write-Status "Credentials created successfully for $($altCredUser.UserPrincipalName)" -Level Success
     }
     catch {
-        Write-Status "Error getting credentials: $_" -Level Error
+        Write-Status "Error creating credentials: $_" -Level Error
         $errorCount++
         Write-Host ""
         return $false
