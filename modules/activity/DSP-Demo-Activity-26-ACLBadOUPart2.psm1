@@ -34,9 +34,7 @@ function Invoke-ACLBadOUPart2 {
     Write-Status "Starting ACLBadOUPart2" -Level Success
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo
-    $ModuleConfig = $Config.Module26_ACLBadOUPart2
-    $domainDN = $DomainInfo.DN
+    $DomainInfo = $Environment.DomainInfo    $domainDN = $DomainInfo.DN
     
     $errorCount = 0
     
@@ -65,4 +63,5 @@ function Invoke-ACLBadOUPart2 {
 }
 
 Export-ModuleMember -Function Invoke-ACLBadOUPart2
+
 

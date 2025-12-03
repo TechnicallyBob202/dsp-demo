@@ -34,9 +34,7 @@ function Invoke-DSPTriggerTitle {
     Write-Status "Starting DSPTriggerUndoTitle" -Level Success
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo
-    $ModuleConfig = $Config.Module29_DSPTriggerTitle
-    $domainDN = $DomainInfo.DN
+    $DomainInfo = $Environment.DomainInfo    $domainDN = $DomainInfo.DN
     
     $errorCount = 0
     
@@ -66,4 +64,5 @@ function Invoke-DSPTriggerTitle {
 }
 
 Export-ModuleMember -Function Invoke-DSPTriggerTitle
+
 

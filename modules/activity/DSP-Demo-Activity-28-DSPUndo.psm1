@@ -34,9 +34,7 @@ function Invoke-DSPUndo {
     Write-Status "Starting DSPAutomatedUndo" -Level Success
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo
-    $ModuleConfig = $Config.Module28_DSPUndo
-    $domainDN = $DomainInfo.DN
+    $DomainInfo = $Environment.DomainInfo    $domainDN = $DomainInfo.DN
     
     $errorCount = 0
     
@@ -66,4 +64,5 @@ function Invoke-DSPUndo {
 }
 
 Export-ModuleMember -Function Invoke-DSPUndo
+
 

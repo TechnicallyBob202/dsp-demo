@@ -34,9 +34,7 @@ function Invoke-DSPTriggerGroup {
     Write-Status "Starting DSPTriggerUndoGroup" -Level Success
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo
-    $ModuleConfig = $Config.Module30_DSPTriggerGroup
-    $domainDN = $DomainInfo.DN
+    $DomainInfo = $Environment.DomainInfo    $domainDN = $DomainInfo.DN
     
     $errorCount = 0
     
@@ -67,4 +65,5 @@ function Invoke-DSPTriggerGroup {
 }
 
 Export-ModuleMember -Function Invoke-DSPTriggerGroup
+
 

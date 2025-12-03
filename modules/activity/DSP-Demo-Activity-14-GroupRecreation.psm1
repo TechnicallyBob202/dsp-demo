@@ -40,9 +40,7 @@ function Invoke-GroupRecreation {
     Write-Status "Starting GroupRecreation" -Level Success
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo
-    $ModuleConfig = $Config.Module14_GroupRecreation
-    $domainDN = $DomainInfo.DN
+    $DomainInfo = $Environment.DomainInfo    $domainDN = $DomainInfo.DN
     
     $errorCount = 0
     $groupName = "Special Lab Users"
@@ -193,3 +191,4 @@ function Invoke-GroupRecreation {
 }
 
 Export-ModuleMember -Function Invoke-GroupRecreation
+

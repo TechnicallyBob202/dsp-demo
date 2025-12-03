@@ -34,9 +34,7 @@ function Invoke-SitesConfig {
     Write-Status "Starting SitesModify" -Level Success
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo
-    $ModuleConfig = $Config.Module27_SitesConfig
-    $domainDN = $DomainInfo.DN
+    $DomainInfo = $Environment.DomainInfo    $domainDN = $DomainInfo.DN
     
     $errorCount = 0
     
@@ -66,4 +64,5 @@ function Invoke-SitesConfig {
 }
 
 Export-ModuleMember -Function Invoke-SitesConfig
+
 

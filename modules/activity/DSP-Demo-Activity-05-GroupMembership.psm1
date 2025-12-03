@@ -60,10 +60,7 @@ function Invoke-GroupMembership {
     $removedCount = 0
     $errorCount = 0
     
-    $DomainInfo = $Environment.DomainInfo
-    $ModuleConfig = $Config.Module5_GroupMembership
-    
-    # Get config values - REQUIRED
+    $DomainInfo = $Environment.DomainInfo    # Get config values - REQUIRED
     $groupName = $Config.Module05_GroupMembership.GroupName
     if (-not $groupName) {
         Write-Status "ERROR: GroupName not configured in Module05_GroupMembership" -Level Error
@@ -161,3 +158,4 @@ function Invoke-GroupMembership {
 }
 
 Export-ModuleMember -Function Invoke-GroupMembership
+

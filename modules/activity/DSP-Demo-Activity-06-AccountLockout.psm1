@@ -60,8 +60,7 @@ function Invoke-AccountLockout {
     $attemptCount = 0
     $errorCount = 0
     
-    $DomainInfo = $Environment.DomainInfo
-    $ModuleConfig = $Config.Module6_AccountLockout
+    $DomainInfo = $Environment.DomainInfo    
     $domainFQDN = $domainInfo.FQDN
     $primaryDC = $Environment.PrimaryDC
     
@@ -183,3 +182,4 @@ function Invoke-AccountLockout {
 }
 
 Export-ModuleMember -Function Invoke-AccountLockout
+

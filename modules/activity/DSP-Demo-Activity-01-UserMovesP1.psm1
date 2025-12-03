@@ -62,8 +62,7 @@ function Invoke-UserMovesP1 {
     $skippedCount = 0
     $errorCount = 0
     
-    $DomainInfo = $Environment.DomainInfo
-    $ModuleConfig = $Config.Module1_UserMovesP1
+    $DomainInfo = $Environment.DomainInfo    
     $domainDN = $domainInfo.DN
     
     # Get config values - REQUIRED

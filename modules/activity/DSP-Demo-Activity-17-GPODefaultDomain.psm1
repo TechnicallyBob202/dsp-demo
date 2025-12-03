@@ -22,8 +22,7 @@ function Invoke-GPODefaultDomain {
     Write-Host "========== GPO: Modify Default Domain Policy ==========" -ForegroundColor Cyan
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo
-    $ModuleConfig = $Config.Module17_GPODefaultDomain
+    $DomainInfo = $Environment.DomainInfo    
     $domainDNS = $DomainInfo.FQDN
     
     $errorCount = 0
