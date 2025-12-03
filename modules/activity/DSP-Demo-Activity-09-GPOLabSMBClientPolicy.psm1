@@ -97,4 +97,4 @@ function Invoke-GPOLabSMB {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-GPOLabSMB
+Export-ModuleMember -Function Invoke-GPOLabSMBClientPolicy

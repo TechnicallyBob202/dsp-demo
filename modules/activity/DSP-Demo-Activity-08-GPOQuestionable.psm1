@@ -93,8 +93,8 @@ function Invoke-GPOQuestionable {
         }
         
         # Wait for replication
-        Write-Status "Waiting 20 seconds for replication..." -Level Info
-        Start-Sleep -Seconds 20
+        Write-Status "Waiting 10 seconds for replication..." -Level Info
+        Start-Sleep -Seconds 10
         
         # Trigger replication
         try {
@@ -133,8 +133,8 @@ function Invoke-GPOQuestionable {
             Write-Status "Successfully set to 1" -Level Success
             
             # Wait for replication
-            Write-Status "Waiting 20 seconds for replication..." -Level Info
-            Start-Sleep -Seconds 20
+            Write-Status "Waiting 10 seconds for replication..." -Level Info
+            Start-Sleep -Seconds 10
             
             # Trigger replication again
             try {

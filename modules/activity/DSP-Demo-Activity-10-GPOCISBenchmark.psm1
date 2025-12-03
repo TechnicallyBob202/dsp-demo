@@ -97,4 +97,4 @@ function Invoke-GPOCIS {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-GPOCIS
+Export-ModuleMember -Function Invoke-GPOCISBenchmark
