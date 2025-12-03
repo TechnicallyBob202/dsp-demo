@@ -385,19 +385,9 @@
     }
     
     #---------------------------------------------------------------------------
-    # AD SUBNETS
+    # AD SUBNETS - Includes temporary subnets for activity modules
     #---------------------------------------------------------------------------
     AdSubnets = @{
-        "172.16.0.0/24" = @{
-            Site = "LabSite001"
-            Description = "Lab network subnet"
-            Location = "Lab-Primary"
-        }
-        "10.0.0.0/24" = @{
-            Site = "LabSite001"
-            Description = "Additional lab subnet"
-            Location = "Lab-Secondary"
-        }
         "10.0.0.0/8" = @{
             Site = "LabSite001"
             Description = "Primary Lab Infrastructure Network"
@@ -422,6 +412,16 @@
             Site = "LabSite001"
             Description = "Special DMZ network"
             Location = "Lab-USA-AZ"
+        }
+        "111.111.4.0/24" = @{
+            Site = "LabSite001"
+            Description = "test subnet added via script"
+            Location = "USA-TX-Labs"
+        }
+        "111.111.5.0/24" = @{
+            Site = "LabSite001"
+            Description = "test subnet added via script"
+            Location = "USA-TX-Labs"
         }
     }
     
