@@ -2,26 +2,12 @@
 ##
 ## DSP-Demo-Activity-29-DSPTriggerTitle.psm1
 ##
-## Trigger DSP undo rule - Title change
+## Change Title attribute on target user (triggers DSP undo rule)
 ##
 ################################################################################
 
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
-
-function Write-Status {
-    param([string]$Message, [ValidateSet('Info','Success','Warning','Error')][string]$Level = 'Info')
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $colors = @{'Info'='White';'Success'='Green';'Warning'='Yellow';'Error'='Red'}
-    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colors[$Level]
-}
-
-function Write-Section {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ":: $Title" -ForegroundColor DarkRed -BackgroundColor Yellow
-    Write-Host ""
-}
 
 function Invoke-DSPTriggerTitle {
     [CmdletBinding()]
@@ -31,38 +17,64 @@ function Invoke-DSPTriggerTitle {
     )
     
     Write-Host ""
-    Write-Status "Starting DSPTriggerUndoTitle" -Level Success
+    Write-Host "========== DSP: Trigger Undo Rule - Title Change ==========" -ForegroundColor Cyan
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo    $domainDN = $DomainInfo.DN
-    
+    $ModuleConfig = $Config.Module29_DSPTriggerTitle
     $errorCount = 0
     
-    # ============================================================================
-    # IMPLEMENTATION
-    # ============================================================================
+    Write-Host "NOTE: This requires an existing DSP auto-undo rule for Title changes" -ForegroundColor Yellow
+    Write-Host ""
     
-    Write-Section "PHASE 1: Trigger DSP undo rule - Title change"
-    
-    # TODO: Get DemoUser3
-# TODO: Change Title attribute
-# TODO: Should trigger DSP undo rule
-    
-    # ============================================================================
-    # COMPLETION
-    # ============================================================================
+    try {
+        $TargetUser = $ModuleConfig.TargetUser
+        $NewTitle = $ModuleConfig.NewValue
+        
+        Write-Host "Finding user: $TargetUser..." -ForegroundColor Yellow
+        $UserObj = Get-ADUser -LDAPFilter "(&(objectCategory=person)(samaccountname=$TargetUser))" -Properties Title -ErrorAction Stop
+        
+        if (-not $UserObj) {
+            Write-Host "ERROR: User $TargetUser not found" -ForegroundColor Red
+            $errorCount++
+        }
+        else {
+            Write-Host "Found: $($UserObj.DistinguishedName)" -ForegroundColor Green
+            $CurrentTitle = $UserObj.Title
+            Write-Host "Current Title: $CurrentTitle" -ForegroundColor Cyan
+            Write-Host ""
+            
+            # Only change if different (avoids DSP bug with same value writes)
+            if ($CurrentTitle -ne $NewTitle) {
+                Write-Host "Changing Title to: $NewTitle" -ForegroundColor Yellow
+                Set-ADUser -Identity $UserObj.DistinguishedName -Title $NewTitle -ErrorAction Stop
+                Write-Host "✓ Title updated successfully" -ForegroundColor Green
+                Write-Host "  (This change should trigger DSP auto-undo rule)" -ForegroundColor Cyan
+            }
+            else {
+                Write-Host "Title is already set to: $NewTitle" -ForegroundColor Green
+                Write-Host "  (No change needed)" -ForegroundColor Cyan
+            }
+            
+            Write-Host ""
+            Write-Host "Waiting 20 seconds for auto-undo to trigger..." -ForegroundColor Yellow
+            Start-Sleep -Seconds 20
+        }
+    }
+    catch {
+        Write-Host "ERROR: $_" -ForegroundColor Red
+        $errorCount++
+    }
     
     Write-Host ""
     if ($errorCount -eq 0) {
-        Write-Status "DSPTriggerUndoTitle completed successfully" -Level Success
+        Write-Host "========== DSPTriggerTitle completed successfully ==========" -ForegroundColor Green
     }
     else {
-        Write-Status "DSPTriggerUndoTitle completed with $errorCount error(s)" -Level Warning
+        Write-Host "========== DSPTriggerTitle completed with $errorCount error(s) ==========" -ForegroundColor Yellow
     }
     Write-Host ""
-    return $true
+    
+    return ($errorCount -eq 0)
 }
 
 Export-ModuleMember -Function Invoke-DSPTriggerTitle
-
-

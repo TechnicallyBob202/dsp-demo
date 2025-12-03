@@ -2,26 +2,12 @@
 ##
 ## DSP-Demo-Activity-27-SitesConfig.psm1
 ##
-## Modify AD site configuration
+## Modify site replication settings (DEFAULTIPSITELINK)
 ##
 ################################################################################
 
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
-
-function Write-Status {
-    param([string]$Message, [ValidateSet('Info','Success','Warning','Error')][string]$Level = 'Info')
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $colors = @{'Info'='White';'Success'='Green';'Warning'='Yellow';'Error'='Red'}
-    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colors[$Level]
-}
-
-function Write-Section {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ":: $Title" -ForegroundColor DarkRed -BackgroundColor Yellow
-    Write-Host ""
-}
 
 function Invoke-SitesConfig {
     [CmdletBinding()]
@@ -31,38 +17,48 @@ function Invoke-SitesConfig {
     )
     
     Write-Host ""
-    Write-Status "Starting SitesModify" -Level Success
+    Write-Host "========== Sites: Configuration Changes ==========" -ForegroundColor Cyan
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo    $domainDN = $DomainInfo.DN
-    
+    $ModuleConfig = $Config.Module27_SitesConfig
     $errorCount = 0
     
-    # ============================================================================
-    # IMPLEMENTATION
-    # ============================================================================
-    
-    Write-Section "PHASE 1: Modify AD site configuration"
-    
-    # TODO: Get AD site
-# TODO: Change replication settings
-# TODO: Modify site links
-    
-    # ============================================================================
-    # COMPLETION
-    # ============================================================================
+    try {
+        Write-Host "Retrieving DEFAULTIPSITELINK..." -ForegroundColor Yellow
+        $SiteLink = Get-ADReplicationSiteLink -Identity "DEFAULTIPSITELINK" -ErrorAction Stop
+        
+        Write-Host "Current settings:" -ForegroundColor Green
+        Write-Host "  Cost: $($SiteLink.Cost)" -ForegroundColor Cyan
+        Write-Host "  ReplicationFrequencyInMinutes: $($SiteLink.ReplicationFrequencyInMinutes)" -ForegroundColor Cyan
+        Write-Host ""
+        
+        Write-Host "Updating Cost to $($ModuleConfig.ReplicationFrequencyChanges.NewCost)..." -ForegroundColor Yellow
+        Set-ADReplicationSiteLink -Identity "DEFAULTIPSITELINK" -Cost $ModuleConfig.ReplicationFrequencyChanges.NewCost -ErrorAction Stop
+        
+        Write-Host "Updating ReplicationFrequencyInMinutes to $($ModuleConfig.ReplicationFrequencyChanges.NewFrequency)..." -ForegroundColor Yellow
+        Set-ADReplicationSiteLink -Identity "DEFAULTIPSITELINK" -ReplicationFrequencyInMinutes $ModuleConfig.ReplicationFrequencyChanges.NewFrequency -ErrorAction Stop
+        
+        Write-Host ""
+        Write-Host "Verifying changes..." -ForegroundColor Green
+        $UpdatedSiteLink = Get-ADReplicationSiteLink -Identity "DEFAULTIPSITELINK" -ErrorAction Stop
+        Write-Host "  Cost: $($UpdatedSiteLink.Cost)" -ForegroundColor Cyan
+        Write-Host "  ReplicationFrequencyInMinutes: $($UpdatedSiteLink.ReplicationFrequencyInMinutes)" -ForegroundColor Cyan
+    }
+    catch {
+        Write-Host "ERROR: $_" -ForegroundColor Red
+        $errorCount++
+    }
     
     Write-Host ""
     if ($errorCount -eq 0) {
-        Write-Status "SitesModify completed successfully" -Level Success
+        Write-Host "========== SitesConfig completed successfully ==========" -ForegroundColor Green
     }
     else {
-        Write-Status "SitesModify completed with $errorCount error(s)" -Level Warning
+        Write-Host "========== SitesConfig completed with $errorCount error(s) ==========" -ForegroundColor Yellow
     }
     Write-Host ""
-    return $true
+    
+    return ($errorCount -eq 0)
 }
 
 Export-ModuleMember -Function Invoke-SitesConfig
-
-

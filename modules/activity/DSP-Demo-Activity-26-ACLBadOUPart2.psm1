@@ -2,26 +2,12 @@
 ##
 ## DSP-Demo-Activity-26-ACLBadOUPart2.psm1
 ##
-## More ACL changes on Bad OU
+## Add DeleteChild,DeleteTree permissions to Bad OU for Everyone
 ##
 ################################################################################
 
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
-
-function Write-Status {
-    param([string]$Message, [ValidateSet('Info','Success','Warning','Error')][string]$Level = 'Info')
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $colors = @{'Info'='White';'Success'='Green';'Warning'='Yellow';'Error'='Red'}
-    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colors[$Level]
-}
-
-function Write-Section {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ":: $Title" -ForegroundColor DarkRed -BackgroundColor Yellow
-    Write-Host ""
-}
 
 function Invoke-ACLBadOUPart2 {
     [CmdletBinding()]
@@ -31,37 +17,51 @@ function Invoke-ACLBadOUPart2 {
     )
     
     Write-Host ""
-    Write-Status "Starting ACLBadOUPart2" -Level Success
+    Write-Host "========== ACL: Bad OU Part 2 ==========" -ForegroundColor Cyan
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo    $domainDN = $DomainInfo.DN
-    
+    $ModuleConfig = $Config.Module26_ACLBadOUPart2
     $errorCount = 0
     
-    # ============================================================================
-    # IMPLEMENTATION
-    # ============================================================================
-    
-    Write-Section "PHASE 1: More ACL changes on Bad OU"
-    
-    # TODO: Get Bad OU
-# TODO: Modify ACL permissions again
-    
-    # ============================================================================
-    # COMPLETION
-    # ============================================================================
+    try {
+        $BadOU = Get-ADOrganizationalUnit -LDAPFilter "(&(objectClass=OrganizationalUnit)(name=$($ModuleConfig.OU)))" -ErrorAction Stop
+        
+        Write-Host "Found OU: $($BadOU.DistinguishedName)" -ForegroundColor Green
+        
+        # Get current ACL
+        $objACL = Get-ACL "AD:\$($BadOU.DistinguishedName)"
+        
+        # Create access rule for Everyone to allow DeleteChild and DeleteTree
+        $GroupSID = [System.Security.Principal.SecurityIdentifier]'S-1-1-0'
+        $objACE = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
+            $GroupSID,
+            "DeleteChild,DeleteTree",
+            "Allow",
+            'None',
+            [guid]'00000000-0000-0000-0000-000000000000'
+        )
+        
+        Write-Host "Adding DeleteChild,DeleteTree permissions for Everyone..." -ForegroundColor Yellow
+        $objACL.AddAccessRule($objACE)
+        Set-ACL -AclObject $objACL "AD:\$($BadOU.DistinguishedName)" -ErrorAction Stop
+        
+        Write-Host "ACL updated successfully" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "ERROR: $_" -ForegroundColor Red
+        $errorCount++
+    }
     
     Write-Host ""
     if ($errorCount -eq 0) {
-        Write-Status "ACLBadOUPart2 completed successfully" -Level Success
+        Write-Host "========== ACLBadOUPart2 completed successfully ==========" -ForegroundColor Green
     }
     else {
-        Write-Status "ACLBadOUPart2 completed with $errorCount error(s)" -Level Warning
+        Write-Host "========== ACLBadOUPart2 completed with $errorCount error(s) ==========" -ForegroundColor Yellow
     }
     Write-Host ""
-    return $true
+    
+    return ($errorCount -eq 0)
 }
 
 Export-ModuleMember -Function Invoke-ACLBadOUPart2
-
-

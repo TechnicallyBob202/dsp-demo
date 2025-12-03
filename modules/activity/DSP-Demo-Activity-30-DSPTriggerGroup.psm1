@@ -2,26 +2,12 @@
 ##
 ## DSP-Demo-Activity-30-DSPTriggerGroup.psm1
 ##
-## Trigger DSP undo rule - Remove all from group
+## Remove all members from group (triggers DSP undo rule)
 ##
 ################################################################################
 
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
-
-function Write-Status {
-    param([string]$Message, [ValidateSet('Info','Success','Warning','Error')][string]$Level = 'Info')
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $colors = @{'Info'='White';'Success'='Green';'Warning'='Yellow';'Error'='Red'}
-    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colors[$Level]
-}
-
-function Write-Section {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ":: $Title" -ForegroundColor DarkRed -BackgroundColor Yellow
-    Write-Host ""
-}
 
 function Invoke-DSPTriggerGroup {
     [CmdletBinding()]
@@ -31,39 +17,70 @@ function Invoke-DSPTriggerGroup {
     )
     
     Write-Host ""
-    Write-Status "Starting DSPTriggerUndoGroup" -Level Success
+    Write-Host "========== DSP: Trigger Undo Rule - Group Membership ==========" -ForegroundColor Cyan
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo    $domainDN = $DomainInfo.DN
-    
+    $ModuleConfig = $Config.Module30_DSPTriggerGroup
     $errorCount = 0
     
-    # ============================================================================
-    # IMPLEMENTATION
-    # ============================================================================
+    Write-Host "NOTE: This requires an existing DSP auto-undo rule for group membership changes" -ForegroundColor Yellow
+    Write-Host ""
     
-    Write-Section "PHASE 1: Trigger DSP undo rule - Remove all from group"
-    
-    # TODO: Get Special Lab Admins group
-# TODO: Get all members
-# TODO: Remove all members
-# TODO: Should trigger DSP undo rule
-    
-    # ============================================================================
-    # COMPLETION
-    # ============================================================================
+    try {
+        $GroupName = $ModuleConfig.GroupName
+        
+        Write-Host "Finding group: $GroupName..." -ForegroundColor Yellow
+        $GroupObj = Get-ADGroup -LDAPFilter "(&(objectCategory=group)(cn=$GroupName))" -ErrorAction Stop
+        
+        if (-not $GroupObj) {
+            Write-Host "ERROR: Group $GroupName not found" -ForegroundColor Red
+            $errorCount++
+        }
+        else {
+            Write-Host "Found: $($GroupObj.DistinguishedName)" -ForegroundColor Green
+            Write-Host ""
+            
+            Write-Host "Retrieving group members..." -ForegroundColor Yellow
+            $Members = Get-ADGroupMember -Identity $GroupObj.DistinguishedName -ErrorAction Stop
+            
+            if ($Members.Count -eq 0) {
+                Write-Host "Group is already empty" -ForegroundColor Green
+            }
+            else {
+                Write-Host "Found $($Members.Count) member(s)" -ForegroundColor Cyan
+                Write-Host "Removing all members..." -ForegroundColor Yellow
+                Write-Host ""
+                
+                $Members | ForEach-Object {
+                    Write-Host "  Removing: $($_.Name)" -ForegroundColor Yellow
+                    Remove-ADGroupMember -Identity $GroupObj.DistinguishedName -Member $_ -Confirm:$false -ErrorAction Stop
+                }
+                
+                Write-Host ""
+                Write-Host "✓ All members removed" -ForegroundColor Green
+                Write-Host "  (This change should trigger DSP auto-undo rule)" -ForegroundColor Cyan
+            }
+            
+            Write-Host ""
+            Write-Host "Waiting 20 seconds for auto-undo to trigger..." -ForegroundColor Yellow
+            Start-Sleep -Seconds 20
+        }
+    }
+    catch {
+        Write-Host "ERROR: $_" -ForegroundColor Red
+        $errorCount++
+    }
     
     Write-Host ""
     if ($errorCount -eq 0) {
-        Write-Status "DSPTriggerUndoGroup completed successfully" -Level Success
+        Write-Host "========== DSPTriggerGroup completed successfully ==========" -ForegroundColor Green
     }
     else {
-        Write-Status "DSPTriggerUndoGroup completed with $errorCount error(s)" -Level Warning
+        Write-Host "========== DSPTriggerGroup completed with $errorCount error(s) ==========" -ForegroundColor Yellow
     }
     Write-Host ""
-    return $true
+    
+    return ($errorCount -eq 0)
 }
 
 Export-ModuleMember -Function Invoke-DSPTriggerGroup
-
-

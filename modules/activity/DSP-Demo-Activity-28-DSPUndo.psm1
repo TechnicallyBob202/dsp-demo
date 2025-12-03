@@ -2,26 +2,12 @@
 ##
 ## DSP-Demo-Activity-28-DSPUndo.psm1
 ##
-## DSP automated undo via cmdlets
+## Connect to DSP server and undo facsimileTelephoneNumber changes
 ##
 ################################################################################
 
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
-
-function Write-Status {
-    param([string]$Message, [ValidateSet('Info','Success','Warning','Error')][string]$Level = 'Info')
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $colors = @{'Info'='White';'Success'='Green';'Warning'='Yellow';'Error'='Red'}
-    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colors[$Level]
-}
-
-function Write-Section {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host ":: $Title" -ForegroundColor DarkRed -BackgroundColor Yellow
-    Write-Host ""
-}
 
 function Invoke-DSPUndo {
     [CmdletBinding()]
@@ -31,38 +17,162 @@ function Invoke-DSPUndo {
     )
     
     Write-Host ""
-    Write-Status "Starting DSPAutomatedUndo" -Level Success
+    Write-Host "========== DSP: Automated Undo ==========" -ForegroundColor Cyan
     Write-Host ""
     
-    $DomainInfo = $Environment.DomainInfo    $domainDN = $DomainInfo.DN
-    
+    $ModuleConfig = $Config.Module28_DSPUndo
+    $DomainInfo = $Environment.DomainInfo
+    $DomainDN = $DomainInfo.DN
+    $DomainDNSRoot = $DomainInfo.DNSRoot
     $errorCount = 0
     
-    # ============================================================================
-    # IMPLEMENTATION
-    # ============================================================================
+    # Attempt to import DSP module
+    Write-Host "Attempting to load DSP PoSh module..." -ForegroundColor Yellow
+    Remove-Module Semperis.PoSh.DSP -ErrorAction SilentlyContinue -Force
     
-    Write-Section "PHASE 1: DSP automated undo via cmdlets"
+    try {
+        Import-Module Semperis.PoSh.DSP -ErrorAction Stop
+        $ModuleStatus = Get-Module Semperis.PoSh.DSP
+    }
+    catch {
+        Write-Host "⚠️  DSP module not available (OK in demo environments)" -ForegroundColor Yellow
+        Write-Host ""
+        return $true
+    }
     
-    # TODO: Check DSP server connectivity
-# TODO: Connect to DSP
-# TODO: Use DSP cmdlets to undo change
+    if (-not $ModuleStatus) {
+        Write-Host "⚠️  DSP module failed to load" -ForegroundColor Yellow
+        Write-Host ""
+        return $true
+    }
     
-    # ============================================================================
-    # COMPLETION
-    # ============================================================================
+    Write-Host "✓ DSP module loaded" -ForegroundColor Green
+    Write-Host ""
+    
+    # Search for DSP server via SCP
+    Write-Host "Searching for DSP server..." -ForegroundColor Yellow
+    $DSPServerName = $null
+    
+    try {
+        $SCPList = Get-ADObject -LDAPFilter "objectClass=serviceConnectionPoint" -SearchBase $DomainDN -ErrorAction Stop
+        
+        foreach ($SCPitem in $SCPList) {
+            if ($SCPitem.Name.Contains('Semperis.Dsp.Management')) {
+                $DSPDN = $SCPitem.DistinguishedName.Split(',')
+                $DSPServerName = $DSPDN[1].Substring(3) + '.' + $DomainDNSRoot
+                Write-Host "✓ Found DSP server: $DSPServerName" -ForegroundColor Green
+                break
+            }
+        }
+    }
+    catch {
+        Write-Host "Error searching for DSP: $_" -ForegroundColor Yellow
+    }
+    
+    if (-not $DSPServerName) {
+        Write-Host "DSP server not found via SCP" -ForegroundColor Yellow
+        Write-Host ""
+        return $true
+    }
+    
+    Write-Host ""
+    
+    # Determine DSP connect parameter (handle different module versions)
+    $DSPServerConnectOption = '-Server'
+    
+    try {
+        Connect-DSPServer -Server
+    }
+    catch [System.Management.Automation.ParameterBindingException] {
+        if (($Error[0].FullyQualifiedErrorId).Contains("NamedParameterNotFound")) {
+            $DSPServerConnectOption = '-ComputerName'
+        }
+    }
+    catch {
+        # Default to -Server
+    }
+    
+    Write-Host "Connecting to DSP server ($DSPServerConnectOption)..." -ForegroundColor Yellow
+    
+    $DSPconnection = $null
+    $LoopCount = 0
+    
+    try {
+        while ($LoopCount -lt 10) {
+            if ($DSPServerConnectOption -eq '-ComputerName') {
+                $DSPconnection = Connect-DSPServer -ComputerName $DSPServerName -ErrorAction SilentlyContinue
+            }
+            else {
+                $DSPconnection = Connect-DSPServer -Server $DSPServerName -ErrorAction SilentlyContinue
+            }
+            
+            if ($DSPconnection.ConnectionState) {
+                break
+            }
+            
+            Start-Sleep -Seconds 2
+            $LoopCount++
+        }
+        
+        if (-not $DSPconnection.ConnectionState) {
+            Write-Host "ERROR: Connection failed" -ForegroundColor Red
+            Write-Host ""
+            $errorCount++
+            return ($errorCount -eq 0)
+        }
+        
+        Write-Host "✓ Connected to DSP" -ForegroundColor Green
+        Write-Host "  State: $($DSPconnection.ConnectionState)" -ForegroundColor Cyan
+        Write-Host ""
+        
+        # Undo facsimileTelephoneNumber on target user
+        $TargetUser = $ModuleConfig.ChangeToUndo.ObjectName
+        
+        Write-Host "Finding $TargetUser in AD..." -ForegroundColor Yellow
+        $UserObj = Get-ADUser -LDAPFilter "(&(objectCategory=person)(samaccountname=$TargetUser))" -Properties facsimileTelephoneNumber -ErrorAction Stop
+        
+        if ($UserObj) {
+            $ObjectDN = $UserObj.DistinguishedName
+            Write-Host "Found: $ObjectDN" -ForegroundColor Green
+            Write-Host ""
+            
+            Write-Host "Searching for facsimileTelephoneNumber changes..." -ForegroundColor Yellow
+            $ChangeItem = Get-DSPChangedItem -Domain $DomainDNSRoot -ObjectDN $ObjectDN -Attribute facsimileTelephoneNumber -ErrorAction SilentlyContinue
+            
+            if ($ChangeItem) {
+                Write-Host "Found change, undoing..." -ForegroundColor Yellow
+                $UndoStatus = Undo-DSPChangedItem -InputObject $ChangeItem -ForceReplication -Confirm:$false -ErrorAction SilentlyContinue
+                
+                if ($UndoStatus) {
+                    Write-Host "✓ Undo successful" -ForegroundColor Green
+                }
+                else {
+                    Write-Host "⚠️  Undo failed or not found" -ForegroundColor Yellow
+                }
+            }
+            else {
+                Write-Host "No facsimileTelephoneNumber changes found for $TargetUser" -ForegroundColor Yellow
+            }
+        }
+        else {
+            Write-Host "User $TargetUser not found" -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Write-Host "ERROR: $_" -ForegroundColor Red
+        $errorCount++
+    }
     
     Write-Host ""
     if ($errorCount -eq 0) {
-        Write-Status "DSPAutomatedUndo completed successfully" -Level Success
+        Write-Host "========== DSPUndo completed successfully ==========" -ForegroundColor Green
     }
     else {
-        Write-Status "DSPAutomatedUndo completed with $errorCount error(s)" -Level Warning
+        Write-Host "========== DSPUndo completed with $errorCount error(s) ==========" -ForegroundColor Yellow
     }
     Write-Host ""
-    return $true
+    
+    return ($errorCount -eq 0)
 }
 
 Export-ModuleMember -Function Invoke-DSPUndo
-
-
