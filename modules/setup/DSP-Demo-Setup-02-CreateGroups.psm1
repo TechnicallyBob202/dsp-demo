@@ -122,6 +122,7 @@ function Invoke-CreateGroups {
         }
         catch {
             Write-Status "Error creating group '$name': $_" -Level Error
+            Write-Status "  Parameters: Path=$path, Scope=$($newGroupParams.GroupScope), Category=$($newGroupParams.GroupCategory)" -Level Error
             $failedCount++
         }
     }
