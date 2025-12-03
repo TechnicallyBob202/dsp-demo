@@ -157,7 +157,15 @@ function Invoke-DirectoryMovesPart1 {
     Write-Host ""
     
     try {
-        $prefix = "LabUs3r"
+        $prefix = $Config.Module01_UserMovesP1.UserPrefix
+        if (-not $prefix) {
+            $prefix = "LabUs3r"
+        }
+        
+        $defaultPassword = $Config.Module01_UserMovesP1.DefaultPassword
+        if (-not $defaultPassword) {
+            $defaultPassword = "P@ssw0rd123!"
+        }
         
         for ($i = 0; $i -lt $newUsersToCreate; $i++) {
             $samAccountName = "$prefix-$i"
@@ -166,7 +174,7 @@ function Invoke-DirectoryMovesPart1 {
             
             if (-not $existingUser) {
                 try {
-                    $password = ConvertTo-SecureString "P@ssw0rd$(Get-Random -Minimum 1000 -Maximum 9999)" -AsPlainText -Force
+                    $password = ConvertTo-SecureString $defaultPassword -AsPlainText -Force
                     
                     New-ADUser -SamAccountName $samAccountName `
                                -Name "Lab User $i" `
