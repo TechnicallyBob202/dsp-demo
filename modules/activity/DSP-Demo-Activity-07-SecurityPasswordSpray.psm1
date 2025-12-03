@@ -2,7 +2,7 @@
 ##
 ## DSP-Demo-Activity-07-SecurityPasswordSpray.psm1
 ##
-## Password spray attack: select 5 users from TEST OU, attempt UNC auth with bad passwords
+## Password spray attack: select 5 users from TEST OU, attempt netlogon auth with bad passwords
 ##
 ################################################################################
 
@@ -65,10 +65,8 @@ function Invoke-SecurityPasswordSpray {
     $domainFQDN = $domainInfo.FQDN
     $primaryDC = $Environment.PrimaryDC
     
-    # UNC path to trigger authentication attempts (SYSVOL is always available)
-    $uncPath = "\\$primaryDC\sysvol\$domainFQDN"
-    
-    Write-Status "Target UNC path: $uncPath" -Level Info
+    Write-Status "Target domain: $domainFQDN" -Level Info
+    Write-Status "Primary DC: $primaryDC" -Level Info
     Write-Host ""
     
     try {
@@ -110,17 +108,9 @@ function Invoke-SecurityPasswordSpray {
             
             foreach ($user in $selectedUsers) {
                 try {
-                    # Create credential with bad password
-                    $securePassword = ConvertTo-SecureString $testPassword -AsPlainText -Force
-                    $cred = New-Object System.Management.Automation.PSCredential(
-                        $user.SamAccountName,
-                        $securePassword
-                    )
-                    
-                    # Attempt to mount UNC path with bad credentials
-                    # This triggers authentication failure events in AD
-                    New-PSDrive -Name "TempShare" -PSProvider FileSystem -Root $uncPath `
-                        -Credential $cred -ErrorAction SilentlyContinue -Verbose | Out-Null
+                    # Use net use with explicit domain\user and bad password
+                    # This triggers real authentication failure events
+                    & net use "\\$primaryDC\netlogon" /user:"$domainFQDN\$($user.SamAccountName)" "$testPassword" > $null 2>&1
                     
                     $sprayAttempts++
                 }
@@ -128,10 +118,9 @@ function Invoke-SecurityPasswordSpray {
                     # Expected - auth will fail
                     $sprayAttempts++
                 }
-                finally {
-                    # Clean up the drive if it somehow succeeded
-                    Remove-PSDrive -Name "TempShare" -ErrorAction SilentlyContinue -Force
-                }
+                
+                # Try to clean up any successful connections (shouldn't happen with bad password)
+                & net use "\\$primaryDC\netlogon" /delete /y > $null 2>&1
             }
         }
         
@@ -152,7 +141,7 @@ function Invoke-SecurityPasswordSpray {
                     Write-Status "Replication completed successfully" -Level Success
                 }
                 else {
-                    Write-Status "Replication executed (status uncertain)" -Level Info
+                    Write-Status "Replication executed" -Level Info
                 }
                 
                 # Also replicate secondary DC if available
