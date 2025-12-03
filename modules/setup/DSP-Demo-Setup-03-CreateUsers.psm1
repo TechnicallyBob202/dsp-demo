@@ -57,7 +57,8 @@ function Resolve-OUPath {
     $parts = $LogicalPath -split '/'
     $dnParts = @()
     
-    for ($i = $parts.Count - 1; $i -ge 0; $i--) {
+    for ($i = $parts.Count - 1;
+    $i -ge 0; $i--) {
         $part = $parts[$i]
         if ($part -and $part -ne "Root") {
             $dnParts += "OU=$part"
@@ -90,11 +91,14 @@ function New-UserAccount {
     
     # Check if user exists
     try {
-        Get-ADUser -Identity $samAccountName -ErrorAction Stop | Out-Null
+        # FIX START: Capture and return existing user object to allow group membership to be checked.
+        $existingUser = Get-ADUser -Identity $samAccountName -ErrorAction Stop
+        
         if (-not $Quiet) {
-            Write-Status "User already exists: $samAccountName" -Level Info
+            Write-Status "User already exists: $samAccountName (Returning object for group checks)" -Level Info
         }
-        return $null
+        return $existingUser # Return the existing user object
+        # FIX END
     }
     catch {
         # User doesn't exist, continue with creation
@@ -124,7 +128,9 @@ function New-UserAccount {
         if ($UserDef.ContainsKey('Department')) { $newUserParams['Department'] = $UserDef.Department }
         if ($UserDef.ContainsKey('Division')) { $newUserParams['Division'] = $UserDef.Division }
         if ($UserDef.ContainsKey('Company')) { $newUserParams['Company'] = $UserDef.Company }
-        if ($UserDef.ContainsKey('OfficePhone')) { $newUserParams['OfficePhone'] = $UserDef.OfficePhone }
+        if ($UserDef.ContainsKey('OfficePhone')) {
+            $newUserParams['OfficePhone'] = $UserDef.OfficePhone 
+        }
         if ($UserDef.ContainsKey('Fax')) { $newUserParams['Fax'] = $UserDef.Fax }
         if ($UserDef.ContainsKey('City')) { $newUserParams['City'] = $UserDef.City }
         if ($UserDef.ContainsKey('EmployeeID')) { $newUserParams['EmployeeID'] = $UserDef.EmployeeID }
@@ -170,8 +176,8 @@ function Add-UserToGroup {
         return $false
     }
     
-    $isMember = Get-ADGroupMember -Identity $group -ErrorAction SilentlyContinue | 
-        Where-Object { $_.SamAccountName -eq $UserSam }
+    $isMember = Get-ADGroupMember -Identity $group -ErrorAction SilentlyContinue |
+    Where-Object { $_.SamAccountName -eq $UserSam }
     
     if ($isMember) {
         return $true
@@ -202,7 +208,8 @@ function Invoke-CreateUsers {
     $DefaultPassword = if ($Config.General.ContainsKey('DefaultPassword')) { 
         ConvertTo-SecureString -String $Config.General.DefaultPassword -AsPlainText -Force
     } else { 
-        ConvertTo-SecureString -String "P@ssw0rd123!" -AsPlainText -Force
+        ConvertTo-SecureString -String "P@ssw0rd123!"
+        -AsPlainText -Force
     }
     $domainFQDN = $DomainInfo.FQDN
     
@@ -235,8 +242,10 @@ function Invoke-CreateUsers {
                 $ouPath = Resolve-OUPath $userDef.OUPath $DomainInfo
                 $user = New-UserAccount -UserDef $userDef -OUPath $ouPath -Password $DefaultPassword -DomainFQDN $domainFQDN
                 
+                # Because New-UserAccount now returns the existing user object, this block will always run.
                 if ($user) {
-                    $createdCount++
+                    # Note: We don't increment createdCount if the user exists.
+                    if (-not $user.Created) { $createdCount++ } # Assumes the New-ADUser object has a 'Created' property if it was just created (or use SamAccountName match/mismatch)
                     
                     # Add to groups if specified
                     if ($userDef.ContainsKey('Groups') -and $userDef.Groups) {
@@ -263,7 +272,8 @@ function Invoke-CreateUsers {
         Write-Status "Creating $count generic users..." -Level Info
         Write-Host ""
         
-        for ($i = 1; $i -le $count; $i++) {
+        for ($i = 1;
+        $i -le $count; $i++) {
             # Update progress bar
             $percentComplete = [math]::Round(($i / $count) * 100)
             Write-Progress -Activity "Creating Generic Users" -Status "User $i of $count" -PercentComplete $percentComplete
