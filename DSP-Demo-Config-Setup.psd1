@@ -329,9 +329,9 @@
         )
         
         GenericUsers = @{
-            Count = 15
-            NamePrefix = "User"
-            OUPath = "Lab Users/Dept999"
+            Count = 250
+            NamePrefix = "GdAct0r-"
+            OUPath = "TEST"
             Description = "Generic lab user account"
         }
     }
