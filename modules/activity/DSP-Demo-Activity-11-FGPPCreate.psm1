@@ -40,17 +40,18 @@ function Invoke-FGPPCreate {
     # IMPLEMENTATION
     # ============================================================================
     
-    Write-Section "PHASE 1: Create SpecialLabUsers_PSO FGPP"
+    Write-Section "PHASE 1: Create or Validate SpecialLabUsers_PSO FGPP"
     
     $psoName = $Config.Module11_FGPPCreate.PolicyName
     $psoGroup = $Config.Module11_FGPPCreate.ApplyToGroup
     
     try {
+        
         # Check if PSO already exists
         $existingPSO = Get-ADFineGrainedPasswordPolicy -Filter "Name -eq '$psoName'" -ErrorAction SilentlyContinue
         
         if ($existingPSO) {
-            Write-Status "PSO '$psoName' already exists, skipping creation" -Level Warning
+            Write-Status "PSO '$psoName' already exists." -Level Warning
         }
         else {
             Write-Status "Creating FGPP: $psoName" -Level Info
@@ -80,9 +81,32 @@ function Invoke-FGPPCreate {
             Add-ADFineGrainedPasswordPolicySubject -Identity $psoName -Subjects $psoGroup -ErrorAction Stop
             Write-Status "PSO assigned to group successfully" -Level Success
         }
+
+        # ============================================================================
+        # PHASE 2: GENERATE CHANGES (Legacy Script Replication)
+        # ============================================================================
+        
+        Write-Section "PHASE 2: Generate FGPP Change Activity"
+        
+        # Retrieve the object explicitly to ensure we have the identity for Set-
+        $targetPSO = Get-ADFineGrainedPasswordPolicy -Identity $psoName
+        
+        # Change 1: Disable Complexity
+        Write-Status "Modifying FGPP: Disabling Complexity to trigger change event..." -Level Info
+        Set-ADFineGrainedPasswordPolicy -Identity $targetPSO -ComplexityEnabled $false -ErrorAction Stop
+        Write-Status "Complexity Disabled." -Level Success
+        
+        Write-Status "Waiting 5 seconds to separate change events..." -Level Info
+        Start-Sleep 5
+        
+        # Change 2: Enable Complexity and Update Description
+        Write-Status "Modifying FGPP: Re-enabling Complexity and updating Description..." -Level Info
+        Set-ADFineGrainedPasswordPolicy -Identity $targetPSO -ComplexityEnabled $true -Description "$($Config.Module11_FGPPCreate.Description) (Updated)" -ErrorAction Stop
+        Write-Status "FGPP Updated successfully." -Level Success
+
     }
     catch {
-        Write-Status "Error creating/assigning FGPP: $_" -Level Error
+        Write-Status "Error creating/assigning/modifying FGPP: $_" -Level Error
         $errorCount++
     }
     
