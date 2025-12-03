@@ -11,7 +11,7 @@
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
 
-function Invoke-DirectoryMovesPart2 {
+function Invoke-UserMovesPart2 {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -109,4 +109,4 @@ function Invoke-DirectoryMovesPart2 {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-DirectoryMovesPart2
+Export-ModuleMember -Function Invoke-UserMovesPart2

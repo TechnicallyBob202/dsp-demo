@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-06-SecurityAccountLockout.psm1
+## DSP-Demo-Activity-06-AccountLockout.psm1
 ##
 ## Trigger account lockout via bad password attempts using net use
 ##
@@ -45,7 +45,7 @@ function Write-Status {
 # MAIN FUNCTION
 ################################################################################
 
-function Invoke-SecurityAccountLockout {
+function Invoke-AccountLockout {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -60,7 +60,8 @@ function Invoke-SecurityAccountLockout {
     $attemptCount = 0
     $errorCount = 0
     
-    $domainInfo = $Environment.DomainInfo
+    $DomainInfo = $Environment.DomainInfo
+    $ModuleConfig = $Config.Module6_AccountLockout
     $domainFQDN = $domainInfo.FQDN
     $primaryDC = $Environment.PrimaryDC
     
@@ -181,4 +182,4 @@ function Invoke-SecurityAccountLockout {
     return $true
 }
 
-Export-ModuleMember -Function Invoke-SecurityAccountLockout
+Export-ModuleMember -Function Invoke-AccountLockout

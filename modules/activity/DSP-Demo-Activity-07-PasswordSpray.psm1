@@ -49,7 +49,7 @@ function Write-Status {
 # MAIN FUNCTION
 ################################################################################
 
-function Invoke-SecurityPasswordSpray {
+function Invoke-PasswordSpray {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -64,7 +64,8 @@ function Invoke-SecurityPasswordSpray {
     $sprayAttempts = 0
     $errorCount = 0
     
-    $domainInfo = $Environment.DomainInfo
+    $DomainInfo = $Environment.DomainInfo
+    $ModuleConfig = $Config.Module7_PasswordSpray
     $domainDN = $domainInfo.DN
     
     # Get DC from Environment object
@@ -198,4 +199,4 @@ function Invoke-SecurityPasswordSpray {
     return $true
 }
 
-Export-ModuleMember -Function Invoke-SecurityPasswordSpray
+Export-ModuleMember -Function Invoke-PasswordSpray

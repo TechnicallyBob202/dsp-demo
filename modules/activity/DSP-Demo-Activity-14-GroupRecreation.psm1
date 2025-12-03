@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-14-GroupSpecialLabUsersLifecycle.psm1
+## DSP-Demo-Activity-14-GroupRecreation.psm1
 ##
 ## Complex group recreation sequence:
 ## 1. DELETE "Special Lab Users" group
@@ -29,7 +29,7 @@ function Write-Section {
     Write-Host ""
 }
 
-function Invoke-GroupSpecialLabUsersLifecycle {
+function Invoke-GroupRecreation {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -41,6 +41,7 @@ function Invoke-GroupSpecialLabUsersLifecycle {
     Write-Host ""
     
     $DomainInfo = $Environment.DomainInfo
+    $ModuleConfig = $Config.Module14_GroupRecreation
     $domainDN = $DomainInfo.DN
     
     $errorCount = 0
@@ -191,4 +192,4 @@ function Invoke-GroupSpecialLabUsersLifecycle {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-GroupSpecialLabUsersLifecycle
+Export-ModuleMember -Function Invoke-GroupRecreation

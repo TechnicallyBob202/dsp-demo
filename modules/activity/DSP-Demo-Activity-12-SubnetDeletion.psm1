@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-12-SubnetsDelete.psm1
+## DSP-Demo-Activity-12-SubnetDeletion.psm1
 ##
 ## Delete AD subnets (111.111.4.0/24 and 111.111.5.0/24)
 ##
@@ -23,7 +23,7 @@ function Write-Section {
     Write-Host ""
 }
 
-function Invoke-SubnetsDelete {
+function Invoke-SubnetDeletion {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -98,4 +98,4 @@ function Invoke-SubnetsDelete {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-SubnetsDelete
+Export-ModuleMember -Function Invoke-SubnetDeletion

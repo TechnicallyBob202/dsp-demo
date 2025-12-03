@@ -1,8 +1,8 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-30-DSPTriggerUndoGroup.psm1
+## DSP-Demo-Activity-27-SitesConfig.psm1
 ##
-## Trigger DSP undo rule - Remove all from group
+## Modify AD site configuration
 ##
 ################################################################################
 
@@ -23,7 +23,7 @@ function Write-Section {
     Write-Host ""
 }
 
-function Invoke-DSPTriggerUndoGroup {
+function Invoke-SitesConfig {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -31,10 +31,11 @@ function Invoke-DSPTriggerUndoGroup {
     )
     
     Write-Host ""
-    Write-Status "Starting DSPTriggerUndoGroup" -Level Success
+    Write-Status "Starting SitesModify" -Level Success
     Write-Host ""
     
     $DomainInfo = $Environment.DomainInfo
+    $ModuleConfig = $Config.Module27_SitesConfig
     $domainDN = $DomainInfo.DN
     
     $errorCount = 0
@@ -43,12 +44,11 @@ function Invoke-DSPTriggerUndoGroup {
     # IMPLEMENTATION
     # ============================================================================
     
-    Write-Section "PHASE 1: Trigger DSP undo rule - Remove all from group"
+    Write-Section "PHASE 1: Modify AD site configuration"
     
-    # TODO: Get Special Lab Admins group
-# TODO: Get all members
-# TODO: Remove all members
-# TODO: Should trigger DSP undo rule
+    # TODO: Get AD site
+# TODO: Change replication settings
+# TODO: Modify site links
     
     # ============================================================================
     # COMPLETION
@@ -56,13 +56,14 @@ function Invoke-DSPTriggerUndoGroup {
     
     Write-Host ""
     if ($errorCount -eq 0) {
-        Write-Status "DSPTriggerUndoGroup completed successfully" -Level Success
+        Write-Status "SitesModify completed successfully" -Level Success
     }
     else {
-        Write-Status "DSPTriggerUndoGroup completed with $errorCount error(s)" -Level Warning
+        Write-Status "SitesModify completed with $errorCount error(s)" -Level Warning
     }
     Write-Host ""
     return $true
 }
 
-Export-ModuleMember -Function Invoke-DSPTriggerUndoGroup
+Export-ModuleMember -Function Invoke-SitesConfig
+

@@ -1,8 +1,8 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-29-DSPTriggerUndoTitle.psm1
+## DSP-Demo-Activity-28-DSPUndo.psm1
 ##
-## Trigger DSP undo rule - Title change
+## DSP automated undo via cmdlets
 ##
 ################################################################################
 
@@ -23,7 +23,7 @@ function Write-Section {
     Write-Host ""
 }
 
-function Invoke-DSPTriggerUndoTitle {
+function Invoke-DSPUndo {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -31,10 +31,11 @@ function Invoke-DSPTriggerUndoTitle {
     )
     
     Write-Host ""
-    Write-Status "Starting DSPTriggerUndoTitle" -Level Success
+    Write-Status "Starting DSPAutomatedUndo" -Level Success
     Write-Host ""
     
     $DomainInfo = $Environment.DomainInfo
+    $ModuleConfig = $Config.Module28_DSPUndo
     $domainDN = $DomainInfo.DN
     
     $errorCount = 0
@@ -43,11 +44,11 @@ function Invoke-DSPTriggerUndoTitle {
     # IMPLEMENTATION
     # ============================================================================
     
-    Write-Section "PHASE 1: Trigger DSP undo rule - Title change"
+    Write-Section "PHASE 1: DSP automated undo via cmdlets"
     
-    # TODO: Get DemoUser3
-# TODO: Change Title attribute
-# TODO: Should trigger DSP undo rule
+    # TODO: Check DSP server connectivity
+# TODO: Connect to DSP
+# TODO: Use DSP cmdlets to undo change
     
     # ============================================================================
     # COMPLETION
@@ -55,13 +56,14 @@ function Invoke-DSPTriggerUndoTitle {
     
     Write-Host ""
     if ($errorCount -eq 0) {
-        Write-Status "DSPTriggerUndoTitle completed successfully" -Level Success
+        Write-Status "DSPAutomatedUndo completed successfully" -Level Success
     }
     else {
-        Write-Status "DSPTriggerUndoTitle completed with $errorCount error(s)" -Level Warning
+        Write-Status "DSPAutomatedUndo completed with $errorCount error(s)" -Level Warning
     }
     Write-Host ""
     return $true
 }
 
-Export-ModuleMember -Function Invoke-DSPTriggerUndoTitle
+Export-ModuleMember -Function Invoke-DSPUndo
+

@@ -1,8 +1,8 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-28-DSPAutomatedUndo.psm1
+## DSP-Demo-Activity-29-DSPTriggerTitle.psm1
 ##
-## DSP automated undo via cmdlets
+## Trigger DSP undo rule - Title change
 ##
 ################################################################################
 
@@ -23,7 +23,7 @@ function Write-Section {
     Write-Host ""
 }
 
-function Invoke-DSPAutomatedUndo {
+function Invoke-DSPTriggerTitle {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -31,10 +31,11 @@ function Invoke-DSPAutomatedUndo {
     )
     
     Write-Host ""
-    Write-Status "Starting DSPAutomatedUndo" -Level Success
+    Write-Status "Starting DSPTriggerUndoTitle" -Level Success
     Write-Host ""
     
     $DomainInfo = $Environment.DomainInfo
+    $ModuleConfig = $Config.Module29_DSPTriggerTitle
     $domainDN = $DomainInfo.DN
     
     $errorCount = 0
@@ -43,11 +44,11 @@ function Invoke-DSPAutomatedUndo {
     # IMPLEMENTATION
     # ============================================================================
     
-    Write-Section "PHASE 1: DSP automated undo via cmdlets"
+    Write-Section "PHASE 1: Trigger DSP undo rule - Title change"
     
-    # TODO: Check DSP server connectivity
-# TODO: Connect to DSP
-# TODO: Use DSP cmdlets to undo change
+    # TODO: Get DemoUser3
+# TODO: Change Title attribute
+# TODO: Should trigger DSP undo rule
     
     # ============================================================================
     # COMPLETION
@@ -55,13 +56,14 @@ function Invoke-DSPAutomatedUndo {
     
     Write-Host ""
     if ($errorCount -eq 0) {
-        Write-Status "DSPAutomatedUndo completed successfully" -Level Success
+        Write-Status "DSPTriggerUndoTitle completed successfully" -Level Success
     }
     else {
-        Write-Status "DSPAutomatedUndo completed with $errorCount error(s)" -Level Warning
+        Write-Status "DSPTriggerUndoTitle completed with $errorCount error(s)" -Level Warning
     }
     Write-Host ""
     return $true
 }
 
-Export-ModuleMember -Function Invoke-DSPAutomatedUndo
+Export-ModuleMember -Function Invoke-DSPTriggerTitle
+

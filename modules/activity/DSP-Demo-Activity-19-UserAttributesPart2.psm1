@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-19-UserAttributesFAX.psm1
+## DSP-Demo-Activity-19-UserAttributesPart2.psm1
 ##
 ## Change FAX attribute on demo users
 ##
@@ -11,7 +11,7 @@
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
 
-function Invoke-UserAttributesFAX {
+function Invoke-UserAttributesPart2 {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -127,4 +127,4 @@ function Invoke-UserAttributesFAX {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-UserAttributesFAX
+Export-ModuleMember -Function Invoke-UserAttributesPart2

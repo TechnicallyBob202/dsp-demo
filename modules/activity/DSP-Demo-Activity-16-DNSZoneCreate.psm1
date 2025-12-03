@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-16-DNSCreate.psm1
+## DSP-Demo-Activity-16-DNSZoneCreate.psm1
 ##
 ## Create DNS zones and records for demo environment
 ##
@@ -11,7 +11,7 @@
 #Requires -Version 5.1
 #Requires -Modules DnsServer
 
-function Invoke-DNSCreate {
+function Invoke-DNSZoneCreate {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -314,4 +314,4 @@ function Invoke-DNSCreate {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-DNSCreate
+Export-ModuleMember -Function Invoke-DNSZoneCreate

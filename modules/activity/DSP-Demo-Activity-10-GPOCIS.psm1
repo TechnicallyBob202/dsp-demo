@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-10-GPOCISBenchmark.psm1
+## DSP-Demo-Activity-10-GPOCIS.psm1
 ##
 ## Create or modify "CIS Benchmark Windows Server Policy GPO"
 ## Sets multiple CIS Benchmark registry values for security hardening
@@ -46,7 +46,7 @@ function Write-Status {
 # MAIN FUNCTION
 ################################################################################
 
-function Invoke-GPOCISBenchmark {
+function Invoke-GPOCIS {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -320,4 +320,4 @@ function Invoke-GPOCISBenchmark {
     return $true
 }
 
-Export-ModuleMember -Function Invoke-GPOCISBenchmark
+Export-ModuleMember -Function Invoke-GPOCIS

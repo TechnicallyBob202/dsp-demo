@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-01-DirectoryMovesPart1.psm1
+## DSP-Demo-Activity-01-UserMovesP1.psm1
 ##
 ## Move users FROM source OU TO target OU, create generic users in target
 ##
@@ -45,7 +45,7 @@ function Write-Status {
 # MAIN FUNCTION
 ################################################################################
 
-function Invoke-DirectoryMovesPart1 {
+function Invoke-UserMovesP1 {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -62,7 +62,8 @@ function Invoke-DirectoryMovesPart1 {
     $skippedCount = 0
     $errorCount = 0
     
-    $domainInfo = $Environment.DomainInfo
+    $DomainInfo = $Environment.DomainInfo
+    $ModuleConfig = $Config.Module1_UserMovesP1
     $domainDN = $domainInfo.DN
     
     # Get config values - REQUIRED
@@ -235,4 +236,4 @@ function Invoke-DirectoryMovesPart1 {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-DirectoryMovesPart1
+Export-ModuleMember -Function Invoke-UserMovesP1

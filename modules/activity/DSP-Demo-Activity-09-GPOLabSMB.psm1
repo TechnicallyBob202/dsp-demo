@@ -47,7 +47,7 @@ function Write-Status {
 # MAIN FUNCTION
 ################################################################################
 
-function Invoke-GPOLabSMBClientPolicy {
+function Invoke-GPOLabSMB {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -211,4 +211,4 @@ function Invoke-GPOLabSMBClientPolicy {
     return $true
 }
 
-Export-ModuleMember -Function Invoke-GPOLabSMBClientPolicy
+Export-ModuleMember -Function Invoke-GPOLabSMB

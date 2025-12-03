@@ -45,7 +45,7 @@ function Write-Status {
 # MAIN FUNCTION
 ################################################################################
 
-function Invoke-GroupRemoveMember {
+function Invoke-GroupMembership {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -60,7 +60,8 @@ function Invoke-GroupRemoveMember {
     $removedCount = 0
     $errorCount = 0
     
-    $domainInfo = $Environment.DomainInfo
+    $DomainInfo = $Environment.DomainInfo
+    $ModuleConfig = $Config.Module5_GroupMembership
     
     # Get config values - REQUIRED
     $groupName = $Config.Module05_GroupMembership.GroupName
@@ -159,4 +160,4 @@ function Invoke-GroupRemoveMember {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-GroupRemoveMember
+Export-ModuleMember -Function Invoke-GroupMembership

@@ -39,6 +39,7 @@ function Invoke-ACLAdditional {
     
     $DomainInfo = $Environment.DomainInfo
     $ModuleConfig = $Config.Module22_ACLAdditional
+    $ModuleConfig = $Config.Module22_ACLMoreChanges
     
     $errorCount = 0
     

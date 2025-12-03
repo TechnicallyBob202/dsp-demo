@@ -23,6 +23,7 @@ function Invoke-GPODefaultDomain {
     Write-Host ""
     
     $DomainInfo = $Environment.DomainInfo
+    $ModuleConfig = $Config.Module17_GPODefaultDomain
     $domainDNS = $DomainInfo.FQDN
     
     $errorCount = 0

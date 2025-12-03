@@ -43,6 +43,7 @@ function Invoke-ACLBadOUPart1 {
     Write-Host ""
     
     $DomainInfo = $Environment.DomainInfo
+    $ModuleConfig = $Config.Module4_ACLBadOUPart1
     $domainDN = $DomainInfo.DN
     
     $errorCount = 0

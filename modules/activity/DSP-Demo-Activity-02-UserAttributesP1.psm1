@@ -37,7 +37,7 @@ function Write-Status {
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
 
-function Invoke-UserAttributesPart1 {
+function Invoke-UserAttributesP1 {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -162,4 +162,4 @@ function Invoke-UserAttributesPart1 {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-UserAttributesPart1
+Export-ModuleMember -Function Invoke-UserAttributesP1
