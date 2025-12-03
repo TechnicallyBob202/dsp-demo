@@ -55,12 +55,12 @@ function Invoke-ACLBadOUPart1 {
     Write-Section "PHASE 1: Deny Everyone DeleteChild and DeleteTree on Bad OU"
     
     try {
-        $badOUName = $Config.ActivitySettings.AclActivity.BadOUName
+        # Bad OU name - default to "Bad" if not configured
+        $badOUName = $Config.Module04_ACLBadOUP1.BadOUName
         
         if (-not $badOUName) {
-            Write-Status "BadOUName not configured in ActivitySettings.AclActivity" -Level Warning
-            Write-Host ""
-            return $true
+            $badOUName = "Bad"
+            Write-Status "BadOUName not in config, using default: $badOUName" -Level Info
         }
         
         $badOU = Get-ADOrganizationalUnit -Filter "Name -eq '$badOUName'" -SearchBase $domainDN -ErrorAction SilentlyContinue
