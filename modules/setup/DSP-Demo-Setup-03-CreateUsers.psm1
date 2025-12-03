@@ -91,7 +91,9 @@ function New-UserAccount {
     # Check if user exists
     try {
         Get-ADUser -Identity $samAccountName -ErrorAction Stop | Out-Null
-        Write-Status "User already exists: $samAccountName" -Level Info
+        if (-not $Quiet) {
+            Write-Status "User already exists: $samAccountName" -Level Info
+        }
         return $null
     }
     catch {
