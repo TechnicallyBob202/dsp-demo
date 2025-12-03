@@ -185,4 +185,89 @@ if ($IncludeSetup) {
         }
     }
     else {
-        Write-Host "WARNING: Setup modules folder not found." -
+        Write-Host "WARNING: Setup modules folder not found." -ForegroundColor Yellow
+    }
+    
+    Write-Host "Setup phase complete." -ForegroundColor Green
+    Write-Host ""
+}
+
+################################################################################
+# PHASE: SPECIFIC ACTIVITY MODULE
+################################################################################
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Running Target Activity Module: $ModuleNumber" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+
+$activityPath = Join-Path $Script:ModulesPath "activity"
+
+if (-not (Test-Path $activityPath)) {
+    Write-Host "ERROR: Activity modules folder not found: $activityPath" -ForegroundColor Red
+    exit 1
+}
+
+# Search for module file matching the number pattern
+$moduleFiles = Get-ChildItem -Path $activityPath -Filter "DSP-Demo-Activity-$($ModuleNumber)-*.psm1" -ErrorAction SilentlyContinue
+
+if ($moduleFiles.Count -eq 0) {
+    Write-Host "ERROR: No activity module found with number $ModuleNumber" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Available activity modules:" -ForegroundColor Yellow
+    Get-ChildItem -Path $activityPath -Filter "*.psm1" | ForEach-Object { Write-Host "  $($_.Name)" }
+    exit 1
+}
+
+$moduleFile = $moduleFiles[0]
+$moduleName = $moduleFile.BaseName
+$functionName = "Invoke-" + (Get-ModuleDisplayName $moduleName)
+
+################################################################################
+# LOAD CONFIGURATION & EXECUTE
+################################################################################
+
+if (-not (Test-Path $Script:ActivityConfigFile)) {
+    Write-Host "ERROR: Activity config file not found: $Script:ActivityConfigFile" -ForegroundColor Red
+    exit 1
+}
+
+try {
+    $rawActivityConfig = Import-PowerShellDataFile -Path $Script:ActivityConfigFile
+    # Expand placeholders using the helper function
+    $activityConfig = Expand-ConfigPlaceholders -Config $rawActivityConfig -DomainInfo $environment.DomainInfo
+    Write-Host "Activity config loaded and expanded" -ForegroundColor Green
+}
+catch {
+    Write-Host "ERROR: Failed to load activity config: $_" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host ""
+Write-Host "Module file: $($moduleFile.FullName)" -ForegroundColor Cyan
+Write-Host "Function:    $functionName" -ForegroundColor Cyan
+Write-Host ""
+
+try {
+    # Remove module if it was already loaded to ensure fresh code
+    Remove-Module $moduleName -Force -ErrorAction SilentlyContinue
+    Import-Module $moduleFile.FullName -Force -ErrorAction Stop | Out-Null
+    
+    if (-not (Get-Command $functionName -ErrorAction SilentlyContinue)) {
+        throw "Function $functionName not found in module"
+    }
+
+    Write-Host "Executing $functionName..." -ForegroundColor Yellow
+    
+    # Execute
+    & $functionName -Config $activityConfig -Environment $environment
+    
+    Write-Host ""
+    Write-Host "Test completed successfully" -ForegroundColor Green
+}
+catch {
+    Write-Host ""
+    Write-Host "ERROR: Execution failed: $_" -ForegroundColor Red
+    Write-Host $_.ScriptStackTrace -ForegroundColor Red
+    exit 1
+}
