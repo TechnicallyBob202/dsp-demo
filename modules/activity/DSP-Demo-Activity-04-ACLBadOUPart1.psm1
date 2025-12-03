@@ -55,12 +55,13 @@ function Invoke-ACLBadOUPart1 {
     Write-Section "PHASE 1: Deny Everyone DeleteChild and DeleteTree on Bad OU"
     
     try {
-        # Bad OU name - default to "Bad OU" if not configured
-        $badOUName = $Config.Module04_ACLBadOUP1.BadOUName
+        # Bad OU name - REQUIRED from config
+        $badOUName = $Config.Module04_ACLBadOUPart1.OU
         
         if (-not $badOUName) {
-            $badOUName = "Bad OU"
-            Write-Status "BadOUName not in config, using default: $badOUName" -Level Info
+            Write-Status "ERROR: OU not configured in Module04_ACLBadOUPart1" -Level Error
+            Write-Host ""
+            return $false
         }
         
         $badOU = Get-ADOrganizationalUnit -Filter "Name -eq '$badOUName'" -SearchBase $domainDN -ErrorAction SilentlyContinue
@@ -81,37 +82,62 @@ function Invoke-ACLBadOUPart1 {
     }
     
     # ============================================================================
-    # PHASE 2: Add DENY ACE for Everyone on DeleteChild and DeleteTree
+    # PHASE 2: Add/Remove ACL entries from config
     # ============================================================================
     
-    Write-Section "PHASE 2: Setting DENY permissions for Everyone"
+    Write-Section "PHASE 2: Setting ACL permissions from config"
+    
+    # Get modifications from config - REQUIRED
+    $modifications = $Config.Module04_ACLBadOUPart1.Modifications
+    if (-not $modifications -or $modifications.Count -eq 0) {
+        Write-Status "ERROR: Modifications not configured in Module04_ACLBadOUPart1" -Level Error
+        Write-Host ""
+        return $false
+    }
     
     try {
         $ouPath = "AD:\$($badOU.DistinguishedName)"
         $ouACL = Get-Acl -Path $ouPath -ErrorAction Stop
         
-        # Everyone SID
-        $everyoneSID = [System.Security.Principal.SecurityIdentifier]'S-1-1-0'
+        foreach ($mod in $modifications) {
+            $principal = $mod.Identity
+            $action = $mod.Action
+            $rights = $mod.Rights
+            
+            Write-Status "Processing: Principal=$principal, Action=$action, Rights=$rights" -Level Info
+            
+            # Convert principal name to SID
+            try {
+                $ntAccount = New-Object System.Security.Principal.NTAccount($principal)
+                $sid = $ntAccount.Translate([System.Security.Principal.SecurityIdentifier])
+            }
+            catch {
+                Write-Status "Error translating principal $principal : $_" -Level Error
+                $errorCount++
+                continue
+            }
+            
+            # Create ACE based on action
+            $aceAction = if ($action -eq "Add") { "Allow" } else { "Deny" }
+            
+            $ace = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
+                $sid,
+                [System.DirectoryServices.ActiveDirectoryRights]$rights,
+                [System.Security.AccessControl.AccessControlType]$aceAction,
+                [System.DirectoryServices.ActiveDirectorySecurityInheritance]"None",
+                [guid]'00000000-0000-0000-0000-000000000000'
+            )
+            
+            $ouACL.AddAccessRule($ace)
+            Write-Status "Added ACE: $principal - $rights ($aceAction)" -Level Success
+            $changedCount++
+        }
         
-        # Create DENY ACE for DeleteChild and DeleteTree
-        $denyACE = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
-            $everyoneSID,
-            [System.DirectoryServices.ActiveDirectoryRights]"DeleteChild,DeleteTree",
-            [System.Security.AccessControl.AccessControlType]"Deny",
-            [System.DirectoryServices.ActiveDirectorySecurityInheritance]"None",
-            [guid]'00000000-0000-0000-0000-000000000000'
-        )
-        
-        $ouACL.AddAccessRule($denyACE)
         Set-Acl -Path $ouPath -AclObject $ouACL -ErrorAction Stop
-        
-        Write-Status "Added DENY ACE: Everyone cannot DeleteChild or DeleteTree" -Level Success
-        $changedCount++
-        
         Start-Sleep -Seconds 2
     }
     catch {
-        Write-Status "Error setting DENY ACE: $_" -Level Error
+        Write-Status "Error setting ACL: $_" -Level Error
         $errorCount++
     }
     
