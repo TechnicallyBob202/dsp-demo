@@ -2,7 +2,11 @@
 ##
 ## DSP-Demo-Activity-07-SecurityPasswordSpray.psm1
 ##
-## Password spray attack: select 5 users from TEST OU, attempt netlogon auth with bad passwords
+## Password spray attack: select 5 users from TEST OU, try 10 passwords each
+## against the netlogon share to generate proper authentication failure events.
+##
+## Key change from original approach: Uses New-PSDrive with UNC path access
+## rather than AD cmdlets with -Credential, which properly logs failed auth attempts.
 ##
 ################################################################################
 
@@ -62,12 +66,30 @@ function Invoke-SecurityPasswordSpray {
     
     $domainInfo = $Environment.DomainInfo
     $domainDN = $domainInfo.DN
-    $domainFQDN = $domainInfo.FQDN
-    $primaryDC = $Environment.PrimaryDC
+    $dcName = $domainInfo.ReplicationPartners[0]
     
-    Write-Status "Target domain: $domainFQDN" -Level Info
-    Write-Status "Primary DC: $primaryDC" -Level Info
-    Write-Host ""
+    if (-not $dcName) {
+        Write-Status "No domain controller found" -Level Error
+        Write-Host ""
+        return $false
+    }
+    
+    # Target UNC path for authentication attempts (matches legacy script)
+    $uncPath = "\\$dcName\netlogon"
+    
+    # Define test passwords for spray (matches legacy script pattern)
+    $testPasswords = @(
+        "SomeP@sswordGu3ss!1",
+        "SomeP@sswordGu3ss!2",
+        "SomeP@sswordGu3ss!3",
+        "SomeP@sswordGu3ss!4",
+        "SomeP@sswordGu3ss!5",
+        "SomeP@sswordGu3ss!6",
+        "SomeP@sswordGu3ss!7",
+        "SomeP@sswordGu3ss!8",
+        "SomeP@sswordGu3ss!9",
+        "SomeP@sswordGu3ss!10"
+    )
     
     try {
         # Find TEST OU
@@ -80,6 +102,8 @@ function Invoke-SecurityPasswordSpray {
         }
         
         Write-Status "Found TEST OU: $($testOU.DistinguishedName)" -Level Info
+        Write-Status "Target DC: $dcName" -Level Info
+        Write-Status "UNC Path: $uncPath" -Level Info
         
         # Get all enabled users from TEST OU
         $testUsers = Get-ADUser -Filter { Enabled -eq $true } -SearchBase $testOU.DistinguishedName -ErrorAction Stop
@@ -98,62 +122,55 @@ function Invoke-SecurityPasswordSpray {
             $selectedUsers = @($testUsers)
         }
         
-        Write-Status "Targeting $($selectedUsers.Count) user(s) with password spray (10 attempts each)" -Level Info
+        Write-Status "Targeting $($selectedUsers.Count) user(s) with password spray" -Level Info
         Write-Host ""
         
-        # Spray passwords - 10 different passwords per user
-        for ($i = 1; $i -le 10; $i++) {
-            $testPassword = "SomeP@sswordGu3ss!$i"
-            Write-Status "Spray attempt $i of 10 (password: $testPassword)" -Level Info
+        foreach ($user in $selectedUsers) {
+            Write-Status "Spraying user: $($user.SamAccountName)" -Level Info
             
-            foreach ($user in $selectedUsers) {
+            foreach ($password in $testPasswords) {
+                $driveName = "TempShare_$([guid]::NewGuid().Guid.Substring(0,8))"
+                
                 try {
-                    # Use net use with explicit domain\user and bad password
-                    # This triggers real authentication failure events
-                    & net use "\\$primaryDC\netlogon" /user:"$domainFQDN\$($user.SamAccountName)" "$testPassword" > $null 2>&1
+                    # Create credential with bad password
+                    $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
+                    $cred = New-Object System.Management.Automation.PSCredential("$($user.SamAccountName)", $securePassword)
+                    
+                    # Attempt to access netlogon share with bad credentials
+                    # This generates proper auth failure events in Security log
+                    New-PSDrive -Name $driveName `
+                        -PSProvider FileSystem `
+                        -Root $uncPath `
+                        -Credential $cred `
+                        -ErrorAction Ignore `
+                        -Verbose:$false | Out-Null
                     
                     $sprayAttempts++
                 }
                 catch {
-                    # Expected - auth will fail
+                    # Expected - auth attempt failed
                     $sprayAttempts++
                 }
+                finally {
+                    # Clean up temporary drive
+                    Get-PSDrive -Name $driveName -ErrorAction SilentlyContinue | Remove-PSDrive -ErrorAction SilentlyContinue
+                }
                 
-                # Try to clean up any successful connections (shouldn't happen with bad password)
-                & net use "\\$primaryDC\netlogon" /delete /y > $null 2>&1
+                Start-Sleep -Milliseconds 100
             }
+            
+            Write-Status "Completed 10 attempts against $($user.SamAccountName)" -Level Success
         }
         
         Write-Host ""
-        Write-Status "Password spray completed: $sprayAttempts total attempts" -Level Success
-        
-        # Wait for events to be written to security log
-        Write-Status "Waiting 10 seconds for security events to be written..." -Level Info
-        Start-Sleep -Seconds 10
+        Write-Status "Completed password spray attack" -Level Success
         
         # Trigger replication
         Write-Status "Triggering replication..." -Level Info
         try {
-            $dc = $Environment.PrimaryDC
-            if ($dc) {
-                $repOutput = & C:\Windows\System32\repadmin.exe /syncall /force $dc
-                if ($repOutput -join '-' -match 'syncall finished') {
-                    Write-Status "Replication completed successfully" -Level Success
-                }
-                else {
-                    Write-Status "Replication executed" -Level Info
-                }
-                
-                # Also replicate secondary DC if available
-                if ($Environment.SecondaryDC) {
-                    & C:\Windows\System32\repadmin.exe /syncall /force $Environment.SecondaryDC | Out-Null
-                }
-                
-                Start-Sleep -Seconds 3
-            }
-            else {
-                Write-Status "No primary DC available for replication" -Level Warning
-            }
+            Repadmin /syncall $dcName /APe 2>$null | Out-Null
+            Start-Sleep -Seconds 3
+            Write-Status "Replication triggered" -Level Success
         }
         catch {
             Write-Status "Warning: Could not trigger replication: $_" -Level Warning
