@@ -26,13 +26,11 @@ function Invoke-DSPUndo {
     $DomainDNSRoot = $DomainInfo.DNSRoot
     $errorCount = 0
     
-    # Attempt to import DSP module
     Write-Host "Attempting to load DSP PoSh module..." -ForegroundColor Yellow
     Remove-Module Semperis.PoSh.DSP -ErrorAction SilentlyContinue -Force
     
     try {
         Import-Module Semperis.PoSh.DSP -ErrorAction Stop
-        $ModuleStatus = Get-Module Semperis.PoSh.DSP
     }
     catch {
         Write-Host "⚠️  DSP module not available (OK in demo environments)" -ForegroundColor Yellow
@@ -40,22 +38,14 @@ function Invoke-DSPUndo {
         return $true
     }
     
-    if (-not $ModuleStatus) {
-        Write-Host "⚠️  DSP module failed to load" -ForegroundColor Yellow
-        Write-Host ""
-        return $true
-    }
-    
     Write-Host "✓ DSP module loaded" -ForegroundColor Green
     Write-Host ""
     
-    # Search for DSP server via SCP
     Write-Host "Searching for DSP server..." -ForegroundColor Yellow
     $DSPServerName = $null
     
     try {
         $SCPList = Get-ADObject -LDAPFilter "objectClass=serviceConnectionPoint" -SearchBase $DomainDN -ErrorAction Stop
-        
         foreach ($SCPitem in $SCPList) {
             if ($SCPitem.Name.Contains('Semperis.Dsp.Management')) {
                 $DSPDN = $SCPitem.DistinguishedName.Split(',')
@@ -77,9 +67,7 @@ function Invoke-DSPUndo {
     
     Write-Host ""
     
-    # Determine DSP connect parameter (handle different module versions)
     $DSPServerConnectOption = '-Server'
-    
     try {
         Connect-DSPServer -Server
     }
@@ -113,7 +101,6 @@ function Invoke-DSPUndo {
         
         if (-not $DSPconnection.ConnectionState) {
             Write-Host "ERROR: Connection failed" -ForegroundColor Red
-            Write-Host ""
             $errorCount++
             return ($errorCount -eq 0)
         }
@@ -122,9 +109,7 @@ function Invoke-DSPUndo {
         Write-Host "  State: $($DSPconnection.ConnectionState)" -ForegroundColor Cyan
         Write-Host ""
         
-        # Undo facsimileTelephoneNumber on target user
         $TargetUser = $ModuleConfig.ChangeToUndo.ObjectName
-        
         Write-Host "Finding $TargetUser in AD..." -ForegroundColor Yellow
         $UserObj = Get-ADUser -LDAPFilter "(&(objectCategory=person)(samaccountname=$TargetUser))" -Properties facsimileTelephoneNumber -ErrorAction Stop
         
