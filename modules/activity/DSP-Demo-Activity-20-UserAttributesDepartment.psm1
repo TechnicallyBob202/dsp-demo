@@ -2,7 +2,7 @@
 ##
 ## DSP-Demo-Activity-20-UserAttributesPart3.psm1
 ##
-## Change Department attribute on demo users 1, 2, 3
+## Change Department attribute on demo users
 ##
 ## Original code from Rob Ingenthron's Invoke-CreateDspChangeDataForDemos.ps1
 ##
@@ -11,7 +11,7 @@
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
 
-function Invoke-UserAttributesDepartment {
+function Invoke-UserAttributesPart3 {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -22,27 +22,29 @@ function Invoke-UserAttributesDepartment {
     Write-Host "========== Directory: User Attributes Part 3 ==========" -ForegroundColor Cyan
     Write-Host ""
     
+    $DomainInfo = $Environment.DomainInfo
+    
     $errorCount = 0
     $changeCount = 0
     
-    # Get demo user information from config
-    $demoUsers = @()
-    if ($Config.ContainsKey('DemoUsers')) {
-        $demoUsers = $Config.DemoUsers
+    # Get user information from config - looking for Module20_UserAttributesPart3
+    $users = @()
+    if ($Config.ContainsKey('Module20_UserAttributesPart3') -and $Config.Module20_UserAttributesPart3.ContainsKey('Users')) {
+        $users = $Config.Module20_UserAttributesPart3.Users
     }
     
-    if ($demoUsers.Count -lt 3) {
-        Write-Host "WARNING: Expected 3 demo users in config, found $($demoUsers.Count)" -ForegroundColor Yellow
+    if ($users.Count -eq 0) {
+        Write-Host "WARNING: No users configured in Module20_UserAttributesPart3" -ForegroundColor Yellow
+        Write-Host ""
+        return $true
     }
     
-    # Change Department on each of the first 3 demo users
-    for ($i = 0; $i -lt [Math]::Min(3, $demoUsers.Count); $i++) {
-        $userIndex = $i + 1
-        $demoUser = $demoUsers[$i]
-        $samAccountName = $demoUser.SamAccountName
+    # Change Department on each configured user
+    foreach ($userConfig in $users) {
+        $samAccountName = $userConfig.SamAccountName
         
         Write-Host ""
-        Write-Host "========== Changing Department on DemoUser$userIndex ($samAccountName) ==========" -ForegroundColor Yellow
+        Write-Host "========== Changing Department on $samAccountName ==========" -ForegroundColor Yellow
         Write-Host ""
         
         try {
@@ -54,8 +56,8 @@ function Invoke-UserAttributesDepartment {
                 Write-Host "User found: $($userObj.Name)" -ForegroundColor White
                 Write-Host "  Current Department: $($userObj.department)" -ForegroundColor White
                 
-                # Use "xxxxxx" as the department to match legacy script
-                $newDept = "xxxxxx"
+                # Get new Department from config
+                $newDept = $userConfig.Attributes.Department
                 
                 Write-Host "  New Department: $newDept" -ForegroundColor White
                 Write-Host ""
@@ -127,4 +129,4 @@ function Invoke-UserAttributesDepartment {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-UserAttributesDepartment
+Export-ModuleMember -Function Invoke-UserAttributesPart3

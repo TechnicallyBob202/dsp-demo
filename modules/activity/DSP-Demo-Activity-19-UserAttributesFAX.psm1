@@ -2,7 +2,7 @@
 ##
 ## DSP-Demo-Activity-19-UserAttributesPart2.psm1
 ##
-## Change FAX attribute on demo users 1, 2, 3
+## Change FAX attribute on demo users
 ##
 ## Original code from Rob Ingenthron's Invoke-CreateDspChangeDataForDemos.ps1
 ##
@@ -11,7 +11,7 @@
 #Requires -Version 5.1
 #Requires -Modules ActiveDirectory
 
-function Invoke-UserAttributesFAX {
+function Invoke-UserAttributesPart2 {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][hashtable]$Config,
@@ -22,27 +22,29 @@ function Invoke-UserAttributesFAX {
     Write-Host "========== Directory: User Attributes Part 2 ==========" -ForegroundColor Cyan
     Write-Host ""
     
+    $DomainInfo = $Environment.DomainInfo
+    
     $errorCount = 0
     $changeCount = 0
     
-    # Get demo user information from config
-    $demoUsers = @()
-    if ($Config.ContainsKey('DemoUsers')) {
-        $demoUsers = $Config.DemoUsers
+    # Get user information from config - looking for Module19_UserAttributesPart2
+    $users = @()
+    if ($Config.ContainsKey('Module19_UserAttributesPart2') -and $Config.Module19_UserAttributesPart2.ContainsKey('Users')) {
+        $users = $Config.Module19_UserAttributesPart2.Users
     }
     
-    if ($demoUsers.Count -lt 3) {
-        Write-Host "WARNING: Expected 3 demo users in config, found $($demoUsers.Count)" -ForegroundColor Yellow
+    if ($users.Count -eq 0) {
+        Write-Host "WARNING: No users configured in Module19_UserAttributesPart2" -ForegroundColor Yellow
+        Write-Host ""
+        return $true
     }
     
-    # Change FAX on each of the first 3 demo users
-    for ($i = 0; $i -lt [Math]::Min(3, $demoUsers.Count); $i++) {
-        $userIndex = $i + 1
-        $demoUser = $demoUsers[$i]
-        $samAccountName = $demoUser.SamAccountName
+    # Change FAX on each configured user
+    foreach ($userConfig in $users) {
+        $samAccountName = $userConfig.SamAccountName
         
         Write-Host ""
-        Write-Host "========== Changing FAX on DemoUser$userIndex ($samAccountName) ==========" -ForegroundColor Yellow
+        Write-Host "========== Changing FAX on $samAccountName ==========" -ForegroundColor Yellow
         Write-Host ""
         
         try {
@@ -54,8 +56,8 @@ function Invoke-UserAttributesFAX {
                 Write-Host "User found: $($userObj.Name)" -ForegroundColor White
                 Write-Host "  Current FAX: $($userObj.facsimileTelephoneNumber)" -ForegroundColor White
                 
-                # Alternate FAX numbers to show change
-                $newFax = "(555) 867-$($([string]$i).PadLeft(4, "0"))"
+                # Get new FAX from config
+                $newFax = $userConfig.Attributes.Fax
                 
                 Write-Host "  New FAX: $newFax" -ForegroundColor White
                 Write-Host ""
@@ -127,4 +129,4 @@ function Invoke-UserAttributesFAX {
     return ($errorCount -eq 0)
 }
 
-Export-ModuleMember -Function Invoke-UserAttributesFAX
+Export-ModuleMember -Function Invoke-UserAttributesPart2
