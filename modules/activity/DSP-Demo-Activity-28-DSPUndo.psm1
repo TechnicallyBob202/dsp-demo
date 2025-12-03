@@ -67,29 +67,14 @@ function Invoke-DSPUndo {
     
     Write-Host ""
     
-    $DSPServerConnectOption = '-Server'
-    try {
-        Connect-DSPServer -Server
-    }
-    catch {
-        if ($Error[0].FullyQualifiedErrorId -like "*NamedParameterNotFound*") {
-            $DSPServerConnectOption = '-ComputerName'
-        }
-    }
-    
-    Write-Host "Connecting to DSP server ($DSPServerConnectOption)..." -ForegroundColor Yellow
+    Write-Host "Connecting to DSP server..." -ForegroundColor Yellow
     
     $DSPconnection = $null
     $LoopCount = 0
     
     try {
         while ($LoopCount -lt 10) {
-            if ($DSPServerConnectOption -eq '-ComputerName') {
-                $DSPconnection = Connect-DSPServer -ComputerName $DSPServerName -ErrorAction SilentlyContinue
-            }
-            else {
-                $DSPconnection = Connect-DSPServer -Server $DSPServerName -ErrorAction SilentlyContinue
-            }
+            $DSPconnection = Connect-DSPServer -ComputerName $DSPServerName -ErrorAction SilentlyContinue
             
             if ($DSPconnection.ConnectionState) {
                 break
