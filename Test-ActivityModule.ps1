@@ -3,10 +3,12 @@
 ## Test-ActivityModule.ps1
 ##
 ## Test harness for individual activity modules
-## Usage: .\Test-ActivityModule.ps1 -ModuleNumber 01
+## Runs preflight checks first, then loads and executes the specified module
+##
+## Usage: .\Test-ActivityModule.ps1 -ModuleNumber 07
 ##
 ## With custom activity config:
-## .\Test-ActivityModule.ps1 -ModuleNumber 01 -ActivityConfigPath ".\DSP-Demo-Config-Activity.psd1"
+## .\Test-ActivityModule.ps1 -ModuleNumber 07 -ActivityConfigPath ".\DSP-Demo-Config-Activity.psd1"
 ##
 ################################################################################
 
@@ -31,19 +33,48 @@ $ErrorActionPreference = "Continue"
 $Script:ScriptPath = $PSScriptRoot
 $Script:ModulesPath = Join-Path $ScriptPath "modules"
 
-# Activity config (required for testing activity modules)
+# Setup and Activity config paths
+$Script:SetupConfigFile = Join-Path $ScriptPath "DSP-Demo-Config-Setup.psd1"
 $Script:ActivityConfigFile = if ($ActivityConfigPath) { 
     $ActivityConfigPath 
 } 
 else { 
-    $defaultPath = Join-Path $ScriptPath "DSP-Demo-Config-Activity.psd1"
-    if (Test-Path $defaultPath) { 
-        $defaultPath 
-    } 
-    else { 
-        Join-Path $ScriptPath "DSP-Demo-Config-Activity.psd1" 
-    }
+    Join-Path $ScriptPath "DSP-Demo-Config-Activity.psd1"
 }
+
+################################################################################
+# LOAD PREFLIGHT MODULE
+################################################################################
+
+$preflightPath = Join-Path $Script:ModulesPath "DSP-Demo-Preflight.psm1"
+
+if (-not (Test-Path $preflightPath)) {
+    Write-Host "ERROR: Preflight module not found: $preflightPath" -ForegroundColor Red
+    exit 1
+}
+
+try {
+    Import-Module $preflightPath -Force -ErrorAction Stop | Out-Null
+    Write-Host "Preflight module loaded" -ForegroundColor Green
+}
+catch {
+    Write-Host "ERROR: Failed to load preflight module: $_" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host ""
+
+# Run preflight environment discovery
+try {
+    $environment = Initialize-PreflightEnvironment
+}
+catch {
+    Write-Host ""
+    Write-Host "ERROR: Preflight initialization failed: $_" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host ""
 
 ################################################################################
 # FIND MODULE BY NUMBER
@@ -72,10 +103,9 @@ $moduleName = $moduleFile.BaseName
 $functionName = "Invoke-" + ($moduleName -replace "^DSP-Demo-Activity-\d+-", "")
 
 ################################################################################
-# LOAD CONFIGURATION & ENVIRONMENT
+# LOAD CONFIGURATION & ACTIVITY MODULE
 ################################################################################
 
-Write-Host ""
 Write-Host "Loading activity configuration..." -ForegroundColor Cyan
 
 if (-not (Test-Path $Script:ActivityConfigFile)) {
@@ -92,24 +122,7 @@ catch {
     exit 1
 }
 
-# Setup environment variable with basic domain info (borrowed from main script pattern)
-$environment = @{
-    DomainInfo = @{
-        Name = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
-        DN = ([ADSI]"LDAP://RootDSE").defaultNamingContext.Value
-        FQDN = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
-        DNSRoot = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
-    }
-}
-
-Write-Host "Domain: $($environment.DomainInfo.Name)" -ForegroundColor Green
-Write-Host "Domain DN: $($environment.DomainInfo.DN)" -ForegroundColor Green
 Write-Host ""
-
-################################################################################
-# LOAD AND TEST MODULE
-################################################################################
-
 Write-Host "Module file: $($moduleFile.FullName)" -ForegroundColor Cyan
 Write-Host "Module name: $moduleName" -ForegroundColor Cyan
 Write-Host "Function name: $functionName" -ForegroundColor Cyan
@@ -131,6 +144,10 @@ if (-not (Get-Command $functionName -ErrorAction SilentlyContinue)) {
     Write-Host "ERROR: Function $functionName not found in module" -ForegroundColor Red
     exit 1
 }
+
+################################################################################
+# EXECUTE MODULE
+################################################################################
 
 Write-Host "Executing $functionName..." -ForegroundColor Yellow
 Write-Host ""
