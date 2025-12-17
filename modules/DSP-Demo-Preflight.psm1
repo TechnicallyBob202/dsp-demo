@@ -111,18 +111,18 @@ function Test-ActiveDirectoryModule {
 }
 
 function Test-DspPowershellModule {
-    if (-not (Get-Module -ListAvailable DirectoryServicesProtector)) {
-        $message = "Directory Services Protector PowerShell module is required and not available"
+    if (-not (Get-Module -ListAvailable Semperis.PoSh.DSP)) {
+        $message = "Semperis.PoSh.DSP PowerShell module is required and not available"
         Write-Status $message -Level Error
         throw $message
     }
     
     try {
-        Import-Module DirectoryServicesProtector -ErrorAction Stop
-        Write-Status "DirectoryServicesProtector module imported" -Level Success
+        Import-Module Semperis.PoSh.DSP -ErrorAction Stop
+        Write-Status "Semperis.PoSh.DSP module imported" -Level Success
     }
     catch {
-        $message = "Failed to import DirectoryServicesProtector module: $_"
+        $message = "Failed to import Semperis.PoSh.DSP module: $_"
         Write-Status $message -Level Error
         throw $message
     }
