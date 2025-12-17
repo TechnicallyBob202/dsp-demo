@@ -9,6 +9,7 @@
 ## - Administrator privileges
 ## - PowerShell 5.1+
 ## - Active Directory module availability
+## - Directory Services Protector PowerShell module availability
 ##
 ## Environment Discovery (warning on failure, continue):
 ## - Domain information
@@ -17,7 +18,7 @@
 ## - DSP server discovery
 ##
 ## Author: Bob Lyons
-## Version: 2.0.0-20251202
+## Version: 2.1.0-20251217
 ##
 ################################################################################
 
@@ -109,6 +110,24 @@ function Test-ActiveDirectoryModule {
     }
 }
 
+function Test-DspPowershellModule {
+    if (-not (Get-Module -ListAvailable DirectoryServicesProtector)) {
+        $message = "Directory Services Protector PowerShell module is required and not available"
+        Write-Status $message -Level Error
+        throw $message
+    }
+    
+    try {
+        Import-Module DirectoryServicesProtector -ErrorAction Stop
+        Write-Status "DirectoryServicesProtector module imported" -Level Success
+    }
+    catch {
+        $message = "Failed to import DirectoryServicesProtector module: $_"
+        Write-Status $message -Level Error
+        throw $message
+    }
+}
+
 ################################################################################
 # ENVIRONMENT DISCOVERY (WARNINGS ALLOWED, CONTINUES ON FAILURE)
 ################################################################################
@@ -125,42 +144,43 @@ function Get-DomainInfo {
         }
         
         Write-Status "Domain: $($result.FQDN)" -Level Success
-        Write-Status "Domain DN: $($result.DN)" -Level Info
-        
         return $result
     }
     catch {
-        Write-Status "Failed to get domain info: $_" -Level Error
-        throw $_
+        $message = "Failed to retrieve domain information: $_"
+        Write-Status $message -Level Error
+        throw $message
     }
 }
 
 function Get-ADDomainControllers {
     try {
-        $dcs = Get-ADDomainController -Filter * -ErrorAction Stop
+        $dcs = Get-ADDomainController -Filter * -ErrorAction SilentlyContinue | Sort-Object Name
         
-        if ($dcs -is [array]) {
-            $primaryDC = $dcs[0].HostName
-            $secondaryDC = if ($dcs.Count -gt 1) { $dcs[1].HostName } else { $null }
-        }
-        else {
-            $primaryDC = $dcs.HostName
-            $secondaryDC = $null
+        if (-not $dcs) {
+            $message = "No domain controllers found"
+            Write-Status $message -Level Error
+            throw $message
         }
         
-        Write-Status "Primary DC: $primaryDC" -Level Success
-        if ($secondaryDC) {
-            Write-Status "Secondary DC: $secondaryDC" -Level Info
+        $primary = $dcs[0].Name
+        $secondary = if ($dcs.Count -gt 1) { $dcs[1].Name } else { $null }
+        
+        Write-Status "Primary DC: $primary" -Level Success
+        if ($secondary) {
+            Write-Status "Secondary DC: $secondary" -Level Success
         }
         
-        return @{
-            Primary = $primaryDC
-            Secondary = $secondaryDC
+        return [PSCustomObject]@{
+            Primary = $primary
+            Secondary = $secondary
+            All = $dcs
         }
     }
     catch {
-        Write-Status "Failed to get domain controllers: $_" -Level Error
-        throw $_
+        $message = "Failed to retrieve domain controller information: $_"
+        Write-Status $message -Level Error
+        throw $message
     }
 }
 
@@ -171,27 +191,28 @@ function Get-ForestInfo {
         $result = [PSCustomObject]@{
             Name = $forest.Name
             RootDomain = $forest.RootDomain
-            Domains = $forest.Domains
+            ForestMode = $forest.ForestMode
+            DomainCount = $forest.Domains.Count
         }
         
-        Write-Status "Forest: $($result.Name)" -Level Success
-        
+        Write-Status "Forest: $($result.Name) (Mode: $($result.ForestMode))" -Level Success
         return $result
     }
     catch {
-        Write-Status "Failed to get forest info: $_" -Level Error
-        throw $_
+        $message = "Failed to retrieve forest information: $_"
+        Write-Status $message -Level Error
+        throw $message
     }
 }
 
 ################################################################################
-# DSP DISCOVERY (OPTIONAL - WARNINGS OK)
+# DSP SERVER DISCOVERY
 ################################################################################
 
 function Find-DspServer {
     param(
         [Parameter(Mandatory=$true)]
-        [PSCustomObject]$DomainInfo,
+        $DomainInfo,
         
         [Parameter(Mandatory=$false)]
         [string]$ConfigServer = "",
@@ -200,7 +221,7 @@ function Find-DspServer {
         [bool]$SkipDspChecks = $false
     )
     
-    # If DSP checks are explicitly skipped, don't attempt discovery
+    # If explicitly skipped, don't attempt discovery
     if ($SkipDspChecks) {
         Write-Status "DSP checks skipped by configuration" -Level Warning
         return $null
@@ -254,7 +275,7 @@ function Initialize-PreflightEnvironment {
         Runs preflight checks and environment discovery
     
     .DESCRIPTION
-        Critical checks (admin rights, PowerShell version, AD module) must pass.
+        Critical checks (admin rights, PowerShell version, AD module, DSP module) must pass.
         Environment discovery warnings are allowed - continues on failure.
     
     .PARAMETER Config
@@ -277,6 +298,7 @@ function Initialize-PreflightEnvironment {
     Test-AdminRights
     Test-PowerShellVersion
     Test-ActiveDirectoryModule
+    Test-DspPowershellModule
     
     Write-Host ""
     Write-Header "ENVIRONMENT DISCOVERY"
@@ -334,6 +356,7 @@ Export-ModuleMember -Function @(
     'Test-AdminRights',
     'Test-PowerShellVersion',
     'Test-ActiveDirectoryModule',
+    'Test-DspPowershellModule',
     'Get-DomainInfo',
     'Get-ADDomainControllers',
     'Get-ForestInfo',
