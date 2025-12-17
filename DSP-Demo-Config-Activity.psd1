@@ -465,7 +465,8 @@
     Module29_DSPTriggerTitle = @{
         TargetUser = "peter.griffin"
         Attribute = "Title"
-        NewValue = "Senior Manager"
+        Value1 = "Sales"
+        Value2 = "Senior Manager"
     }
     
     #---------------------------------------------------------------------------
