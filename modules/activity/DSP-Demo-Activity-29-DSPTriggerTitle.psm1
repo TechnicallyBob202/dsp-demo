@@ -3,6 +3,7 @@
 ## DSP-Demo-Activity-29-DSPTriggerTitle.psm1
 ##
 ## Change Title attribute on target user (triggers DSP undo rule)
+## Toggles between two configured values regardless of current state
 ##
 ################################################################################
 
@@ -28,7 +29,8 @@ function Invoke-DSPTriggerTitle {
     
     try {
         $TargetUser = $ModuleConfig.TargetUser
-        $NewTitle = $ModuleConfig.NewValue
+        $Value1 = $ModuleConfig.Value1
+        $Value2 = $ModuleConfig.Value2
         
         Write-Host "Finding user: $TargetUser..." -ForegroundColor Yellow
         $UserObj = Get-ADUser -LDAPFilter "(&(objectCategory=person)(samaccountname=$TargetUser))" -Properties Title -ErrorAction Stop
@@ -40,20 +42,16 @@ function Invoke-DSPTriggerTitle {
         else {
             Write-Host "Found: $($UserObj.DistinguishedName)" -ForegroundColor Green
             $CurrentTitle = $UserObj.Title
-            Write-Host "Current Title: $CurrentTitle" -ForegroundColor Cyan
+            Write-Host "Current Title: '$CurrentTitle'" -ForegroundColor Cyan
             Write-Host ""
             
-            # Only change if different (avoids DSP bug with same value writes)
-            if ($CurrentTitle -ne $NewTitle) {
-                Write-Host "Changing Title to: $NewTitle" -ForegroundColor Yellow
-                Set-ADUser -Identity $UserObj.DistinguishedName -Title $NewTitle -ErrorAction Stop
-                Write-Host "OK: Title updated successfully" -ForegroundColor Green
-                Write-Host "  (This change should trigger DSP auto-undo rule)" -ForegroundColor Cyan
-            }
-            else {
-                Write-Host "Title is already set to: $NewTitle" -ForegroundColor Green
-                Write-Host "  (No change needed)" -ForegroundColor Cyan
-            }
+            # Toggle between two values regardless of current state
+            $NewTitle = if ($CurrentTitle -eq $Value1) { $Value2 } else { $Value1 }
+            
+            Write-Host "Changing Title to: '$NewTitle'" -ForegroundColor Yellow
+            Set-ADUser -Identity $UserObj.DistinguishedName -Title $NewTitle -ErrorAction Stop
+            Write-Host "OK: Title updated successfully" -ForegroundColor Green
+            Write-Host "  (This change should trigger DSP auto-undo rule)" -ForegroundColor Cyan
             
             Write-Host ""
             Write-Host "Waiting 20 seconds for auto-undo to trigger..." -ForegroundColor Yellow
