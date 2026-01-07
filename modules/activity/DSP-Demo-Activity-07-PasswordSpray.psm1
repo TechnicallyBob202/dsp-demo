@@ -112,9 +112,9 @@ function Invoke-PasswordSpray {
             return $true
         }
         
-        # Select up to 5 random users
+        # Select up to 20 random users (increased from 5)
         if ($testUsers -is [array]) {
-            $selectedUsers = $testUsers | Get-Random -Count ([Math]::Min(5, $testUsers.Count))
+            $selectedUsers = $testUsers | Get-Random -Count ([Math]::Min(20, $testUsers.Count))
         }
         else {
             $selectedUsers = @($testUsers)
@@ -126,7 +126,9 @@ function Invoke-PasswordSpray {
         foreach ($user in $selectedUsers) {
             Write-Status "Spraying user: $($user.SamAccountName)" -Level Info
             
+            # Use each password twice per user (increased from 1x)
             foreach ($password in $testPasswords) {
+                for ($attempt = 1; $attempt -le 2; $attempt++) {
                 try {
                     # Use LDAP bind to attempt authentication with bad password
                     # This properly generates 4625 (logon failure) events in Security log
@@ -147,9 +149,10 @@ function Invoke-PasswordSpray {
                 }
                 
                 Start-Sleep -Milliseconds 100
+                }
             }
             
-            Write-Status "Completed 10 attempts against $($user.SamAccountName)" -Level Success
+            Write-Status "Completed 20 attempts against $($user.SamAccountName)" -Level Success
         }
         
         Write-Host ""
