@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## DSP-Demo-Setup-03-CreateUsers.psm1 - FIXED
+## DSP-Demo-Setup-03-CreateUsers.psm1
 ##
 ## Creates user accounts from configuration file.
 ## Operator-configurable via DSP-Demo-Config-Setup.psd1
@@ -37,6 +37,31 @@ function Write-Status {
     
     $color = $colors[$Level]
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
+}
+
+function Unlock-UserAccount {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$SamAccountName
+    )
+    
+    try {
+        $user = Get-ADUser -Identity $SamAccountName -ErrorAction SilentlyContinue
+        if ($user) {
+            $locked = Get-ADUser -Identity $SamAccountName -Properties LockedOut | Select-Object -ExpandProperty LockedOut
+            if ($locked) {
+                Unlock-ADAccount -Identity $SamAccountName -ErrorAction Stop
+                Write-Status "Unlocked account: $SamAccountName" -Level Success
+                return $true
+            }
+        }
+    }
+    catch {
+        Write-Status "Error unlocking account '$SamAccountName': $_" -Level Error
+        return $false
+    }
+    
+    return $true
 }
 
 function Resolve-OUPath {
@@ -304,6 +329,16 @@ function Invoke-CreateUsers {
         # Complete the progress bar
         Write-Progress -Activity "Creating Generic Users" -Completed
         Write-Host ""
+    }
+    
+    # Unlock any accounts that may have been locked by previous activity runs
+    Write-Host ""
+    Write-Status "Ensuring demo accounts are unlocked..." -Level Info
+    Write-Host ""
+    
+    $demoUsersToUnlock = @('lskywalker')
+    foreach ($sam in $demoUsersToUnlock) {
+        Unlock-UserAccount -SamAccountName $sam
     }
     
     Write-Host ""
