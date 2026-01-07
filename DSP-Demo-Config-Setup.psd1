@@ -349,7 +349,23 @@
                 Groups = @()
             }
         )
-        
+
+        AttackUsers = @(
+            @{
+                GivenName = "Attack"
+                Surname = "User"
+                UserPrincipalName = "attackuser@{DOMAIN}"
+                SamAccountName = "attackuser"
+                DisplayName = "Attack User"
+                Description = "Non-admin user for security attack demonstrations (password spray, brute force, logon anomalies, etc)"
+                Title = "Test User"
+                Department = "Security Testing"
+                OUPath = "Lab Users"
+                PasswordNeverExpires = $true
+                Groups = @()
+            }
+        )
+                
         GenericUsers = @{
             Count = 250
             NamePrefix = "GdAct0r-"

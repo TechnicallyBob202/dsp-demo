@@ -263,7 +263,7 @@ function Invoke-CreateUsers {
     $users = $Config.Users
     
     # Process each user type
-    foreach ($userType in @('Tier0Admins', 'Tier1Admins', 'Tier2Admins', 'DemoUsers', 'OpsAdmins', 'ServiceAccounts')) {
+    foreach ($userType in @('Tier0Admins', 'Tier1Admins', 'Tier2Admins', 'DemoUsers', 'OpsAdmins', 'ServiceAccounts', 'AttackUsers')) {
         if ($users.ContainsKey($userType) -and $users[$userType]) {
             Write-Status "Creating $userType..." -Level Info
             
