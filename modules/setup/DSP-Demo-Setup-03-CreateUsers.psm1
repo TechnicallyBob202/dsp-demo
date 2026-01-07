@@ -46,22 +46,22 @@ function Unlock-UserAccount {
     )
     
     try {
-        $user = Get-ADUser -Identity $SamAccountName -ErrorAction SilentlyContinue
-        if ($user) {
-            $locked = Get-ADUser -Identity $SamAccountName -Properties LockedOut | Select-Object -ExpandProperty LockedOut
-            if ($locked) {
-                Unlock-ADAccount -Identity $SamAccountName -ErrorAction Stop
-                Write-Status "Unlocked account: $SamAccountName" -Level Success
-                return $true
-            }
+        $user = Get-ADUser -Identity $SamAccountName -Properties LockedOut -ErrorAction Stop
+        
+        if ($user.LockedOut) {
+            Unlock-ADAccount -Identity $user.DistinguishedName -ErrorAction Stop
+            Write-Status "Unlocked account: $SamAccountName" -Level Success
+            return $true
+        }
+        else {
+            Write-Status "Account not locked: $SamAccountName" -Level Info
+            return $true
         }
     }
     catch {
         Write-Status "Error unlocking account '$SamAccountName': $_" -Level Error
         return $false
     }
-    
-    return $true
 }
 
 function Resolve-OUPath {
